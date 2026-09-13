@@ -7,7 +7,13 @@ import { useFabricData } from './FabricDataContext';
 
 const clientStatuses: ClientStatus[] = ['prospect', 'active', 'dormant'];
 const siteStatuses: SiteStatus[] = ['planned', 'active', 'inactive'];
-const engagementStatuses: EngagementStatus[] = ['planned', 'active', 'at-risk', 'completed'];
+const engagementStatuses: EngagementStatus[] = [
+  'planned',
+  'active',
+  'at-risk',
+  'paused',
+  'completed',
+];
 const stages: TransformationStage[] = ['discover', 'diagnose', 'design', 'deliver', 'measure'];
 const engagementTypes: EngagementType[] = [
   'Preliminary Site Walk',
@@ -120,7 +126,7 @@ export function EngagementForm({ engagement, onSaved }: { engagement?: Engagemen
   const [siteIds, setSiteIds] = useState<string[]>(engagement?.siteIds ?? (dataset?.sites[0] ? [dataset.sites[0].id] : []));
   const [name, setName] = useState(engagement?.name ?? '');
   const [description, setDescription] = useState(engagement?.description ?? '');
-  const [type, setType] = useState<EngagementType>((engagement?.type as EngagementType) ?? 'Preliminary Site Walk');
+  const [type, setType] = useState<EngagementType>(engagement?.type ?? 'Preliminary Site Walk');
   const [status, setStatus] = useState<EngagementStatus>(engagement?.status ?? 'planned');
   const [stage, setStage] = useState<TransformationStage>(engagement?.stage ?? 'discover');
   const [startDate, setStartDate] = useState(engagement?.startDate.slice(0, 10) ?? new Date().toISOString().slice(0, 10));
@@ -132,6 +138,31 @@ export function EngagementForm({ engagement, onSaved }: { engagement?: Engagemen
   const [commercialContext, setCommercialContext] = useState(engagement?.commercialContext ?? '');
   const [internalNotes, setInternalNotes] = useState(engagement?.internalNotes ?? '');
   const availableSites = dataset?.sites.filter((site) => site.clientId === clientId) ?? [];
+  const attachedMethodologyRun = engagement
+    ? dataset?.engagementMethodologyRuns.find(
+        (run) =>
+          run.engagementId === engagement.id &&
+          (run.status === 'active' || run.status === 'paused'),
+      ) ??
+      dataset?.engagementMethodologyRuns.find(
+        (run) => run.engagementId === engagement.id,
+      )
+    : undefined;
+  const matchingTemplates =
+    dataset?.methodologyTemplates.filter(
+      (template) =>
+        template.status === 'active' && template.engagementType === type,
+    ) ?? [];
+  const [methodologyTemplateId, setMethodologyTemplateId] = useState(
+    attachedMethodologyRun?.templateId ??
+      (matchingTemplates.length === 1 ? matchingTemplates[0].id : ''),
+  );
+  const selectedTemplate = matchingTemplates.find(
+    (template) => template.id === methodologyTemplateId,
+  );
+  const isMethodologyManaged =
+    attachedMethodologyRun?.status === 'active' ||
+    attachedMethodologyRun?.status === 'paused';
 
   function toggle(values: string[], value: string, setter: (next: string[]) => void) {
     setter(values.includes(value) ? values.filter((item) => item !== value) : [...values, value]);
@@ -142,7 +173,15 @@ export function EngagementForm({ engagement, onSaved }: { engagement?: Engagemen
     setError(null);
     try {
       const input = { clientId, siteIds, name, description, type, status, stage, startDate: `${startDate}T09:00:00Z`, targetDate: targetDate ? `${targetDate}T17:00:00Z` : undefined, leadUserId, teamUserIds, objectives: optional(objectives), scope: optional(scope), commercialContext: optional(commercialContext), internalNotes: optional(internalNotes) };
-      const saved = engagement ? (await updateEngagement({ ...engagement, ...input }), { ...engagement, ...input }) : await createEngagement(input);
+      const saved = engagement
+        ? (await updateEngagement({ ...engagement, ...input }), {
+            ...engagement,
+            ...input,
+          })
+        : await createEngagement({
+            ...input,
+            methodologyTemplateId: methodologyTemplateId || undefined,
+          });
       onSaved?.(saved);
     } catch (caught) {
       setError(caught instanceof Error ? caught.message : 'Unable to save engagement.');
@@ -153,13 +192,15 @@ export function EngagementForm({ engagement, onSaved }: { engagement?: Engagemen
     <div className="form-grid">
       <Field label="Client"><select required value={clientId} onChange={(event) => { setClientId(event.target.value); setSiteIds([]); }}>{dataset?.clients.map((client) => <option key={client.id} value={client.id}>{client.name}</option>)}</select></Field>
       <Field label="Engagement name"><input required value={name} onChange={(event) => setName(event.target.value)} /></Field>
-      <Field label="Type"><select value={type} onChange={(event) => setType(event.target.value as EngagementType)}>{engagementTypes.map((item) => <option key={item}>{item}</option>)}</select></Field>
-      <Field label="Status"><select value={status} onChange={(event) => setStatus(event.target.value as EngagementStatus)}>{engagementStatuses.map((item) => <option key={item}>{item}</option>)}</select></Field>
+      <Field label="Type"><select disabled={Boolean(attachedMethodologyRun)} value={type} onChange={(event) => { const nextType = event.target.value as EngagementType; setType(nextType); setStage(nextType === 'Digital Diagnostic' ? 'diagnose' : 'discover'); const templates = dataset?.methodologyTemplates.filter((template) => template.status === 'active' && template.engagementType === nextType) ?? []; setMethodologyTemplateId(templates.length === 1 ? templates[0].id : ''); }}>{engagementTypes.map((item) => <option key={item}>{item}</option>)}</select></Field>
+      <Field label="Status"><select disabled={isMethodologyManaged} value={status} onChange={(event) => setStatus(event.target.value as EngagementStatus)}>{engagementStatuses.map((item) => <option key={item}>{item}</option>)}</select></Field>
       <Field label="Current stage"><select value={stage} onChange={(event) => setStage(event.target.value as TransformationStage)}>{stages.map((item) => <option key={item}>{item}</option>)}</select></Field>
       <Field label="Project lead"><select required value={leadUserId} onChange={(event) => setLeadUserId(event.target.value)}>{users.map((user: User) => <option key={user.id} value={user.id}>{user.displayName}</option>)}</select></Field>
       <Field label="Start date"><input required type="date" value={startDate} onChange={(event) => setStartDate(event.target.value)} /></Field>
       <Field label="Target end date"><input type="date" value={targetDate} onChange={(event) => setTargetDate(event.target.value)} /></Field>
     </div>
+    {!engagement && matchingTemplates.length > 0 ? <Field label="Methodology template"><select required value={methodologyTemplateId} onChange={(event) => setMethodologyTemplateId(event.target.value)}>{matchingTemplates.map((template) => <option key={template.id} value={template.id}>{template.name} - {template.version}</option>)}</select>{selectedTemplate ? <small>{selectedTemplate.description}</small> : null}</Field> : null}
+    {attachedMethodologyRun ? <p className="access-note">Type is locked to preserve the {attachedMethodologyRun.templateName} {attachedMethodologyRun.templateVersion} methodology history. Use the methodology controls to pause or resume active work.</p> : null}
     <Field label="Description"><textarea required value={description} onChange={(event) => setDescription(event.target.value)} rows={3} /></Field>
     <fieldset className="form-fieldset"><legend>Site coverage</legend>{availableSites.map((site) => <label className="checkbox-row" key={site.id}><input type="checkbox" checked={siteIds.includes(site.id)} onChange={() => toggle(siteIds, site.id, setSiteIds)} />{site.name}</label>)}</fieldset>
     <fieldset className="form-fieldset"><legend>Team members</legend>{users.map((user) => <label className="checkbox-row" key={user.id}><input type="checkbox" checked={teamUserIds.includes(user.id)} onChange={() => toggle(teamUserIds, user.id, setTeamUserIds)} />{user.displayName}</label>)}</fieldset>

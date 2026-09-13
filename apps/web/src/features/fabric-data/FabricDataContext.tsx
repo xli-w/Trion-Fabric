@@ -16,6 +16,8 @@ import type {
   Client,
   Diagnostic,
   Engagement,
+  EngagementMethodologyActivity,
+  EngagementMethodologyRun,
   EntityId,
   Evidence,
   FabricDataset,
@@ -23,6 +25,7 @@ import type {
   FrictionItem,
   Observation,
   MaturityAssessment,
+  MethodologyActivity,
   ActionItem,
   BenefitMeasurement,
   DeliveryAction,
@@ -41,10 +44,13 @@ import type {
 import {
   assertUserCanPerformAcrossEngagements,
   canUserPerform,
+  createMethodologyRun,
   isOpportunityReadyForDelivery,
   permissionForVisibilityTransition,
+  preparePreliminarySiteWalkPromotion,
   prepareControlledOutputUpdate,
   prepareControlledOpportunityUpdate,
+  synchroniseMethodologyRun,
 } from '@domain';
 import {
   createAuthorizationActor,
@@ -71,9 +77,26 @@ interface FabricDataContextValue {
   ) => Promise<Site>;
   updateSite: (site: Site) => Promise<void>;
   createEngagement: (
-    input: Omit<Engagement, 'id' | 'createdAt' | 'updatedAt'>,
+    input: CreateEngagementInput,
   ) => Promise<Engagement>;
   updateEngagement: (engagement: Engagement) => Promise<void>;
+  completeMethodologyActivity: (
+    activityId: EntityId,
+    completionNote?: string,
+  ) => Promise<void>;
+  skipMethodologyActivity: (
+    activityId: EntityId,
+    reason: string,
+  ) => Promise<void>;
+  reopenMethodologyActivity: (
+    activityId: EntityId,
+    reason: string,
+  ) => Promise<void>;
+  pauseMethodologyRun: (runId: EntityId, reason: string) => Promise<void>;
+  resumeMethodologyRun: (runId: EntityId) => Promise<void>;
+  promotePreliminarySiteWalk: (
+    siteWalkId: EntityId,
+  ) => Promise<Engagement>;
   createSiteWalk: (
     input: Omit<SiteWalk, 'id' | 'createdAt' | 'updatedAt'>,
   ) => Promise<SiteWalk>;
@@ -138,6 +161,11 @@ interface FabricDataProviderProps {
   repository: FabricRepository;
 }
 
+export interface CreateEngagementInput
+  extends Omit<Engagement, 'id' | 'createdAt' | 'updatedAt'> {
+  methodologyTemplateId?: EntityId;
+}
+
 type ActivityCollection =
   | 'clients'
   | 'sites'
@@ -158,7 +186,9 @@ type ActivityCollection =
   | 'milestones'
   | 'deliveryActions'
   | 'benefitMeasurements'
-  | 'outputs';
+  | 'outputs'
+  | 'engagementMethodologyRuns'
+  | 'engagementMethodologyActivities';
 
 interface ActivityTrackedRecord extends BaseEntity {
   approvalState?: string;
@@ -169,12 +199,25 @@ interface ActivityTrackedRecord extends BaseEntity {
   title?: string;
   name?: string;
   summary?: string;
+  type?: string;
+  engagementId?: EntityId;
+  templateId?: EntityId;
+  templateName?: string;
+  reopenedAt?: string;
 }
 
 interface DatasetChange {
   collection: ActivityCollection;
   previous?: ActivityTrackedRecord;
   next?: ActivityTrackedRecord;
+}
+
+interface MethodologyActivityStateUpdate {
+  state: EngagementMethodologyActivity;
+  activity: MethodologyActivity;
+  run: EngagementMethodologyRun;
+  actorUserId: EntityId;
+  occurredAt: string;
 }
 
 const activityCollections: ActivityCollection[] = [
@@ -198,6 +241,8 @@ const activityCollections: ActivityCollection[] = [
   'deliveryActions',
   'benefitMeasurements',
   'outputs',
+  'engagementMethodologyRuns',
+  'engagementMethodologyActivities',
 ];
 
 const activityEntityTypesByCollection: Record<
@@ -224,6 +269,8 @@ const activityEntityTypesByCollection: Record<
   deliveryActions: 'delivery-action',
   benefitMeasurements: 'benefit-measurement',
   outputs: 'output',
+  engagementMethodologyRuns: 'methodology-run',
+  engagementMethodologyActivities: 'methodology-activity',
 };
 
 function recordsFor(
@@ -271,6 +318,10 @@ function recordsFor(
       return dataset.benefitMeasurements;
     case 'outputs':
       return dataset.outputs;
+    case 'engagementMethodologyRuns':
+      return dataset.engagementMethodologyRuns;
+    case 'engagementMethodologyActivities':
+      return dataset.engagementMethodologyActivities;
   }
 }
 
@@ -459,6 +510,19 @@ function getEngagementIdForChange(
     }
     case 'outputs':
       return dataset.outputs.find((item) => item.id === record.id)?.engagementId;
+    case 'engagementMethodologyRuns':
+      return dataset.engagementMethodologyRuns.find(
+        (item) => item.id === record.id,
+      )?.engagementId;
+    case 'engagementMethodologyActivities': {
+      const runId = dataset.engagementMethodologyActivities.find(
+        (item) => item.id === record.id,
+      )?.runId;
+      return runId
+        ? dataset.engagementMethodologyRuns.find((item) => item.id === runId)
+            ?.engagementId
+        : undefined;
+    }
     case 'clients':
     case 'sites':
       return undefined;
@@ -498,6 +562,29 @@ function permissionForChange(change: DatasetChange): WorkspacePermission {
 
   if (change.collection === 'clients' || change.collection === 'sites') {
     return 'context:write';
+  }
+
+  if (change.collection === 'engagementMethodologyRuns') {
+    if (
+      !change.previous ||
+      change.previous.templateId !== change.next?.templateId ||
+      change.previous.engagementId !== change.next?.engagementId
+    ) {
+      return 'context:write';
+    }
+    if (
+      (change.previous.status === 'paused' &&
+        change.next?.status === 'active') ||
+      change.next?.status === 'paused' ||
+      change.next?.status === 'promoted'
+    ) {
+      return 'context:write';
+    }
+    return 'methodology:write';
+  }
+
+  if (change.collection === 'engagementMethodologyActivities') {
+    return 'methodology:write';
   }
 
   if (
@@ -549,7 +636,41 @@ function activityActionForChange(change: DatasetChange): ActivityAction {
     return 'assigned';
   }
 
+  if (
+    change.collection === 'engagements' &&
+    previous.type === 'Preliminary Site Walk' &&
+    next.type === 'Digital Diagnostic'
+  ) {
+    return 'converted-from-preliminary-site-walk-to-diagnostic';
+  }
+
+  if (
+    change.collection === 'engagementMethodologyActivities' &&
+    previous.reopenedAt !== next.reopenedAt &&
+    next.reopenedAt
+  ) {
+    return 'reopened';
+  }
+
   if (previous.status !== next.status) {
+    if (change.collection === 'engagementMethodologyRuns') {
+      if (next.status === 'paused') {
+        return 'paused';
+      }
+      if (previous.status === 'paused' && next.status === 'active') {
+        return 'resumed';
+      }
+    }
+
+    if (change.collection === 'engagementMethodologyActivities') {
+      if (next.status === 'completed') {
+        return 'completed';
+      }
+      if (next.status === 'skipped') {
+        return 'skipped';
+      }
+    }
+
     if (change.collection === 'outputs') {
       if (next.status === 'internal-review') {
         return 'submitted-for-review';
@@ -594,7 +715,15 @@ function createActivityEvent(
 
   const action = activityActionForChange(change);
   const actionLabel = action.replace(/-/g, ' ');
-  const recordLabel = record.title ?? record.name ?? record.summary ?? 'record';
+  const recordLabel =
+    record.title ??
+    record.name ??
+    record.summary ??
+    (change.collection === 'engagementMethodologyRuns'
+      ? record.templateName ?? 'methodology run'
+      : change.collection === 'engagementMethodologyActivities'
+        ? 'methodology activity'
+        : 'record');
   const changedFields = changedFieldNames(change.previous, change.next);
   const metadata: Record<string, string> = {
     collection: change.collection,
@@ -988,29 +1117,82 @@ export function FabricDataProvider({
   );
 
   const createEngagement = useCallback(
-    async (input: Omit<Engagement, 'id' | 'createdAt' | 'updatedAt'>) => {
+    async (input: CreateEngagementInput) => {
+      const { methodologyTemplateId, ...engagementInput } = input;
       if (
         !dataset ||
-        !dataset.clients.some((client) => client.id === input.clientId) ||
-        input.siteIds.some(
+        !dataset.clients.some(
+          (client) => client.id === engagementInput.clientId,
+        ) ||
+        engagementInput.siteIds.some(
           (siteId) =>
             dataset.sites.find((site) => site.id === siteId)?.clientId !==
-            input.clientId,
+            engagementInput.clientId,
         )
       ) {
         throw new Error(
           'Select a valid client and site coverage for this engagement.',
         );
       }
-      const created = {
-        ...input,
+      const matchingTemplates = dataset.methodologyTemplates.filter(
+        (template) =>
+          template.status === 'active' &&
+          template.engagementType === engagementInput.type,
+      );
+      const template = methodologyTemplateId
+        ? matchingTemplates.find((item) => item.id === methodologyTemplateId)
+        : matchingTemplates.length === 1
+          ? matchingTemplates[0]
+          : undefined;
+      if (methodologyTemplateId && !template) {
+        throw new Error(
+          'Select an active methodology template for the chosen engagement type.',
+        );
+      }
+      if (
+        !template &&
+        (engagementInput.type === 'Preliminary Site Walk' ||
+          engagementInput.type === 'Digital Diagnostic')
+      ) {
+        throw new Error(
+          'Select an active methodology template before creating this engagement.',
+        );
+      }
+
+      const occurredAt = now();
+      const created: Engagement = {
+        ...engagementInput,
         id: createId('engagement'),
-        createdAt: now(),
-        updatedAt: now(),
+        createdAt: occurredAt,
+        updatedAt: occurredAt,
       };
+      const createdMethodologyRun = template
+        ? createMethodologyRun(
+            template,
+            dataset.methodologyStages,
+            dataset.methodologyActivities,
+            {
+              id: createId('methodology-run'),
+              engagementId: created.id,
+              occurredAt,
+            },
+          )
+        : undefined;
       await persist({
         ...dataset,
         engagements: [...dataset.engagements, created],
+        engagementMethodologyRuns: createdMethodologyRun
+          ? [
+              ...dataset.engagementMethodologyRuns,
+              createdMethodologyRun.run,
+            ]
+          : dataset.engagementMethodologyRuns,
+        engagementMethodologyActivities: createdMethodologyRun
+          ? [
+              ...dataset.engagementMethodologyActivities,
+              ...createdMethodologyRun.activities,
+            ]
+          : dataset.engagementMethodologyActivities,
       });
       return created;
     },
@@ -1032,6 +1214,40 @@ export function FabricDataProvider({
           'Select a valid client and site coverage for this engagement.',
         );
       }
+      const existing = dataset.engagements.find(
+        (item) => item.id === engagement.id,
+      );
+      if (!existing) {
+        throw new Error('The engagement no longer exists.');
+      }
+      const methodologyRuns = dataset.engagementMethodologyRuns.filter(
+        (run) => run.engagementId === engagement.id,
+      );
+      if (methodologyRuns.length > 0 && existing.type !== engagement.type) {
+        throw new Error(
+          'Use preliminary site-walk promotion to change an engagement with methodology history.',
+        );
+      }
+      const activeRun = methodologyRuns.find(
+        (run) => run.status === 'active' || run.status === 'paused',
+      );
+      if (
+        activeRun?.status === 'paused' &&
+        engagement.status !== existing.status
+      ) {
+        throw new Error(
+          'Resume the methodology run before changing the engagement status.',
+        );
+      }
+      if (
+        activeRun?.status === 'active' &&
+        engagement.status === 'paused' &&
+        engagement.status !== existing.status
+      ) {
+        throw new Error(
+          'Pause the methodology run to pause an engagement with active methodology.',
+        );
+      }
       await persist({
         ...dataset,
         engagements: replaceExistingRecord(
@@ -1043,6 +1259,394 @@ export function FabricDataProvider({
       });
     },
     [dataset, persist],
+  );
+
+  const updateMethodologyActivityState = useCallback(
+    async (
+      activityId: EntityId,
+      update: (
+        input: MethodologyActivityStateUpdate,
+      ) => EngagementMethodologyActivity,
+    ) => {
+      if (!dataset) {
+        throw new Error('The repository dataset is not loaded.');
+      }
+      if (!actingUser) {
+        throw new Error(
+          'Select an internal user before updating methodology activity.',
+        );
+      }
+
+      const state = dataset.engagementMethodologyActivities.find(
+        (item) => item.id === activityId,
+      );
+      if (!state) {
+        throw new Error('The methodology activity no longer exists.');
+      }
+      const activity = dataset.methodologyActivities.find(
+        (item) => item.id === state.templateActivityId,
+      );
+      const run = dataset.engagementMethodologyRuns.find(
+        (item) => item.id === state.runId,
+      );
+      if (!activity || !run) {
+        throw new Error(
+          'The methodology activity is not connected to a valid run and template.',
+        );
+      }
+
+      const occurredAt = now();
+      const nextState = update({
+        state,
+        activity,
+        run,
+        actorUserId: actingUser.id,
+        occurredAt,
+      });
+      const nextActivities = dataset.engagementMethodologyActivities.map(
+        (item) => (item.id === state.id ? nextState : item),
+      );
+      const nextRun = synchroniseMethodologyRun(
+        {
+          ...dataset,
+          engagementMethodologyActivities: nextActivities,
+        },
+        run,
+        nextActivities,
+        occurredAt,
+      );
+
+      await persist({
+        ...dataset,
+        engagementMethodologyRuns: replaceExistingRecord(
+          dataset.engagementMethodologyRuns,
+          nextRun,
+          occurredAt,
+          'methodology run',
+        ),
+        engagementMethodologyActivities: nextActivities,
+      });
+    },
+    [actingUser, dataset, persist],
+  );
+
+  const completeMethodologyActivity = useCallback(
+    async (activityId: EntityId, completionNote?: string) => {
+      const note = completionNote?.trim() || undefined;
+      await updateMethodologyActivityState(activityId, (input) => {
+        if (input.run.status !== 'active') {
+          throw new Error(
+            'Resume the methodology run before completing its activities.',
+          );
+        }
+        if (input.state.status === 'completed') {
+          throw new Error('This methodology activity is already completed.');
+        }
+        if (input.state.status === 'skipped') {
+          throw new Error(
+            'Reopen a skipped methodology activity before completing it.',
+          );
+        }
+
+        return {
+          ...input.state,
+          updatedAt: input.occurredAt,
+          status: 'completed',
+          completedAt: input.occurredAt,
+          completedByUserId: input.actorUserId,
+          completionNote: note,
+          skippedAt: undefined,
+          skippedByUserId: undefined,
+          skipReason: undefined,
+        };
+      });
+    },
+    [updateMethodologyActivityState],
+  );
+
+  const skipMethodologyActivity = useCallback(
+    async (activityId: EntityId, reason: string) => {
+      const skipReason = reason.trim();
+      if (!skipReason) {
+        throw new Error('Provide a reason when skipping an optional activity.');
+      }
+
+      await updateMethodologyActivityState(activityId, (input) => {
+        if (input.run.status !== 'active') {
+          throw new Error(
+            'Resume the methodology run before skipping its activities.',
+          );
+        }
+        if (input.activity.requirement !== 'optional') {
+          throw new Error('Required methodology activities cannot be skipped.');
+        }
+        if (input.state.status === 'completed') {
+          throw new Error(
+            'Reopen a completed methodology activity before skipping it.',
+          );
+        }
+        if (input.state.status === 'skipped') {
+          throw new Error('This methodology activity is already skipped.');
+        }
+
+        return {
+          ...input.state,
+          updatedAt: input.occurredAt,
+          status: 'skipped',
+          completedAt: undefined,
+          completedByUserId: undefined,
+          completionNote: undefined,
+          skippedAt: input.occurredAt,
+          skippedByUserId: input.actorUserId,
+          skipReason,
+        };
+      });
+    },
+    [updateMethodologyActivityState],
+  );
+
+  const reopenMethodologyActivity = useCallback(
+    async (activityId: EntityId, reason: string) => {
+      const reopenReason = reason.trim();
+      if (!reopenReason) {
+        throw new Error('Provide a reason when reopening an activity.');
+      }
+
+      await updateMethodologyActivityState(activityId, (input) => {
+        if (input.run.status === 'promoted') {
+          throw new Error(
+            'Promoted methodology runs are historical and cannot be reopened.',
+          );
+        }
+        if (input.run.status === 'paused') {
+          throw new Error(
+            'Resume the methodology run before reopening an activity.',
+          );
+        }
+        if (
+          input.state.status !== 'completed' &&
+          input.state.status !== 'skipped'
+        ) {
+          throw new Error(
+            'Only completed or skipped methodology activities can be reopened.',
+          );
+        }
+
+        return {
+          ...input.state,
+          updatedAt: input.occurredAt,
+          status: 'not-started',
+          completedAt: undefined,
+          completedByUserId: undefined,
+          completionNote: undefined,
+          skippedAt: undefined,
+          skippedByUserId: undefined,
+          skipReason: undefined,
+          reopenedAt: input.occurredAt,
+          reopenedByUserId: input.actorUserId,
+          reopenReason,
+        };
+      });
+    },
+    [updateMethodologyActivityState],
+  );
+
+  const pauseMethodologyRun = useCallback(
+    async (runId: EntityId, reason: string) => {
+      if (!dataset) {
+        throw new Error('The repository dataset is not loaded.');
+      }
+      const pausedReason = reason.trim();
+      if (!pausedReason) {
+        throw new Error('Provide a reason when pausing a methodology run.');
+      }
+      const run = dataset.engagementMethodologyRuns.find(
+        (item) => item.id === runId,
+      );
+      if (!run) {
+        throw new Error('The methodology run no longer exists.');
+      }
+      if (run.status !== 'active') {
+        throw new Error('Only active methodology runs can be paused.');
+      }
+      const engagement = dataset.engagements.find(
+        (item) => item.id === run.engagementId,
+      );
+      if (!engagement || engagement.status === 'completed') {
+        throw new Error('Only an active engagement can have work paused.');
+      }
+
+      const occurredAt = now();
+      await persist({
+        ...dataset,
+        engagements: replaceExistingRecord(
+          dataset.engagements,
+          { ...engagement, status: 'paused' },
+          occurredAt,
+          'engagement',
+        ),
+        engagementMethodologyRuns: replaceExistingRecord(
+          dataset.engagementMethodologyRuns,
+          {
+            ...run,
+            status: 'paused',
+            pausedAt: occurredAt,
+            pausedReason,
+            completedAt: undefined,
+          },
+          occurredAt,
+          'methodology run',
+        ),
+      });
+    },
+    [dataset, persist],
+  );
+
+  const resumeMethodologyRun = useCallback(
+    async (runId: EntityId) => {
+      if (!dataset) {
+        throw new Error('The repository dataset is not loaded.');
+      }
+      const run = dataset.engagementMethodologyRuns.find(
+        (item) => item.id === runId,
+      );
+      if (!run) {
+        throw new Error('The methodology run no longer exists.');
+      }
+      if (run.status !== 'paused') {
+        throw new Error('Only paused methodology runs can be resumed.');
+      }
+      const engagement = dataset.engagements.find(
+        (item) => item.id === run.engagementId,
+      );
+      if (!engagement) {
+        throw new Error('The methodology run is not connected to an engagement.');
+      }
+
+      const occurredAt = now();
+      const resumedRun = synchroniseMethodologyRun(
+        dataset,
+        {
+          ...run,
+          status: 'active',
+          pausedAt: undefined,
+          pausedReason: undefined,
+        },
+        dataset.engagementMethodologyActivities,
+        occurredAt,
+      );
+      await persist({
+        ...dataset,
+        engagements: replaceExistingRecord(
+          dataset.engagements,
+          {
+            ...engagement,
+            status: resumedRun.status === 'completed' ? 'completed' : 'active',
+          },
+          occurredAt,
+          'engagement',
+        ),
+        engagementMethodologyRuns: replaceExistingRecord(
+          dataset.engagementMethodologyRuns,
+          resumedRun,
+          occurredAt,
+          'methodology run',
+        ),
+      });
+    },
+    [dataset, persist],
+  );
+
+  const promotePreliminarySiteWalk = useCallback(
+    async (siteWalkId: EntityId) => {
+      if (!dataset) {
+        throw new Error('The repository dataset is not loaded.');
+      }
+      if (!actingUser) {
+        throw new Error(
+          'Select an internal user before promoting preliminary fieldwork.',
+        );
+      }
+      const siteWalk = dataset.siteWalks.find((item) => item.id === siteWalkId);
+      if (!siteWalk) {
+        throw new Error('The preliminary site walk no longer exists.');
+      }
+      const engagement = dataset.engagements.find(
+        (item) => item.id === siteWalk.engagementId,
+      );
+      if (!engagement) {
+        throw new Error('The site walk is not connected to an engagement.');
+      }
+      if (dataset.diagnostics.some((item) => item.engagementId === engagement.id)) {
+        throw new Error(
+          'This engagement already has a diagnostic. Continue it instead of promoting the site walk.',
+        );
+      }
+      const preliminaryRun = dataset.engagementMethodologyRuns.find((run) => {
+        const template = dataset.methodologyTemplates.find(
+          (item) => item.id === run.templateId,
+        );
+        return (
+          run.engagementId === engagement.id &&
+          run.status !== 'promoted' &&
+          template?.engagementType === 'Preliminary Site Walk'
+        );
+      });
+      if (!preliminaryRun) {
+        throw new Error(
+          'The engagement needs a Preliminary Site Walk methodology run before promotion.',
+        );
+      }
+      const digitalDiagnosticTemplates = dataset.methodologyTemplates.filter(
+        (template) =>
+          template.status === 'active' &&
+          template.engagementType === 'Digital Diagnostic',
+      );
+      if (digitalDiagnosticTemplates.length !== 1) {
+        throw new Error(
+          'Select exactly one active Digital Diagnostic template before promotion.',
+        );
+      }
+
+      const occurredAt = now();
+      const promotion = preparePreliminarySiteWalkPromotion({
+        engagement,
+        siteWalk,
+        preliminaryRun,
+        digitalDiagnosticTemplate: digitalDiagnosticTemplates[0],
+        digitalDiagnosticStages: dataset.methodologyStages,
+        digitalDiagnosticActivities: dataset.methodologyActivities,
+        actorUserId: actingUser.id,
+        occurredAt,
+        digitalDiagnosticRunId: createId('methodology-run'),
+        diagnosticId: createId('diagnostic'),
+      });
+      await persist({
+        ...dataset,
+        engagements: replaceExistingRecord(
+          dataset.engagements,
+          promotion.engagement,
+          occurredAt,
+          'engagement',
+        ),
+        diagnostics: [...dataset.diagnostics, promotion.diagnostic],
+        engagementMethodologyRuns: [
+          ...replaceExistingRecord(
+            dataset.engagementMethodologyRuns,
+            promotion.preliminaryRun,
+            occurredAt,
+            'methodology run',
+          ),
+          promotion.digitalDiagnosticRun,
+        ],
+        engagementMethodologyActivities: [
+          ...dataset.engagementMethodologyActivities,
+          ...promotion.digitalDiagnosticActivities,
+        ],
+      });
+      return promotion.engagement;
+    },
+    [actingUser, dataset, persist],
   );
 
   const createSiteWalk = useCallback(
@@ -1711,6 +2315,12 @@ export function FabricDataProvider({
         updateSite,
         createEngagement,
         updateEngagement,
+        completeMethodologyActivity,
+        skipMethodologyActivity,
+        reopenMethodologyActivity,
+        pauseMethodologyRun,
+        resumeMethodologyRun,
+        promotePreliminarySiteWalk,
         createSiteWalk,
         updateSiteWalk,
         createObservation,

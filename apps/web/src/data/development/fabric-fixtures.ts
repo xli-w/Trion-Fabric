@@ -1,7 +1,114 @@
-import type { FabricDataset } from '@domain';
+import type {
+  EngagementMethodologyActivity,
+  FabricDataset,
+  MethodologyActivityStatus,
+} from '@domain';
 import { diagnosticDimensions } from './diagnostic-dimensions';
+import {
+  methodologyActivities,
+  methodologyStages,
+  methodologyTemplates,
+} from './methodology-templates';
 
 const timestamp = '2026-09-01T09:00:00Z';
+
+function createMethodologyActivityState(
+  runId: string,
+  engagementId: string,
+  templateActivityId: string,
+  stageId: string,
+  status: MethodologyActivityStatus,
+  actorUserId: string,
+  details: Pick<
+    EngagementMethodologyActivity,
+    'completionNote' | 'skipReason'
+  > = {},
+): EngagementMethodologyActivity {
+  const state: EngagementMethodologyActivity = {
+    id: `${runId}-${templateActivityId}`,
+    createdAt: timestamp,
+    updatedAt: timestamp,
+    engagementId,
+    runId,
+    templateActivityId,
+    stageId,
+    status,
+  };
+
+  if (status === 'completed') {
+    return {
+      ...state,
+      completedAt: timestamp,
+      completedByUserId: actorUserId,
+      completionNote: details.completionNote,
+    };
+  }
+
+  if (status === 'skipped') {
+    return {
+      ...state,
+      skippedAt: timestamp,
+      skippedByUserId: actorUserId,
+      skipReason: details.skipReason,
+    };
+  }
+
+  return state;
+}
+
+const northbankMethodologyRunId = 'methodology-run-northbank-diagnostic-2026-1';
+const airedaleMethodologyRunId = 'methodology-run-airedale-preliminary-2026-1';
+
+const methodologyActivityStates: EngagementMethodologyActivity[] = [
+  ...methodologyActivities
+    .filter((activity) => activity.templateId === 'digital-diagnostic-2026-1')
+    .map((activity, index) =>
+      createMethodologyActivityState(
+        northbankMethodologyRunId,
+        'engagement-northbank-diagnostic',
+        activity.id,
+        activity.stageId,
+        index < 5 ? 'completed' : index === 5 ? 'in-progress' : 'not-started',
+        'user-amy-wilkinson',
+        {
+          completionNote:
+            index < 5
+              ? 'Recorded against the Northbank diagnostic workbench.'
+              : undefined,
+        },
+      ),
+    ),
+  ...methodologyActivities
+    .filter(
+      (activity) => activity.templateId === 'preliminary-site-walk-2026-1',
+    )
+    .map((activity, index) =>
+      createMethodologyActivityState(
+        airedaleMethodologyRunId,
+        'engagement-airedale-discovery',
+        activity.id,
+        activity.stageId,
+        index === 0 || index === 1
+          ? 'completed'
+          : index === 5
+            ? 'skipped'
+            : index === 2
+              ? 'in-progress'
+              : 'not-started',
+        'user-sarah-mitchell',
+        {
+          completionNote:
+            index === 0 || index === 1
+              ? 'Recorded during the Airedale preliminary visit.'
+              : undefined,
+          skipReason:
+            index === 5
+              ? 'The intake visit did not include a suitable supervisor interview for these prompts.'
+              : undefined,
+        },
+      ),
+    ),
+];
 
 export const fabricFixtures: FabricDataset = {
   users: [
@@ -236,6 +343,10 @@ export const fabricFixtures: FabricDataset = {
       targetDate: '2026-10-03T17:00:00Z',
       leadUserId: 'user-amy-wilkinson',
       teamUserIds: ['user-amy-wilkinson', 'user-james-carter'],
+      objectives:
+        'Establish an evidence-led view of information flow, quality escalation, and practical improvement priorities.',
+      scope:
+        'Machining, quality, and dispatch information handoffs at the Sheffield Plant.',
     },
     {
       id: 'engagement-airedale-discovery',
@@ -246,13 +357,17 @@ export const fabricFixtures: FabricDataset = {
       name: 'Airedale intake and stock discovery',
       description:
         'Map intake, stock visibility, and paperwork pain points before solution shaping.',
-      type: 'Advisory / Discovery',
+      type: 'Preliminary Site Walk',
       status: 'active',
       stage: 'discover',
       startDate: '2026-09-07T08:30:00Z',
       targetDate: '2026-09-30T17:00:00Z',
       leadUserId: 'user-james-carter',
       teamUserIds: ['user-james-carter', 'user-sarah-mitchell'],
+      objectives:
+        'Understand intake and stock-record friction before agreeing whether a full diagnostic is justified.',
+      scope:
+        'Goods intake, receipt validation, stock status, and the related paperwork at the Leeds campus.',
     },
   ],
   siteWalks: [
@@ -314,14 +429,15 @@ export const fabricFixtures: FabricDataset = {
       title: 'Inbound receipts and stock validation walk',
       scheduledAt: '2026-09-20T09:00:00Z',
       consultantUserId: 'user-sarah-mitchell',
-      walkType: 'Discovery walk',
+      walkType: 'Preliminary Site Walk',
       plannedScope: [
         'Follow one inbound booking process',
         'Check paperwork against ERP receipt status',
       ],
       completedScope: [],
-      status: 'planned',
+      status: 'needs-follow-up',
       followUpActionIds: ['action-outline-receipts-checkpoints'],
+      recommendDiagnostic: true,
     },
   ],
   observations: [
@@ -736,6 +852,38 @@ export const fabricFixtures: FabricDataset = {
       notes: 'Validate after pilot stabilises.',
     },
   ],
+  methodologyTemplates,
+  methodologyStages,
+  methodologyActivities,
+  engagementMethodologyRuns: [
+    {
+      id: northbankMethodologyRunId,
+      createdAt: timestamp,
+      updatedAt: '2026-09-10T16:00:00Z',
+      engagementId: 'engagement-northbank-diagnostic',
+      templateId: 'digital-diagnostic-2026-1',
+      templateVersion: '2026.1',
+      templateName: 'Digital Diagnostic',
+      status: 'active',
+      startedAt: '2026-09-01T08:00:00Z',
+      currentStageId:
+        'methodology-stage-digital-diagnostic-2026-1-maturity-assessment',
+    },
+    {
+      id: airedaleMethodologyRunId,
+      createdAt: timestamp,
+      updatedAt: '2026-09-11T09:15:00Z',
+      engagementId: 'engagement-airedale-discovery',
+      templateId: 'preliminary-site-walk-2026-1',
+      templateVersion: '2026.1',
+      templateName: 'Preliminary Site Walk',
+      status: 'active',
+      startedAt: '2026-09-07T08:30:00Z',
+      currentStageId:
+        'methodology-stage-preliminary-site-walk-2026-1-material-process-flow',
+    },
+  ],
+  engagementMethodologyActivities: methodologyActivityStates,
   outputs: [
     {
       id: 'output-northbank-executive-summary',

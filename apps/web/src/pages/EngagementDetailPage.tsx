@@ -6,6 +6,7 @@ import { EngagementForm } from '@app/features/fabric-data/EntityForms';
 import { FabricDataView } from '@app/features/fabric-data/FabricDataView';
 import { useFabricData } from '@app/features/fabric-data/FabricDataContext';
 import { buildEngagementCommandCentre } from '@app/features/fabric-data/selectors';
+import { MethodologyProgression } from '@app/features/methodology/MethodologyProgression';
 
 export function EngagementDetailPage() {
   const { engagementId } = useParams();
@@ -174,6 +175,13 @@ export function EngagementDetailPage() {
                     : 'No tracked completion signals have been recorded yet.'}
                 </p>
               </Card>
+            </section>
+
+            <section className="content-grid">
+              <MethodologyProgression
+                engagementId={engagement.id}
+                methodology={commandCentre.methodology}
+              />
             </section>
 
             <section className="content-grid content-grid--two">

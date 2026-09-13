@@ -20,6 +20,13 @@ import {
   landscapeEntityTypes,
   landscapeRelationshipTypes,
   maturityLevels,
+  methodologyActivityRequirements,
+  methodologyActivityStatuses,
+  methodologyActivityTypes,
+  methodologyCompletionRuleTypes,
+  methodologyLinkedDomains,
+  methodologyRunStatuses,
+  methodologyTemplateStatuses,
   opportunityPriorityCategories,
   outputStatuses,
   outputTypes,
@@ -744,6 +751,166 @@ export const outputSchema = baseEntitySchema
     }
   });
 
+export const methodologyInformationRequirementSchema = z.object({
+  id: z.string().min(1),
+  label: z.string().min(1),
+  description: z.string().min(1),
+  linkedDomain: z.enum(methodologyLinkedDomains),
+  minimumCount: z.number().int().positive().optional(),
+});
+
+export const methodologyCompletionRuleSchema = z
+  .object({
+    id: z.string().min(1),
+    type: z.enum(methodologyCompletionRuleTypes),
+    description: z.string().min(1),
+    linkedDomain: z.enum(methodologyLinkedDomains).optional(),
+    minimumCount: z.number().int().positive().optional(),
+  })
+  .superRefine((rule, context) => {
+    if (
+      rule.type === 'minimum-linked-records' &&
+      (!rule.linkedDomain || !rule.minimumCount)
+    ) {
+      context.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ['linkedDomain'],
+        message:
+          'Minimum linked-record completion rules require a domain and count.',
+      });
+    }
+  });
+
+export const methodologyTemplateSchema = baseEntitySchema.extend({
+  name: z.string().min(1),
+  description: z.string().min(1),
+  engagementType: z.enum(engagementTypes),
+  version: z.string().min(1),
+  status: z.enum(methodologyTemplateStatuses),
+  stageIds: z.array(z.string().min(1)).min(1),
+  activityIds: z.array(z.string().min(1)).min(1),
+  prompts: z.array(z.string().min(1)),
+  requiredInformation: z.array(methodologyInformationRequirementSchema),
+  optionalInformation: z.array(methodologyInformationRequirementSchema),
+  expectedOutputTypes: z.array(z.enum(outputTypes)),
+});
+
+export const methodologyStageSchema = baseEntitySchema.extend({
+  templateId: z.string().min(1),
+  name: z.string().min(1),
+  description: z.string().min(1),
+  order: z.number().int().positive(),
+  completionRules: z.array(methodologyCompletionRuleSchema).min(1),
+  activityIds: z.array(z.string().min(1)).min(1),
+});
+
+export const methodologyActivitySchema = baseEntitySchema.extend({
+  templateId: z.string().min(1),
+  stageId: z.string().min(1),
+  name: z.string().min(1),
+  description: z.string().min(1),
+  activityType: z.enum(methodologyActivityTypes),
+  requirement: z.enum(methodologyActivityRequirements),
+  completionCriteria: z.array(z.string().min(1)).min(1),
+  linkedDomain: z.enum(methodologyLinkedDomains),
+  prompts: z.array(z.string().min(1)),
+  guidance: z.array(z.string().min(1)),
+});
+
+export const engagementMethodologyRunSchema = baseEntitySchema
+  .extend({
+    engagementId: z.string().min(1),
+    templateId: z.string().min(1),
+    templateVersion: z.string().min(1),
+    templateName: z.string().min(1),
+    status: z.enum(methodologyRunStatuses),
+    startedAt: isoDateTimeSchema,
+    currentStageId: z.string().min(1).optional(),
+    pausedAt: isoDateTimeSchema.optional(),
+    pausedReason: z.string().min(1).optional(),
+    completedAt: isoDateTimeSchema.optional(),
+    promotedToRunId: z.string().min(1).optional(),
+  })
+  .superRefine((run, context) => {
+    if (
+      run.status === 'paused' &&
+      (!run.pausedAt || !run.pausedReason)
+    ) {
+      context.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ['pausedReason'],
+        message: 'A paused methodology run requires a recorded reason.',
+      });
+    }
+    if (run.status === 'completed' && !run.completedAt) {
+      context.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ['completedAt'],
+        message: 'A completed methodology run requires a completion timestamp.',
+      });
+    }
+    if (run.status === 'promoted' && !run.promotedToRunId) {
+      context.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ['promotedToRunId'],
+        message: 'A promoted methodology run requires its successor run.',
+      });
+    }
+  });
+
+export const engagementMethodologyActivitySchema = baseEntitySchema
+  .extend({
+    engagementId: z.string().min(1),
+    runId: z.string().min(1),
+    templateActivityId: z.string().min(1),
+    stageId: z.string().min(1),
+    status: z.enum(methodologyActivityStatuses),
+    completedAt: isoDateTimeSchema.optional(),
+    completedByUserId: z.string().min(1).optional(),
+    completionNote: z.string().min(1).optional(),
+    skippedAt: isoDateTimeSchema.optional(),
+    skippedByUserId: z.string().min(1).optional(),
+    skipReason: z.string().min(1).optional(),
+    reopenedAt: isoDateTimeSchema.optional(),
+    reopenedByUserId: z.string().min(1).optional(),
+    reopenReason: z.string().min(1).optional(),
+  })
+  .superRefine((activity, context) => {
+    if (
+      activity.status === 'completed' &&
+      (!activity.completedAt || !activity.completedByUserId)
+    ) {
+      context.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ['completedAt'],
+        message:
+          'A completed methodology activity requires an actor and timestamp.',
+      });
+    }
+    if (
+      activity.status === 'skipped' &&
+      (!activity.skippedAt || !activity.skippedByUserId || !activity.skipReason)
+    ) {
+      context.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ['skipReason'],
+        message:
+          'A skipped methodology activity requires an actor, timestamp, and reason.',
+      });
+    }
+    if (
+      activity.reopenedAt &&
+      (!activity.reopenedByUserId || !activity.reopenReason)
+    ) {
+      context.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ['reopenReason'],
+        message:
+          'A reopened methodology activity requires an actor and reason.',
+      });
+    }
+  });
+
 export const activityEventSchema = baseEntitySchema.extend({
   actorUserId: z.string().min(1),
   occurredAt: isoDateTimeSchema,
@@ -781,6 +948,15 @@ const fabricDatasetShape = z.object({
   deliveryActions: z.array(deliveryActionSchema).default([]),
   benefitMeasurements: z.array(benefitMeasurementSchema).default([]),
   outputs: z.array(outputSchema),
+  methodologyTemplates: z.array(methodologyTemplateSchema).default([]),
+  methodologyStages: z.array(methodologyStageSchema).default([]),
+  methodologyActivities: z.array(methodologyActivitySchema).default([]),
+  engagementMethodologyRuns: z
+    .array(engagementMethodologyRunSchema)
+    .default([]),
+  engagementMethodologyActivities: z
+    .array(engagementMethodologyActivitySchema)
+    .default([]),
   activityEvents: z.array(activityEventSchema).default([]),
 });
 
@@ -877,6 +1053,21 @@ export const fabricDatasetSchema = fabricDatasetShape.superRefine(
     const actionItems = new Set(dataset.actionItems.map((item) => item.id));
     const initiatives = new Set(dataset.initiatives.map((item) => item.id));
     const outputs = new Set(dataset.outputs.map((item) => item.id));
+    const methodologyTemplates = new Set(
+      dataset.methodologyTemplates.map((item) => item.id),
+    );
+    const methodologyStages = new Set(
+      dataset.methodologyStages.map((item) => item.id),
+    );
+    const methodologyActivities = new Set(
+      dataset.methodologyActivities.map((item) => item.id),
+    );
+    const methodologyRuns = new Set(
+      dataset.engagementMethodologyRuns.map((item) => item.id),
+    );
+    const methodologyActivityStates = new Set(
+      dataset.engagementMethodologyActivities.map((item) => item.id),
+    );
     const activityEntityIds: Record<
       (typeof activityEntityTypes)[number],
       Set<string>
@@ -909,6 +1100,8 @@ export const fabricDatasetSchema = fabricDatasetShape.superRefine(
         dataset.benefitMeasurements.map((item) => item.id),
       ),
       output: outputs,
+      'methodology-run': methodologyRuns,
+      'methodology-activity': methodologyActivityStates,
     };
 
     ensureUniqueEntityIds(context, [
@@ -937,6 +1130,14 @@ export const fabricDatasetSchema = fabricDatasetShape.superRefine(
       ['deliveryActions', dataset.deliveryActions],
       ['benefitMeasurements', dataset.benefitMeasurements],
       ['outputs', dataset.outputs],
+      ['methodologyTemplates', dataset.methodologyTemplates],
+      ['methodologyStages', dataset.methodologyStages],
+      ['methodologyActivities', dataset.methodologyActivities],
+      ['engagementMethodologyRuns', dataset.engagementMethodologyRuns],
+      [
+        'engagementMethodologyActivities',
+        dataset.engagementMethodologyActivities,
+      ],
       ['activityEvents', dataset.activityEvents],
     ]);
 
@@ -974,6 +1175,18 @@ export const fabricDatasetSchema = fabricDatasetShape.superRefine(
       dataset.deliveryActions.map((item) => [item.id, item]),
     );
     const outputById = new Map(dataset.outputs.map((item) => [item.id, item]));
+    const methodologyTemplateById = new Map(
+      dataset.methodologyTemplates.map((item) => [item.id, item]),
+    );
+    const methodologyStageById = new Map(
+      dataset.methodologyStages.map((item) => [item.id, item]),
+    );
+    const methodologyActivityById = new Map(
+      dataset.methodologyActivities.map((item) => [item.id, item]),
+    );
+    const methodologyRunById = new Map(
+      dataset.engagementMethodologyRuns.map((item) => [item.id, item]),
+    );
 
     const siteBelongsToEngagement = (siteId: string, engagementId: string) =>
       engagementById.get(engagementId)?.siteIds.includes(siteId) ?? false;
@@ -2389,6 +2602,415 @@ export const fabricDatasetSchema = fabricDatasetShape.superRefine(
         initiatives,
         'initiative',
       );
+    });
+
+    dataset.methodologyTemplates.forEach((template, index) => {
+      ensureDistinctValues(
+        context,
+        ['methodologyTemplates', index, 'stageIds'],
+        template.stageIds,
+        'template stage IDs',
+      );
+      ensureDistinctValues(
+        context,
+        ['methodologyTemplates', index, 'activityIds'],
+        template.activityIds,
+        'template activity IDs',
+      );
+      ensureDistinctValues(
+        context,
+        ['methodologyTemplates', index, 'expectedOutputTypes'],
+        template.expectedOutputTypes,
+        'expected output types',
+      );
+      ensureDistinctValues(
+        context,
+        ['methodologyTemplates', index, 'requiredInformation'],
+        template.requiredInformation.map((item) => item.id),
+        'required information IDs',
+      );
+      ensureDistinctValues(
+        context,
+        ['methodologyTemplates', index, 'optionalInformation'],
+        template.optionalInformation.map((item) => item.id),
+        'optional information IDs',
+      );
+
+      template.stageIds.forEach((stageId, stageIndex) => {
+        ensureReference(
+          context,
+          ['methodologyTemplates', index, 'stageIds', stageIndex],
+          stageId,
+          methodologyStages,
+          'methodology stage',
+        );
+        if (methodologyStageById.get(stageId)?.templateId !== template.id) {
+          addIssue(
+            context,
+            ['methodologyTemplates', index, 'stageIds', stageIndex],
+            'References a stage from another methodology template.',
+          );
+        }
+      });
+      template.activityIds.forEach((activityId, activityIndex) => {
+        ensureReference(
+          context,
+          ['methodologyTemplates', index, 'activityIds', activityIndex],
+          activityId,
+          methodologyActivities,
+          'methodology activity',
+        );
+        if (
+          methodologyActivityById.get(activityId)?.templateId !== template.id
+        ) {
+          addIssue(
+            context,
+            ['methodologyTemplates', index, 'activityIds', activityIndex],
+            'References an activity from another methodology template.',
+          );
+        }
+      });
+    });
+
+    dataset.methodologyStages.forEach((stage, index) => {
+      ensureReference(
+        context,
+        ['methodologyStages', index, 'templateId'],
+        stage.templateId,
+        methodologyTemplates,
+        'methodology template',
+      );
+      ensureDistinctValues(
+        context,
+        ['methodologyStages', index, 'activityIds'],
+        stage.activityIds,
+        'stage activity IDs',
+      );
+      if (
+        !methodologyTemplateById
+          .get(stage.templateId)
+          ?.stageIds.includes(stage.id)
+      ) {
+        addIssue(
+          context,
+          ['methodologyStages', index, 'id'],
+          'Must be listed by its methodology template.',
+        );
+      }
+      stage.activityIds.forEach((activityId, activityIndex) => {
+        ensureReference(
+          context,
+          ['methodologyStages', index, 'activityIds', activityIndex],
+          activityId,
+          methodologyActivities,
+          'methodology activity',
+        );
+        const activity = methodologyActivityById.get(activityId);
+        if (
+          activity &&
+          (activity.stageId !== stage.id ||
+            activity.templateId !== stage.templateId)
+        ) {
+          addIssue(
+            context,
+            ['methodologyStages', index, 'activityIds', activityIndex],
+            'References an activity outside this stage or template.',
+          );
+        }
+      });
+    });
+
+    dataset.methodologyActivities.forEach((activity, index) => {
+      ensureReference(
+        context,
+        ['methodologyActivities', index, 'templateId'],
+        activity.templateId,
+        methodologyTemplates,
+        'methodology template',
+      );
+      ensureReference(
+        context,
+        ['methodologyActivities', index, 'stageId'],
+        activity.stageId,
+        methodologyStages,
+        'methodology stage',
+      );
+      const stage = methodologyStageById.get(activity.stageId);
+      const template = methodologyTemplateById.get(activity.templateId);
+      if (stage && stage.templateId !== activity.templateId) {
+        addIssue(
+          context,
+          ['methodologyActivities', index, 'stageId'],
+          'References a stage from another methodology template.',
+        );
+      }
+      if (template && !template.activityIds.includes(activity.id)) {
+        addIssue(
+          context,
+          ['methodologyActivities', index, 'id'],
+          'Must be listed by its methodology template.',
+        );
+      }
+      if (stage && !stage.activityIds.includes(activity.id)) {
+        addIssue(
+          context,
+          ['methodologyActivities', index, 'id'],
+          'Must be listed by its methodology stage.',
+        );
+      }
+    });
+
+    const activeMethodologyRunByEngagement = new Map<string, string>();
+    dataset.engagementMethodologyRuns.forEach((run, index) => {
+      ensureReference(
+        context,
+        ['engagementMethodologyRuns', index, 'engagementId'],
+        run.engagementId,
+        engagements,
+        'engagement',
+      );
+      ensureReference(
+        context,
+        ['engagementMethodologyRuns', index, 'templateId'],
+        run.templateId,
+        methodologyTemplates,
+        'methodology template',
+      );
+      const template = methodologyTemplateById.get(run.templateId);
+      const engagement = engagementById.get(run.engagementId);
+      if (
+        template &&
+        (template.version !== run.templateVersion ||
+          template.name !== run.templateName)
+      ) {
+        addIssue(
+          context,
+          ['engagementMethodologyRuns', index, 'templateVersion'],
+          'Must retain the template version and name assigned to the engagement.',
+        );
+      }
+      if (
+        template &&
+        engagement &&
+        run.status !== 'promoted' &&
+        template.engagementType !== engagement.type
+      ) {
+        addIssue(
+          context,
+          ['engagementMethodologyRuns', index, 'templateId'],
+          'An active methodology run must match the engagement type.',
+        );
+      }
+      if (run.currentStageId) {
+        ensureReference(
+          context,
+          ['engagementMethodologyRuns', index, 'currentStageId'],
+          run.currentStageId,
+          methodologyStages,
+          'methodology stage',
+        );
+        if (
+          methodologyStageById.get(run.currentStageId)?.templateId !==
+          run.templateId
+        ) {
+          addIssue(
+            context,
+            ['engagementMethodologyRuns', index, 'currentStageId'],
+            'References a stage from another methodology template.',
+          );
+        }
+      }
+      if (run.promotedToRunId) {
+        ensureReference(
+          context,
+          ['engagementMethodologyRuns', index, 'promotedToRunId'],
+          run.promotedToRunId,
+          methodologyRuns,
+          'successor methodology run',
+        );
+        if (
+          methodologyRunById.get(run.promotedToRunId)?.engagementId !==
+          run.engagementId
+        ) {
+          addIssue(
+            context,
+            ['engagementMethodologyRuns', index, 'promotedToRunId'],
+            'References a methodology run from another engagement.',
+          );
+        }
+        const successorRun = methodologyRunById.get(run.promotedToRunId);
+        const successorTemplate = successorRun
+          ? methodologyTemplateById.get(successorRun.templateId)
+          : undefined;
+        if (
+          run.status === 'promoted' &&
+          successorTemplate?.engagementType !== 'Digital Diagnostic'
+        ) {
+          addIssue(
+            context,
+            ['engagementMethodologyRuns', index, 'promotedToRunId'],
+            'A preliminary site-walk promotion must create a Digital Diagnostic run.',
+          );
+        }
+      }
+      if (run.status === 'promoted') {
+        if (template?.engagementType !== 'Preliminary Site Walk') {
+          addIssue(
+            context,
+            ['engagementMethodologyRuns', index, 'templateId'],
+            'Only a Preliminary Site Walk methodology run can be promoted.',
+          );
+        }
+        if (run.currentStageId) {
+          addIssue(
+            context,
+            ['engagementMethodologyRuns', index, 'currentStageId'],
+            'A promoted methodology run cannot retain an active stage.',
+          );
+        }
+      } else if (run.promotedToRunId) {
+        addIssue(
+          context,
+          ['engagementMethodologyRuns', index, 'promotedToRunId'],
+          'Only a promoted methodology run can reference a successor.',
+        );
+      }
+      if (run.status === 'active' || run.status === 'paused') {
+        const existingRunId = activeMethodologyRunByEngagement.get(
+          run.engagementId,
+        );
+        if (existingRunId) {
+          addIssue(
+            context,
+            ['engagementMethodologyRuns', index, 'engagementId'],
+            'An engagement can only have one active or paused methodology run.',
+          );
+        } else {
+          activeMethodologyRunByEngagement.set(run.engagementId, run.id);
+        }
+      }
+    });
+
+    const activityStateKeys = new Set<string>();
+    dataset.engagementMethodologyActivities.forEach((activity, index) => {
+      ensureReference(
+        context,
+        ['engagementMethodologyActivities', index, 'engagementId'],
+        activity.engagementId,
+        engagements,
+        'engagement',
+      );
+      ensureReference(
+        context,
+        ['engagementMethodologyActivities', index, 'runId'],
+        activity.runId,
+        methodologyRuns,
+        'methodology run',
+      );
+      ensureReference(
+        context,
+        ['engagementMethodologyActivities', index, 'templateActivityId'],
+        activity.templateActivityId,
+        methodologyActivities,
+        'template activity',
+      );
+      ensureReference(
+        context,
+        ['engagementMethodologyActivities', index, 'stageId'],
+        activity.stageId,
+        methodologyStages,
+        'methodology stage',
+      );
+      const run = methodologyRunById.get(activity.runId);
+      const templateActivity = methodologyActivityById.get(
+        activity.templateActivityId,
+      );
+      if (run && run.engagementId !== activity.engagementId) {
+        addIssue(
+          context,
+          ['engagementMethodologyActivities', index, 'engagementId'],
+          'Must match the engagement of its methodology run.',
+        );
+      }
+      if (
+        templateActivity &&
+        (templateActivity.stageId !== activity.stageId ||
+          templateActivity.templateId !== run?.templateId)
+      ) {
+        addIssue(
+          context,
+          ['engagementMethodologyActivities', index, 'templateActivityId'],
+          'Must match the template and stage of its methodology run.',
+        );
+      }
+      if (
+        templateActivity?.requirement === 'required' &&
+        activity.status === 'skipped'
+      ) {
+        addIssue(
+          context,
+          ['engagementMethodologyActivities', index, 'status'],
+          'Required methodology activities cannot be skipped.',
+        );
+      }
+      if (activity.completedByUserId) {
+        ensureReference(
+          context,
+          ['engagementMethodologyActivities', index, 'completedByUserId'],
+          activity.completedByUserId,
+          users,
+          'completing user',
+        );
+      }
+      if (activity.skippedByUserId) {
+        ensureReference(
+          context,
+          ['engagementMethodologyActivities', index, 'skippedByUserId'],
+          activity.skippedByUserId,
+          users,
+          'skipping user',
+        );
+      }
+      if (activity.reopenedByUserId) {
+        ensureReference(
+          context,
+          ['engagementMethodologyActivities', index, 'reopenedByUserId'],
+          activity.reopenedByUserId,
+          users,
+          'reopening user',
+        );
+      }
+      const activityStateKey = `${activity.runId}:${activity.templateActivityId}`;
+      if (activityStateKeys.has(activityStateKey)) {
+        addIssue(
+          context,
+          ['engagementMethodologyActivities', index, 'templateActivityId'],
+          'An activity can only have one state in a methodology run.',
+        );
+      } else {
+        activityStateKeys.add(activityStateKey);
+      }
+    });
+
+    dataset.engagementMethodologyRuns.forEach((run, index) => {
+      const template = methodologyTemplateById.get(run.templateId);
+      if (!template) {
+        return;
+      }
+      template.activityIds.forEach((activityId, activityIndex) => {
+        if (!activityStateKeys.has(`${run.id}:${activityId}`)) {
+          addIssue(
+            context,
+            [
+              'engagementMethodologyRuns',
+              index,
+              'templateId',
+              activityIndex,
+            ],
+            'Must create a state for each activity in the assigned template.',
+          );
+        }
+      });
     });
 
     dataset.outputs.forEach((output, index) => {

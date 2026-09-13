@@ -9,6 +9,7 @@ import type {
 
 export const workspacePermissions = [
   'context:write',
+  'methodology:write',
   'fieldwork:write',
   'diagnostic:write',
   'opportunity:write',
@@ -31,6 +32,7 @@ export interface PermissionContext {
 
 const engagementScopedPermissions = new Set<WorkspacePermission>([
   'context:write',
+  'methodology:write',
   'fieldwork:write',
   'diagnostic:write',
   'opportunity:write',
@@ -192,12 +194,15 @@ export function canUserPerform(
   }
 
   if (user.role === 'consultant') {
-    return permission === 'fieldwork:write';
+    return (
+      permission === 'fieldwork:write' || permission === 'methodology:write'
+    );
   }
 
   if (user.role === 'analyst') {
     return (
       permission === 'diagnostic:write' ||
+      permission === 'methodology:write' ||
       permission === 'opportunity:write' ||
       permission === 'output:write' ||
       permission === 'output:submit-for-review' ||

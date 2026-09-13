@@ -42,6 +42,7 @@ export const engagementStatuses = [
   'planned',
   'active',
   'at-risk',
+  'paused',
   'completed',
 ] as const;
 export type EngagementStatus = (typeof engagementStatuses)[number];
@@ -345,11 +346,92 @@ export const outputStatuses = [
 ] as const;
 export type OutputStatus = (typeof outputStatuses)[number];
 
+export const methodologyTemplateStatuses = [
+  'draft',
+  'active',
+  'retired',
+] as const;
+export type MethodologyTemplateStatus =
+  (typeof methodologyTemplateStatuses)[number];
+
+export const methodologyRunStatuses = [
+  'active',
+  'paused',
+  'completed',
+  'promoted',
+] as const;
+export type MethodologyRunStatus = (typeof methodologyRunStatuses)[number];
+
+export const methodologyActivityRequirements = [
+  'required',
+  'optional',
+] as const;
+export type MethodologyActivityRequirement =
+  (typeof methodologyActivityRequirements)[number];
+
+export const methodologyActivityStatuses = [
+  'not-started',
+  'in-progress',
+  'completed',
+  'skipped',
+] as const;
+export type MethodologyActivityStatus =
+  (typeof methodologyActivityStatuses)[number];
+
+export const methodologyActivityTypes = [
+  'context',
+  'fieldwork',
+  'mapping',
+  'evidence',
+  'assessment',
+  'analysis',
+  'prioritisation',
+  'output',
+  'decision',
+] as const;
+export type MethodologyActivityType =
+  (typeof methodologyActivityTypes)[number];
+
+export const methodologyLinkedDomains = [
+  'engagement',
+  'site',
+  'area',
+  'process',
+  'system',
+  'data-object',
+  'role',
+  'site-walk',
+  'observation',
+  'evidence',
+  'friction-item',
+  'diagnostic',
+  'assessment',
+  'finding',
+  'opportunity',
+  'initiative',
+  'output',
+  'action',
+] as const;
+export type MethodologyLinkedDomain =
+  (typeof methodologyLinkedDomains)[number];
+
+export const methodologyCompletionRuleTypes = [
+  'all-required-activities',
+  'minimum-linked-records',
+] as const;
+export type MethodologyCompletionRuleType =
+  (typeof methodologyCompletionRuleTypes)[number];
+
 export const activityActions = [
   'created',
   'updated',
   'assigned',
   'status-changed',
+  'completed',
+  'skipped',
+  'reopened',
+  'paused',
+  'resumed',
   'submitted-for-review',
   'approved',
   'published',
@@ -379,6 +461,8 @@ export const activityEntityTypes = [
   'delivery-action',
   'benefit-measurement',
   'output',
+  'methodology-run',
+  'methodology-activity',
 ] as const;
 export type ActivityEntityType = (typeof activityEntityTypes)[number];
 
@@ -457,7 +541,7 @@ export interface Engagement extends BaseEntity {
   siteIds: EntityId[];
   name: string;
   description: string;
-  type: string;
+  type: EngagementType;
   objectives?: string;
   scope?: string;
   commercialContext?: string;
@@ -813,6 +897,89 @@ export interface Output extends BaseEntity {
   internalNotes?: string;
 }
 
+export interface MethodologyInformationRequirement {
+  id: string;
+  label: string;
+  description: string;
+  linkedDomain: MethodologyLinkedDomain;
+  minimumCount?: number;
+}
+
+export interface MethodologyCompletionRule {
+  id: string;
+  type: MethodologyCompletionRuleType;
+  description: string;
+  linkedDomain?: MethodologyLinkedDomain;
+  minimumCount?: number;
+}
+
+export interface MethodologyTemplate extends BaseEntity {
+  name: string;
+  description: string;
+  engagementType: EngagementType;
+  version: string;
+  status: MethodologyTemplateStatus;
+  stageIds: EntityId[];
+  activityIds: EntityId[];
+  prompts: string[];
+  requiredInformation: MethodologyInformationRequirement[];
+  optionalInformation: MethodologyInformationRequirement[];
+  expectedOutputTypes: OutputType[];
+}
+
+export interface MethodologyStage extends BaseEntity {
+  templateId: EntityId;
+  name: string;
+  description: string;
+  order: number;
+  completionRules: MethodologyCompletionRule[];
+  activityIds: EntityId[];
+}
+
+export interface MethodologyActivity extends BaseEntity {
+  templateId: EntityId;
+  stageId: EntityId;
+  name: string;
+  description: string;
+  activityType: MethodologyActivityType;
+  requirement: MethodologyActivityRequirement;
+  completionCriteria: string[];
+  linkedDomain: MethodologyLinkedDomain;
+  prompts: string[];
+  guidance: string[];
+}
+
+export interface EngagementMethodologyRun extends BaseEntity {
+  engagementId: EntityId;
+  templateId: EntityId;
+  templateVersion: string;
+  templateName: string;
+  status: MethodologyRunStatus;
+  startedAt: IsoDateTimeString;
+  currentStageId?: EntityId;
+  pausedAt?: IsoDateTimeString;
+  pausedReason?: string;
+  completedAt?: IsoDateTimeString;
+  promotedToRunId?: EntityId;
+}
+
+export interface EngagementMethodologyActivity extends BaseEntity {
+  engagementId: EntityId;
+  runId: EntityId;
+  templateActivityId: EntityId;
+  stageId: EntityId;
+  status: MethodologyActivityStatus;
+  completedAt?: IsoDateTimeString;
+  completedByUserId?: EntityId;
+  completionNote?: string;
+  skippedAt?: IsoDateTimeString;
+  skippedByUserId?: EntityId;
+  skipReason?: string;
+  reopenedAt?: IsoDateTimeString;
+  reopenedByUserId?: EntityId;
+  reopenReason?: string;
+}
+
 export interface ActivityEvent extends BaseEntity {
   actorUserId: EntityId;
   occurredAt: IsoDateTimeString;
@@ -850,6 +1017,11 @@ export interface FabricDataset {
   deliveryActions: DeliveryAction[];
   benefitMeasurements: BenefitMeasurement[];
   outputs: Output[];
+  methodologyTemplates: MethodologyTemplate[];
+  methodologyStages: MethodologyStage[];
+  methodologyActivities: MethodologyActivity[];
+  engagementMethodologyRuns: EngagementMethodologyRun[];
+  engagementMethodologyActivities: EngagementMethodologyActivity[];
   activityEvents: ActivityEvent[];
 }
 

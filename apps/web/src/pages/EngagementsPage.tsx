@@ -179,10 +179,11 @@ export function EngagementsPage() {
                   onChange={setStatusFilter}
                   allLabel="All statuses"
                   options={[
-                    { value: 'active', label: 'Active' },
-                    { value: 'planning', label: 'Planning' },
-                    { value: 'at-risk', label: 'At risk' },
-                    { value: 'completed', label: 'Completed' },
+                    { value: 'Active', label: 'Active' },
+                    { value: 'Planned', label: 'Planned' },
+                    { value: 'At Risk', label: 'At risk' },
+                    { value: 'Paused', label: 'Paused' },
+                    { value: 'Completed', label: 'Completed' },
                   ]}
                 />
               </ToolbarGroup>

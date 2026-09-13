@@ -88,6 +88,26 @@ describe('internal workspace access policy', () => {
     ).toThrow('read only role');
   });
 
+  it('permits methodology activity work without exposing methodology lifecycle controls', () => {
+    const lead = fixtureUser('user-amy-wilkinson');
+    const consultant = fixtureUser('user-sarah-mitchell');
+    const analyst = fixtureUser('user-james-carter');
+    const reviewer = fixtureUser('user-nadia-khan');
+    const northbank = fixtureEngagement('engagement-northbank-diagnostic');
+    const airedale = fixtureEngagement('engagement-airedale-discovery');
+
+    expect(
+      canUserPerform(lead, 'methodology:write', { engagement: northbank }),
+    ).toBe(true);
+    expect(
+      canUserPerform(lead, 'methodology:write', { engagement: airedale }),
+    ).toBe(false);
+    expect(canUserPerform(consultant, 'methodology:write')).toBe(true);
+    expect(canUserPerform(analyst, 'methodology:write')).toBe(true);
+    expect(canUserPerform(reviewer, 'methodology:write')).toBe(false);
+    expect(canUserPerform(consultant, 'context:write')).toBe(false);
+  });
+
   it('requires elevated permissions for client-facing and archived visibility', () => {
     expect(permissionForVisibilityTransition(undefined, 'internal')).toBe(
       undefined,

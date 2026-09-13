@@ -20,6 +20,7 @@ import {
   ToolbarGroup,
 } from '@ui';
 import { FabricDataView } from '@app/features/fabric-data/FabricDataView';
+import { useFabricData } from '@app/features/fabric-data/FabricDataContext';
 import {
   EvidenceForm,
   FrictionForm,
@@ -390,10 +391,29 @@ export function SiteWalksPage() {
 
 export function SiteWalkWorkspacePage() {
   const { siteWalkId } = useParams();
+  const navigate = useNavigate();
+  const { canPerform, promotePreliminarySiteWalk } = useFabricData();
   const [editingSheetOpen, setEditingSheetOpen] = useState(false);
   const [capture, setCapture] = useState<
     'observation' | 'evidence' | 'friction' | null
   >(null);
+  const [promotionError, setPromotionError] = useState<string | null>(null);
+
+  async function promote(siteWalkIdToPromote: string) {
+    setPromotionError(null);
+    try {
+      const promotedEngagement = await promotePreliminarySiteWalk(
+        siteWalkIdToPromote,
+      );
+      navigate(`/engagements/${promotedEngagement.id}`);
+    } catch (caughtError) {
+      setPromotionError(
+        caughtError instanceof Error
+          ? caughtError.message
+          : 'Unable to promote the preliminary site walk.',
+      );
+    }
+  }
 
   return (
     <FabricDataView
@@ -426,6 +446,12 @@ export function SiteWalkWorkspacePage() {
         const engagement = loadedDataset.engagements.find(
           (item) => item.id === walk.engagementId,
         );
+        const canPromote =
+          engagement?.type === 'Preliminary Site Walk' &&
+          walk.walkType === 'Preliminary Site Walk' &&
+          (walk.status === 'completed' || walk.status === 'needs-follow-up') &&
+          walk.recommendDiagnostic === true &&
+          canPerform('context:write', engagement.id);
         return (
           <>
             <PageHeader
@@ -447,6 +473,14 @@ export function SiteWalkWorkspacePage() {
                   <Button variant="secondary" onClick={() => setCapture('evidence')}>
                     + Attach evidence
                   </Button>
+                  {canPromote ? (
+                    <Button
+                      onClick={() => void promote(walk.id)}
+                      variant="secondary"
+                    >
+                      Promote to Digital Diagnostic
+                    </Button>
+                  ) : null}
                 </div>
               }
             />
@@ -465,6 +499,12 @@ export function SiteWalkWorkspacePage() {
                 {walk.status}
               </Badge>
             </div>
+
+            {promotionError ? (
+              <p className="form-error" role="alert">
+                {promotionError}
+              </p>
+            ) : null}
 
             <Tabs defaultValue="findings" variant="pills" style={{ marginTop: 16 }}>
               <TabsList>

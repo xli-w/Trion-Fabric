@@ -13,7 +13,7 @@ import type {
   VisibilityScope,
   WorkspacePermission,
 } from '@domain';
-import { canUserPerform } from '@domain';
+import { buildEngagementContext, canUserPerform } from '@domain';
 
 export type DisplayTone =
   | 'neutral'
@@ -941,6 +941,11 @@ export function buildEngagementCommandCentre(
     return undefined;
   }
 
+  const engagementContext = buildEngagementContext(dataset, engagement.id);
+  const methodology = engagementContext?.internal?.methodology;
+  const activeMethodologyProgress = methodology?.runs.find(
+    (run) => run.id === methodology.activeRunId,
+  )?.progress;
   const maps = createMaps(dataset);
   const client = maps.clients.get(engagement.clientId);
   const sites = engagement.siteIds.flatMap((siteId) => {
@@ -1163,6 +1168,13 @@ export function buildEngagementCommandCentre(
       total: outputs.length,
       detail: 'Controlled outputs with explicit approval.',
     },
+    {
+      label: 'Methodology stages meaningfully complete',
+      complete: activeMethodologyProgress?.meaningfulStageCount ?? 0,
+      total: activeMethodologyProgress?.totalStageCount ?? 0,
+      detail:
+        'Checklist activity is tested against connected supporting records.',
+    },
   ];
   const progressTotal = progress.reduce((total, item) => total + item.total, 0);
   const progressComplete = progress.reduce(
@@ -1204,6 +1216,7 @@ export function buildEngagementCommandCentre(
     progressComplete,
     progressTotal,
     siteWalks,
+    methodology,
     coverage: {
       areas: areasCovered,
       processes: processesCovered,
