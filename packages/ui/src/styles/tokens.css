@@ -1,0 +1,41 @@
+:root {
+  color-scheme: dark;
+  --fabric-font-sans: 'Aptos', 'IBM Plex Sans', 'Segoe UI Variable', 'Segoe UI', sans-serif;
+  --fabric-font-display: 'Aptos Display', 'IBM Plex Sans', 'Segoe UI Variable', 'Segoe UI', sans-serif;
+
+  --fabric-shell: #10161d;
+  --fabric-shell-elevated: #151d26;
+  --fabric-shell-border: rgba(255, 255, 255, 0.08);
+  --fabric-main-bg: #edf0f3;
+  --fabric-surface: #ffffff;
+  --fabric-surface-alt: #f6f8fa;
+  --fabric-surface-strong: #dce2e8;
+  --fabric-border: rgba(16, 22, 29, 0.1);
+  --fabric-border-strong: rgba(16, 22, 29, 0.18);
+
+  --fabric-text: #16202b;
+  --fabric-text-soft: #4f6276;
+  --fabric-text-inverse: #f7fafc;
+
+  --fabric-accent: #1d7f73;
+  --fabric-accent-soft: rgba(29, 127, 115, 0.12);
+  --fabric-success: #218a57;
+  --fabric-success-soft: rgba(33, 138, 87, 0.12);
+  --fabric-warning: #b17318;
+  --fabric-warning-soft: rgba(177, 115, 24, 0.14);
+  --fabric-danger: #ba4d4d;
+  --fabric-danger-soft: rgba(186, 77, 77, 0.12);
+
+  --fabric-shadow: 0 22px 60px rgba(11, 17, 24, 0.12);
+  --fabric-radius-lg: 20px;
+  --fabric-radius-md: 14px;
+  --fabric-radius-sm: 10px;
+  --fabric-space-1: 4px;
+  --fabric-space-2: 8px;
+  --fabric-space-3: 12px;
+  --fabric-space-4: 16px;
+  --fabric-space-5: 20px;
+  --fabric-space-6: 24px;
+  --fabric-space-7: 32px;
+  --fabric-space-8: 40px;
+}
