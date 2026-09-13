@@ -16,6 +16,7 @@ import type {
   OpportunityPriorityCategory,
   OpportunityType,
   ReviewStatus,
+  VisibilityScope,
 } from '@domain';
 import {
   Badge,
@@ -75,6 +76,12 @@ const approvalStates: ApprovalState[] = [
   'internal-review',
   'approved',
   'rejected',
+];
+const visibilityScopes: VisibilityScope[] = [
+  'internal',
+  'draft-client-facing',
+  'approved-client-facing',
+  'archived',
 ];
 const reviewStatuses: ReviewStatus[] = ['draft', 'reviewed', 'approved'];
 const matrixCells: Array<{
@@ -182,6 +189,9 @@ function OpportunityForm({
   const [approvalState, setApprovalState] = useState<ApprovalState>(
     opportunity?.approvalState ?? 'draft',
   );
+  const [visibility, setVisibility] = useState<VisibilityScope>(
+    opportunity?.visibility ?? 'internal',
+  );
   const [reviewStatus, setReviewStatus] = useState<ReviewStatus>(
     opportunity?.reviewStatus ?? 'draft',
   );
@@ -258,6 +268,7 @@ function OpportunityForm({
         evidenceIds: parsedEvidenceIds,
         ownerUserId: opportunity?.ownerUserId,
         approvalState,
+        visibility,
         diagnosticId: opportunity?.diagnosticId,
         currentSituation,
         identifiedIssue,
@@ -280,8 +291,7 @@ function OpportunityForm({
         clientSummary: clientSummary || undefined,
       };
       const saved = opportunity
-        ? (await updateOpportunity({ ...opportunity, ...input }),
-          { ...opportunity, ...input })
+        ? await updateOpportunity({ ...opportunity, ...input })
         : await createOpportunity(input);
       onSaved?.(saved);
     } catch (caught) {
@@ -295,6 +305,19 @@ function OpportunityForm({
 
   return (
     <form className="entity-form" onSubmit={submit}>
+      {!opportunity ? (
+        <p className="body-copy body-copy--small">
+          New opportunities always begin as internal drafts. Submit reviewed
+          content for approval only after it has been saved.
+        </p>
+      ) : opportunity.visibility === 'approved-client-facing' ? (
+        <p className="body-copy body-copy--small">
+          Saving substantive changes creates an internal draft revision and
+          removes its current client-facing approval. Create a new opportunity
+          instead when this record is already a source for an approved output
+          or delivery initiative.
+        </p>
+      ) : null}
       <div className="form-grid">
         <Field label="Engagement">
           <select
@@ -448,6 +471,18 @@ function OpportunityForm({
             }
           >
             {approvalStates.map((item) => (
+              <option key={item}>{item}</option>
+            ))}
+          </select>
+        </Field>
+        <Field label="Visibility">
+          <select
+            value={visibility}
+            onChange={(event) =>
+              setVisibility(event.target.value as VisibilityScope)
+            }
+          >
+            {visibilityScopes.map((item) => (
               <option key={item}>{item}</option>
             ))}
           </select>
@@ -802,6 +837,25 @@ export function OpportunitiesPage() {
                       ),
                     },
                     {
+                      key: 'visibility',
+                      header: 'Visibility',
+                      render: (row) => (
+                        <Badge
+                          tone={
+                            row.isArchived
+                              ? 'neutral'
+                              : row.visibility === 'Approved client-facing'
+                                ? 'success'
+                                : row.visibility === 'Draft client-facing'
+                                  ? 'warning'
+                                  : 'neutral'
+                          }
+                        >
+                          {row.visibility}
+                        </Badge>
+                      ),
+                    },
+                    {
                       key: 'evidence',
                       header: 'Evidence',
                       sortable: true,
@@ -832,7 +886,9 @@ export function OpportunitiesPage() {
                 description="High impact / low effort indicates a Quick Win; high impact / high effort indicates a Strategic Project. Filter by quadrant or click any opportunity to inspect."
               >
                 <OpportunityMatrix
-                  opportunities={dataset.opportunities.map((op) => ({
+                  opportunities={dataset.opportunities
+                    .filter((op) => op.visibility !== 'archived')
+                    .map((op) => ({
                     id: op.id,
                     title: op.title,
                     type: op.type,
@@ -843,7 +899,7 @@ export function OpportunitiesPage() {
                     approvalStatus: op.approvalState,
                     estimatedSaving: op.potentialBenefits ? op.potentialBenefits.slice(0, 30) : undefined,
                     rationale: op.whyItMatters || op.description,
-                  }))}
+                    }))}
                   selectedOpportunityId={selectedOpportunityId}
                   onSelectOpportunity={(op) => setSelectedOpportunityId(op.id)}
                 />

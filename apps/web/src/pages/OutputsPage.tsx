@@ -1,7 +1,9 @@
+import { useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
 
-import { Badge, Card, DataTable, PageHeader, StatCard } from '@ui';
+import { Badge, Button, Card, DataTable, PageHeader, StatCard } from '@ui';
 import { FabricDataView } from '@app/features/fabric-data/FabricDataView';
+import { useFabricData } from '@app/features/fabric-data/FabricDataContext';
 import { buildOutputsViewModel } from '@app/features/fabric-data/selectors';
 
 const coreDeliverableCount = 5;
@@ -9,7 +11,7 @@ const coreDeliverableCount = 5;
 const governanceNotes = [
   'Draft and internal-review outputs stay internal even when their source material is useful.',
   'Approved and published outputs are checked against approved, engagement-scoped source records.',
-  'Published outputs require an approval record, an approval timestamp, client-shareable visibility, and a publication timestamp.',
+  'Published outputs require an approval record, an approval timestamp, approved client-facing visibility, and a publication timestamp.',
   'Internal notes and working assumptions remain excluded from this controlled output view.',
 ];
 
@@ -106,14 +108,14 @@ export function OutputsPage() {
               description="Outputs are governed projections of structured engagement information, not a separate document store."
               metadata={[
                 'Draft → review → approved → published',
-                'Internal vs client-shareable',
+                'Internal, draft, approved, or archived',
                 'Approved source data',
               ]}
             />
 
             <section className="metric-grid metric-grid--compact">
               <StatCard
-                detail="Approved or published outputs with explicit client-shareable visibility."
+                detail="Approved or published outputs with explicit approved client-facing visibility."
                 label="Ready to share"
                 tone="success"
                 value={String(viewModel.readyToShareCount)}
@@ -218,6 +220,8 @@ export function OutputsPage() {
 
 export function OutputDetailPage() {
   const { outputId } = useParams();
+  const { canPerform, updateOutput } = useFabricData();
+  const [transitionError, setTransitionError] = useState<string | null>(null);
 
   return (
     <FabricDataView
@@ -242,17 +246,56 @@ export function OutputDetailPage() {
           );
         }
 
+        const controlledOutput = output;
         const createdBy = dataset.users.find(
-          (item) => item.id === output.createdByUserId,
+          (item) => item.id === controlledOutput.createdByUserId,
         );
-        const approvedBy = output.approvedByUserId
-          ? dataset.users.find((item) => item.id === output.approvedByUserId)
+        const approvedBy = controlledOutput.approvedByUserId
+          ? dataset.users.find(
+              (item) => item.id === controlledOutput.approvedByUserId,
+            )
           : undefined;
-        const row = buildOutputsViewModel({ ...dataset, outputs: [output] })
-          .rows[0];
-        const sources = output.sourceReferences.map((sourceId) =>
+        const row = buildOutputsViewModel({
+          ...dataset,
+          outputs: [controlledOutput],
+        }).rows[0];
+        const sources = controlledOutput.sourceReferences.map((sourceId) =>
           sourceSummary(dataset, sourceId),
         );
+        const canSubmitForReview = canPerform(
+          'output:submit-for-review',
+          controlledOutput.engagementId,
+        );
+        const canEditDraft = canPerform(
+          'output:write',
+          controlledOutput.engagementId,
+        );
+        const canApprove = canPerform(
+          'output:approve',
+          controlledOutput.engagementId,
+        );
+        const canPublish = canPerform(
+          'output:publish',
+          controlledOutput.engagementId,
+        );
+        const canArchive = canPerform(
+          'output:archive',
+          controlledOutput.engagementId,
+        );
+
+        async function transitionTo(status: typeof controlledOutput.status) {
+          setTransitionError(null);
+
+          try {
+            await updateOutput({ ...controlledOutput, status });
+          } catch (caught) {
+            setTransitionError(
+              caught instanceof Error
+                ? caught.message
+                : 'Unable to update the controlled output.',
+            );
+          }
+        }
 
         return (
           <>
@@ -268,7 +311,52 @@ export function OutputDetailPage() {
             />
 
             <section className="content-grid content-grid--two">
-              <Card title="Publication governance">
+              <Card
+                actions={
+                  <div className="output-transition-actions">
+                    {output.status === 'draft' && canSubmitForReview ? (
+                      <Button
+                        onClick={() => void transitionTo('internal-review')}
+                        variant="secondary"
+                      >
+                        Submit for review
+                      </Button>
+                    ) : null}
+                    {output.status === 'internal-review' && canEditDraft ? (
+                      <Button
+                        onClick={() => void transitionTo('draft')}
+                        variant="ghost"
+                      >
+                        Return to draft
+                      </Button>
+                    ) : null}
+                    {output.status === 'internal-review' && canApprove ? (
+                      <Button onClick={() => void transitionTo('approved')}>
+                        Approve output
+                      </Button>
+                    ) : null}
+                    {output.status === 'approved' && canPublish ? (
+                      <Button onClick={() => void transitionTo('published')}>
+                        Publish output
+                      </Button>
+                    ) : null}
+                    {output.status !== 'archived' && canArchive ? (
+                      <Button
+                        onClick={() => void transitionTo('archived')}
+                        variant="ghost"
+                      >
+                        Archive output
+                      </Button>
+                    ) : null}
+                  </div>
+                }
+                title="Publication governance"
+              >
+                {transitionError ? (
+                  <p className="form-error" role="alert">
+                    {transitionError}
+                  </p>
+                ) : null}
                 <dl className="detail-list">
                   <dt>Status</dt>
                   <dd>

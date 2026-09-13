@@ -55,7 +55,7 @@ tests/
 - Structured information before documents.
 - One source of truth for connected transformation knowledge.
 - Human-reviewed AI outputs, never silent fact fabrication.
-- Internal working data and client-shareable outputs are deliberately separate.
+- Internal working data and approved client-facing outputs are deliberately separate.
 - Modular monolith structure before distributed complexity.
 
 ## Run The Project

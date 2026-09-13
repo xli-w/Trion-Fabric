@@ -40,6 +40,8 @@
   --fabric-shell: #10161d;
   --fabric-shell-elevated: #151d26;
   --fabric-shell-border: rgba(255, 255, 255, 0.08);
+  --fabric-shell-text: #ffffff;
+  --fabric-shell-text-soft: #b8c2ce;
   --fabric-main-bg: #edf0f3;
   --fabric-surface: #ffffff;
   --fabric-surface-alt: #f6f8fa;
@@ -77,6 +79,8 @@
   --fabric-shell: #10161d;
   --fabric-shell-elevated: #151d26;
   --fabric-shell-border: rgba(255, 255, 255, 0.08);
+  --fabric-shell-text: #ffffff;
+  --fabric-shell-text-soft: #b8c2ce;
   --fabric-main-bg: #edf0f3;
   --fabric-surface: #ffffff;
   --fabric-surface-alt: #f6f8fa;
@@ -114,6 +118,8 @@
   --fabric-shell: #000000;
   --fabric-shell-elevated: #09090d;
   --fabric-shell-border: rgba(255, 255, 255, 0.1);
+  --fabric-shell-text: #ffffff;
+  --fabric-shell-text-soft: #9ca3af;
   --fabric-main-bg: #000000;
   --fabric-surface: #0a0a0f;
   --fabric-surface-alt: #12121a;

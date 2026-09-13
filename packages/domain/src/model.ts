@@ -12,12 +12,11 @@ export type TransformationStage = (typeof transformationStages)[number];
 
 export const userRoles = [
   'administrator',
+  'engagement-lead',
   'consultant',
-  'project-lead',
   'analyst',
-  'technical-delivery',
-  'management',
-  'client-user',
+  'reviewer',
+  'read-only',
 ] as const;
 export type UserRole = (typeof userRoles)[number];
 
@@ -197,7 +196,12 @@ export const evidenceKinds = [
 ] as const;
 export type EvidenceKind = (typeof evidenceKinds)[number];
 
-export const visibilityScopes = ['internal', 'client-shareable'] as const;
+export const visibilityScopes = [
+  'internal',
+  'draft-client-facing',
+  'approved-client-facing',
+  'archived',
+] as const;
 export type VisibilityScope = (typeof visibilityScopes)[number];
 
 export const approvalStates = [
@@ -340,6 +344,43 @@ export const outputStatuses = [
   'archived',
 ] as const;
 export type OutputStatus = (typeof outputStatuses)[number];
+
+export const activityActions = [
+  'created',
+  'updated',
+  'assigned',
+  'status-changed',
+  'submitted-for-review',
+  'approved',
+  'published',
+  'archived',
+  'converted-from-preliminary-site-walk-to-diagnostic',
+] as const;
+export type ActivityAction = (typeof activityActions)[number];
+
+export const activityEntityTypes = [
+  'client',
+  'site',
+  'engagement',
+  'site-walk',
+  'observation',
+  'evidence',
+  'friction-item',
+  'diagnostic',
+  'assessment',
+  'finding',
+  'landscape-entity',
+  'landscape-relationship',
+  'opportunity',
+  'action',
+  'initiative',
+  'roadmap',
+  'milestone',
+  'delivery-action',
+  'benefit-measurement',
+  'output',
+] as const;
+export type ActivityEntityType = (typeof activityEntityTypes)[number];
 
 export const relatedEntityTypes = [
   'engagement',
@@ -631,6 +672,7 @@ export interface Opportunity extends BaseEntity {
   internalNotes?: string;
   clientSummary?: string;
   approvalState: ApprovalState;
+  visibility: VisibilityScope;
   currentSituation?: string;
   identifiedIssue?: string;
   whyItMatters?: string;
@@ -771,6 +813,17 @@ export interface Output extends BaseEntity {
   internalNotes?: string;
 }
 
+export interface ActivityEvent extends BaseEntity {
+  actorUserId: EntityId;
+  occurredAt: IsoDateTimeString;
+  engagementId?: EntityId;
+  entityId: EntityId;
+  entityType: ActivityEntityType;
+  action: ActivityAction;
+  summary: string;
+  metadata: Record<string, string>;
+}
+
 export interface FabricDataset {
   users: User[];
   clients: Client[];
@@ -797,6 +850,7 @@ export interface FabricDataset {
   deliveryActions: DeliveryAction[];
   benefitMeasurements: BenefitMeasurement[];
   outputs: Output[];
+  activityEvents: ActivityEvent[];
 }
 
 export interface RepositorySource {

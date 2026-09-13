@@ -11,6 +11,7 @@ import type {
   ReviewStatus,
   RoadmapPhase,
 } from '@domain';
+import { isOpportunityReadyForDelivery as isApprovedOpportunityReadyForDelivery } from '@domain';
 import { Button } from '@ui';
 
 import { useFabricData } from '@app/features/fabric-data/FabricDataContext';
@@ -96,17 +97,7 @@ function FormShell({
 export function isOpportunityReadyForDelivery(
   opportunity: Opportunity,
 ): boolean {
-  return (
-    (opportunity.status === 'approved' ||
-      opportunity.status === 'in-delivery' ||
-      opportunity.status === 'closed') &&
-    opportunity.approvalState === 'approved' &&
-    opportunity.reviewStatus === 'approved' &&
-    (opportunity.evidenceIds.length > 0 ||
-      (opportunity.relatedObservationIds?.length ?? 0) > 0 ||
-      (opportunity.relatedFindingIds?.length ?? 0) > 0) &&
-    Boolean(opportunity.clientSummary)
-  );
+  return isApprovedOpportunityReadyForDelivery(opportunity);
 }
 
 export function InitiativeForm({

@@ -10,20 +10,21 @@ import {
   OpportunityDetailPage,
 } from '@app/pages/OpportunitiesPage';
 import { OutputDetailPage, OutputsPage } from '@app/pages/OutputsPage';
-import { PlannedPage } from '@app/pages/PlannedPage';
 import { SiteWalksPage, SiteWalkWorkspacePage } from '@app/pages/SiteWalksPage';
 import { SiteDetailPage, SitesPage } from '@app/pages/SitesPage';
 import { DiagnosisPage } from '@app/pages/DiagnosisPage';
 import { LandscapePage } from '@app/pages/LandscapePage';
 import { InitiativeDetailPage, RoadmapPage } from '@app/pages/RoadmapPage';
 import { SettingsPage } from '@app/pages/SettingsPage';
+import { WorkspacePage } from '@app/pages/WorkspacePage';
 
 export function AppRouter() {
   return (
     <BrowserRouter>
       <Routes>
         <Route element={<AppShell />} path="/">
-          <Route element={<Navigate replace to="engagements" />} index />
+          <Route element={<Navigate replace to="workspace" />} index />
+          <Route element={<WorkspacePage />} path="workspace" />
           <Route element={<ClientsPage />} path="clients" />
           <Route element={<ClientDetailPage />} path="clients/:clientId" />
           <Route element={<SitesPage />} path="sites" />
@@ -54,7 +55,7 @@ export function AppRouter() {
           <Route element={<OutputDetailPage />} path="outputs/:outputId" />
           <Route element={<SettingsPage />} path="settings" />
         </Route>
-        <Route element={<Navigate replace to="/engagements" />} path="*" />
+        <Route element={<Navigate replace to="/workspace" />} path="*" />
       </Routes>
     </BrowserRouter>
   );

@@ -126,6 +126,50 @@ describe('Fabric dataset relationship and governance validation', () => {
     expect(hasIssueAtPath(result, 'outputs.1.approvedAt')).toBe(true);
   });
 
+  it('requires client-facing observations to be verified before approval', () => {
+    const dataset = copyDataset();
+    const observation = dataset.observations.find(
+      (item) => item.id === 'observation-paper-handover',
+    );
+    if (!observation)
+      throw new Error('Expected an observation requiring review.');
+
+    observation.visibility = 'approved-client-facing';
+
+    const result = fabricDatasetSchema.safeParse(dataset);
+
+    expect(result.success).toBe(false);
+    expect(hasIssueAtPath(result, 'observations.0.visibility')).toBe(true);
+  });
+
+  it('rejects client-facing opportunity visibility before approval', () => {
+    const dataset = copyDataset();
+    const opportunity = dataset.opportunities.find(
+      (item) => item.id === 'opportunity-standardise-receipts',
+    );
+    if (!opportunity) throw new Error('Expected a draft fixture opportunity.');
+
+    opportunity.visibility = 'approved-client-facing';
+
+    const result = fabricDatasetSchema.safeParse(dataset);
+
+    expect(result.success).toBe(false);
+    expect(hasIssueAtPath(result, 'opportunities.2.visibility')).toBe(true);
+  });
+
+  it('requires each activity event to retain a valid actor and entity reference', () => {
+    const dataset = copyDataset();
+    const activity = dataset.activityEvents[0];
+    if (!activity) throw new Error('Expected an activity event.');
+
+    activity.actorUserId = 'user-not-in-workspace';
+
+    const result = fabricDatasetSchema.safeParse(dataset);
+
+    expect(result.success).toBe(false);
+    expect(hasIssueAtPath(result, 'activityEvents.0.actorUserId')).toBe(true);
+  });
+
   it('requires observed values and dates before validating a benefit', () => {
     const dataset = copyDataset();
     const benefit = dataset.benefitMeasurements[0];

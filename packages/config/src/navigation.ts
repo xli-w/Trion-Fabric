@@ -14,6 +14,15 @@ export interface NavigationItem {
 
 export const fabricNavigation: NavigationItem[] = [
   {
+    key: 'workspace',
+    label: 'Workspace',
+    path: '/workspace',
+    description:
+      'Your active transformation work, review queue, upcoming fieldwork, and next useful action.',
+    routePrefixes: ['/workspace'],
+    sections: [{ label: 'Work queue', path: '/workspace' }],
+  },
+  {
     key: 'engagements',
     label: 'Client engagements',
     path: '/engagements',

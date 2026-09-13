@@ -2,6 +2,8 @@ import { z } from 'zod';
 
 import {
   actionStatuses,
+  activityActions,
+  activityEntityTypes,
   aiStatuses,
   approvalStates,
   clientStatuses,
@@ -28,6 +30,7 @@ import {
   engagementStatuses,
   evidenceKinds,
   informationOrigins,
+  isOpportunityReadyForDelivery,
   observationAssuranceLevels,
   observationSources,
   observationStatuses,
@@ -165,49 +168,102 @@ export const siteWalkSchema = baseEntitySchema.extend({
   followUpDate: z.string().optional(),
 });
 
-export const observationSchema = baseEntitySchema.extend({
-  siteWalkId: z.string().min(1),
-  processId: z.string().min(1).optional(),
-  summary: z.string().min(1),
-  detail: z.string().min(1),
-  observedAt: isoDateTimeSchema,
-  origin: z.enum(informationOrigins),
-  assurance: z.enum(observationAssuranceLevels),
-  visibility: z.enum(visibilityScopes),
-  aiStatus: z.enum(aiStatuses),
-  evidenceIds: z.array(z.string().min(1)),
-  title: z.string().min(1).optional(),
-  description: z.string().min(1).optional(),
-  observationType: z.enum(observationTypes).optional(),
-  areaId: z.string().min(1).optional(),
-  systemId: z.string().min(1).optional(),
-  stationOrLine: z.string().min(1).optional(),
-  source: z.enum(observationSources).optional(),
-  confidence: z.enum(confidenceLevels).optional(),
-  status: z.enum(observationStatuses).optional(),
-  recordedByUserId: z.string().min(1).optional(),
-  internalNotes: z.string().min(1).optional(),
-});
+export const observationSchema = baseEntitySchema
+  .extend({
+    siteWalkId: z.string().min(1),
+    processId: z.string().min(1).optional(),
+    summary: z.string().min(1),
+    detail: z.string().min(1),
+    observedAt: isoDateTimeSchema,
+    origin: z.enum(informationOrigins),
+    assurance: z.enum(observationAssuranceLevels),
+    visibility: z.enum(visibilityScopes),
+    aiStatus: z.enum(aiStatuses),
+    evidenceIds: z.array(z.string().min(1)),
+    title: z.string().min(1).optional(),
+    description: z.string().min(1).optional(),
+    observationType: z.enum(observationTypes).optional(),
+    areaId: z.string().min(1).optional(),
+    systemId: z.string().min(1).optional(),
+    stationOrLine: z.string().min(1).optional(),
+    source: z.enum(observationSources).optional(),
+    confidence: z.enum(confidenceLevels).optional(),
+    status: z.enum(observationStatuses).optional(),
+    recordedByUserId: z.string().min(1).optional(),
+    internalNotes: z.string().min(1).optional(),
+  })
+  .superRefine((observation, context) => {
+    if (
+      observation.visibility === 'approved-client-facing' &&
+      observation.status !== 'verified'
+    ) {
+      context.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ['visibility'],
+        message:
+          'Approved client-facing observations must be verified before sharing.',
+      });
+    }
 
-export const evidenceSchema = baseEntitySchema.extend({
-  relatedEntityId: z.string().min(1),
-  relatedEntityType: z.enum(relatedEntityTypes),
-  kind: z.enum(evidenceKinds),
-  title: z.string().min(1),
-  summary: z.string().min(1),
-  capturedAt: isoDateTimeSchema,
-  origin: z.enum(informationOrigins),
-  visibility: z.enum(visibilityScopes),
-  approvalState: z.enum(approvalStates),
-  observationId: z.string().min(1).optional(),
-  siteWalkId: z.string().min(1).optional(),
-  evidenceType: z.enum(evidenceTypes).optional(),
-  description: z.string().min(1).optional(),
-  fileReference: z.string().min(1).optional(),
-  source: z.enum(observationSources).optional(),
-  capturedByUserId: z.string().min(1).optional(),
-  reviewStatus: z.enum(evidenceReviewStatuses).optional(),
-});
+    if (
+      observation.visibility === 'approved-client-facing' &&
+      observation.assurance === 'assumption'
+    ) {
+      context.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ['assurance'],
+        message:
+          'Assumptions cannot be approved as client-facing observations.',
+      });
+    }
+
+    if (
+      observation.visibility === 'approved-client-facing' &&
+      (observation.aiStatus === 'suggested' || observation.aiStatus === 'rejected')
+    ) {
+      context.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ['aiStatus'],
+        message:
+          'Unreviewed or rejected AI content cannot be client-facing evidence.',
+      });
+    }
+  });
+
+export const evidenceSchema = baseEntitySchema
+  .extend({
+    relatedEntityId: z.string().min(1),
+    relatedEntityType: z.enum(relatedEntityTypes),
+    kind: z.enum(evidenceKinds),
+    title: z.string().min(1),
+    summary: z.string().min(1),
+    capturedAt: isoDateTimeSchema,
+    origin: z.enum(informationOrigins),
+    visibility: z.enum(visibilityScopes),
+    approvalState: z.enum(approvalStates),
+    observationId: z.string().min(1).optional(),
+    siteWalkId: z.string().min(1).optional(),
+    evidenceType: z.enum(evidenceTypes).optional(),
+    description: z.string().min(1).optional(),
+    fileReference: z.string().min(1).optional(),
+    source: z.enum(observationSources).optional(),
+    capturedByUserId: z.string().min(1).optional(),
+    reviewStatus: z.enum(evidenceReviewStatuses).optional(),
+  })
+  .superRefine((evidenceItem, context) => {
+    if (
+      evidenceItem.visibility === 'approved-client-facing' &&
+      (evidenceItem.approvalState !== 'approved' ||
+        evidenceItem.reviewStatus !== 'verified')
+    ) {
+      context.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ['visibility'],
+        message:
+          'Approved client-facing evidence requires approval and verified review.',
+      });
+    }
+  });
 
 export const frictionItemSchema = baseEntitySchema.extend({
   siteWalkId: z.string().min(1),
@@ -337,6 +393,7 @@ export const opportunitySchema = baseEntitySchema
     internalNotes: z.string().min(1).optional(),
     clientSummary: z.string().min(1).optional(),
     approvalState: z.enum(approvalStates),
+    visibility: z.enum(visibilityScopes),
     diagnosticId: z.string().min(1).optional(),
     systemId: z.string().min(1).optional(),
     currentSituation: z.string().min(1).optional(),
@@ -423,6 +480,19 @@ export const opportunitySchema = baseEntitySchema
         code: z.ZodIssueCode.custom,
         path: ['clientSummary'],
         message: 'Approved opportunity content requires a client-safe summary.',
+      });
+    }
+
+    if (
+      opportunity.visibility === 'approved-client-facing' &&
+      (opportunity.approvalState !== 'approved' ||
+        opportunity.reviewStatus !== 'approved')
+    ) {
+      context.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ['visibility'],
+        message:
+          'Approved client-facing opportunities require approved content and review.',
       });
     }
   });
@@ -584,11 +654,14 @@ export const outputSchema = baseEntitySchema
       });
     }
 
-    if (output.visibility === 'client-shareable' && !isApproved) {
+    if (
+      output.visibility === 'approved-client-facing' &&
+      !isApproved
+    ) {
       context.addIssue({
         code: z.ZodIssueCode.custom,
         path: ['visibility'],
-        message: 'Only approved outputs can be client-shareable.',
+        message: 'Only approved outputs can be approved client-facing.',
       });
     }
 
@@ -602,12 +675,12 @@ export const outputSchema = baseEntitySchema
 
     if (
       output.status === 'published' &&
-      output.visibility !== 'client-shareable'
+      output.visibility !== 'approved-client-facing'
     ) {
       context.addIssue({
         code: z.ZodIssueCode.custom,
         path: ['visibility'],
-        message: 'Published outputs must be client-shareable.',
+        message: 'Published outputs must be approved client-facing.',
       });
     }
 
@@ -624,7 +697,63 @@ export const outputSchema = baseEntitySchema
           'Only published or archived outputs can carry a publication timestamp.',
       });
     }
+
+    if (
+      isApproved &&
+      output.visibility !== 'approved-client-facing'
+    ) {
+      context.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ['visibility'],
+        message: 'Approved outputs must be explicitly approved client-facing.',
+      });
+    }
+
+    if (
+      output.visibility === 'draft-client-facing' &&
+      isApproved
+    ) {
+      context.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ['visibility'],
+        message:
+          'Draft client-facing outputs must complete approval before sharing.',
+      });
+    }
+
+    if (
+      output.status === 'archived' &&
+      output.visibility !== 'archived'
+    ) {
+      context.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ['visibility'],
+        message: 'Archived outputs must be marked archived.',
+      });
+    }
+
+    if (
+      output.visibility === 'archived' &&
+      output.status !== 'archived'
+    ) {
+      context.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ['status'],
+        message: 'Only archived outputs can use archived visibility.',
+      });
+    }
   });
+
+export const activityEventSchema = baseEntitySchema.extend({
+  actorUserId: z.string().min(1),
+  occurredAt: isoDateTimeSchema,
+  engagementId: z.string().min(1).optional(),
+  entityId: z.string().min(1),
+  entityType: z.enum(activityEntityTypes),
+  action: z.enum(activityActions),
+  summary: z.string().min(1),
+  metadata: z.record(z.string()),
+});
 
 const fabricDatasetShape = z.object({
   users: z.array(userSchema),
@@ -652,6 +781,7 @@ const fabricDatasetShape = z.object({
   deliveryActions: z.array(deliveryActionSchema).default([]),
   benefitMeasurements: z.array(benefitMeasurementSchema).default([]),
   outputs: z.array(outputSchema),
+  activityEvents: z.array(activityEventSchema).default([]),
 });
 
 type IssuePath = Array<string | number>;
@@ -747,6 +877,39 @@ export const fabricDatasetSchema = fabricDatasetShape.superRefine(
     const actionItems = new Set(dataset.actionItems.map((item) => item.id));
     const initiatives = new Set(dataset.initiatives.map((item) => item.id));
     const outputs = new Set(dataset.outputs.map((item) => item.id));
+    const activityEntityIds: Record<
+      (typeof activityEntityTypes)[number],
+      Set<string>
+    > = {
+      client: clients,
+      site: sites,
+      engagement: engagements,
+      'site-walk': siteWalks,
+      observation: observations,
+      evidence,
+      'friction-item': new Set(dataset.frictionItems.map((item) => item.id)),
+      diagnostic: diagnostics,
+      assessment: new Set(
+        dataset.maturityAssessments.map((item) => item.id),
+      ),
+      finding: findings,
+      'landscape-entity': landscapeEntities,
+      'landscape-relationship': new Set(
+        dataset.landscapeRelationships.map((item) => item.id),
+      ),
+      opportunity: opportunities,
+      action: actionItems,
+      initiative: initiatives,
+      roadmap: new Set(dataset.roadmaps.map((item) => item.id)),
+      milestone: new Set(dataset.milestones.map((item) => item.id)),
+      'delivery-action': new Set(
+        dataset.deliveryActions.map((item) => item.id),
+      ),
+      'benefit-measurement': new Set(
+        dataset.benefitMeasurements.map((item) => item.id),
+      ),
+      output: outputs,
+    };
 
     ensureUniqueEntityIds(context, [
       ['users', dataset.users],
@@ -774,6 +937,7 @@ export const fabricDatasetSchema = fabricDatasetShape.superRefine(
       ['deliveryActions', dataset.deliveryActions],
       ['benefitMeasurements', dataset.benefitMeasurements],
       ['outputs', dataset.outputs],
+      ['activityEvents', dataset.activityEvents],
     ]);
 
     const siteById = new Map(dataset.sites.map((item) => [item.id, item]));
@@ -1001,7 +1165,7 @@ export const fabricDatasetSchema = fabricDatasetShape.superRefine(
       if (observation) {
         return (
           observation.status === 'verified' &&
-          observation.visibility === 'client-shareable' &&
+          observation.visibility === 'approved-client-facing' &&
           observation.aiStatus !== 'suggested' &&
           observation.aiStatus !== 'rejected'
         );
@@ -1012,7 +1176,7 @@ export const fabricDatasetSchema = fabricDatasetShape.superRefine(
         return (
           evidenceItem.approvalState === 'approved' &&
           evidenceItem.reviewStatus === 'verified' &&
-          evidenceItem.visibility === 'client-shareable'
+          evidenceItem.visibility === 'approved-client-facing'
         );
       }
 
@@ -1046,17 +1210,7 @@ export const fabricDatasetSchema = fabricDatasetShape.superRefine(
 
       const opportunity = opportunityById.get(entityId);
       if (opportunity) {
-        return (
-          (opportunity.status === 'approved' ||
-            opportunity.status === 'in-delivery' ||
-            opportunity.status === 'closed') &&
-          opportunity.approvalState === 'approved' &&
-          opportunity.reviewStatus === 'approved' &&
-          (opportunity.evidenceIds.length > 0 ||
-            (opportunity.relatedObservationIds?.length ?? 0) > 0 ||
-            (opportunity.relatedFindingIds?.length ?? 0) > 0) &&
-          Boolean(opportunity.clientSummary)
-        );
+        return isOpportunityReadyForDelivery(opportunity);
       }
 
       const initiative = initiativeById.get(entityId);
@@ -2288,6 +2442,34 @@ export const fabricDatasetSchema = fabricDatasetShape.superRefine(
           );
         }
       });
+    });
+
+    dataset.activityEvents.forEach((activityEvent, index) => {
+      ensureReference(
+        context,
+        ['activityEvents', index, 'actorUserId'],
+        activityEvent.actorUserId,
+        users,
+        'activity actor',
+      );
+
+      if (activityEvent.engagementId) {
+        ensureReference(
+          context,
+          ['activityEvents', index, 'engagementId'],
+          activityEvent.engagementId,
+          engagements,
+          'engagement',
+        );
+      }
+
+      ensureReference(
+        context,
+        ['activityEvents', index, 'entityId'],
+        activityEvent.entityId,
+        activityEntityIds[activityEvent.entityType],
+        activityEvent.entityType,
+      );
     });
   },
 );

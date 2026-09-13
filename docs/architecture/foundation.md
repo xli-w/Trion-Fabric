@@ -9,7 +9,7 @@ Fabric is being established as Trion's internal transformation operating environ
 The current repository is a modular monolith with explicit boundaries:
 
 - `apps/web` contains the internal workspace application shell and feature surfaces.
-- `packages/domain` defines the stable business language and repository contracts.
+- `packages/domain` defines the stable business language, activity events, access policy, and repository contracts.
 - `packages/validation` enforces runtime shape checks for trusted data entry points.
 - `packages/ui` holds reusable presentational primitives and design tokens.
 - `packages/config` contains product metadata and navigation configuration.
@@ -49,17 +49,28 @@ The initial typed model covers:
 - Outputs
 - Users
 
-The model already includes visibility, approval, AI status, and evidence provenance so future features do not need to retrofit these distinctions later.
+The model already includes visibility, approval, AI status, evidence provenance, and actor-attributed activity events so future features do not need to retrofit these distinctions later.
 
-## Internal And Client-Shareable Information
+## Internal And Client-Facing Information
 
 Fabric separates internal working data from controlled outputs at the model layer:
 
 - observations and evidence can stay internal
-- opportunities and outputs carry approval states
-- outputs can be explicitly marked client-shareable
+- opportunities and outputs carry approval and explicit visibility states
+- draft client-facing material cannot be treated as approved client-facing content
+- approved outputs can only use approved, engagement-scoped source material
+- archived records remain explicit rather than being silently deleted
+
+Revising approved opportunity content creates an internal draft revision, which
+must be reviewed again before it can become client-facing. Records already
+supporting an approved output or delivery initiative must be superseded by a
+new opportunity instead.
 
 This avoids the common mistake of treating all captured information as publishable.
+
+## Workspace Activity And Access
+
+The internal workbench records important changes as reusable activity events with an actor, timestamp, affected entity, action, and metadata. The repository-backed data context applies the domain access policy before saving changes, so a button is not the sole permission boundary. It exposes immutable UI snapshots and keeps the authorization actor separate from those snapshots. The current development workspace can switch between Administrator, Engagement Lead, Consultant, Analyst, Reviewer, and Read-only internal user contexts to exercise these constraints.
 
 ## AI Extension Seam
 
