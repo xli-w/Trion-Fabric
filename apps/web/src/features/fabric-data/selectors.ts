@@ -4,6 +4,12 @@ import type {
   EngagementStatus,
   EntityId,
   FabricDataset,
+  LandscapeEntity,
+  LandscapeEntityType,
+  LandscapeRelationship,
+  LandscapeRelationshipType,
+  LandscapeVersion,
+  LandscapeView,
   OpportunityPriority,
   OutputStatus,
   OutputType,
@@ -13,7 +19,15 @@ import type {
   VisibilityScope,
   WorkspacePermission,
 } from '@domain';
-import { buildEngagementContext, canUserPerform } from '@domain';
+import {
+  buildApprovedLandscapeA3Projection,
+  buildEngagementContext,
+  buildLandscapeQualityIndicators,
+  canUserPerform,
+  isClientSafeLandscapeEntity,
+  isClientSafeLandscapeRelationship,
+  landscapeRelationshipDefinitions,
+} from '@domain';
 
 export type DisplayTone =
   | 'neutral'
@@ -214,9 +228,7 @@ export function buildWorkspaceSnapshot(
   currentUserId?: EntityId,
 ) {
   const maps = createMaps(dataset);
-  const currentUser = currentUserId
-    ? maps.users.get(currentUserId)
-    : undefined;
+  const currentUser = currentUserId ? maps.users.get(currentUserId) : undefined;
   const canTakeAction = (
     permission: WorkspacePermission,
     engagementId?: EntityId,
@@ -229,9 +241,7 @@ export function buildWorkspaceSnapshot(
     }
 
     return canUserPerform(currentUser, permission, {
-      engagement: engagementId
-        ? maps.engagements.get(engagementId)
-        : undefined,
+      engagement: engagementId ? maps.engagements.get(engagementId) : undefined,
     });
   };
   const activeEngagements = dataset.engagements.filter(
@@ -330,7 +340,8 @@ export function buildWorkspaceSnapshot(
   const incompleteOpportunities = dataset.opportunities
     .filter(
       (opportunity) =>
-        opportunity.status !== 'closed' && opportunity.visibility !== 'archived',
+        opportunity.status !== 'closed' &&
+        opportunity.visibility !== 'archived',
     )
     .map((opportunity) => {
       const missing: string[] = [];
@@ -367,9 +378,7 @@ export function buildWorkspaceSnapshot(
       };
     })
     .filter((opportunity) => opportunity.missing.length > 0)
-    .sort(
-      (left, right) => left.priorityWeight - right.priorityWeight,
-    );
+    .sort((left, right) => left.priorityWeight - right.priorityWeight);
 
   const outputsAwaitingApproval = outputsAwaitingReview.filter(
     (output) => output.status === 'Internal Review',
@@ -410,8 +419,8 @@ export function buildWorkspaceSnapshot(
     if (
       outputsAwaitingApproval.some(
         (output) =>
-          dataset.outputs.find((item) => item.id === output.id)?.engagementId ===
-          engagementId,
+          dataset.outputs.find((item) => item.id === output.id)
+            ?.engagementId === engagementId,
       )
     ) {
       reasons.push('outputs await approval');
@@ -890,8 +899,9 @@ function getEvidenceEngagementId(
     )?.engagementId;
   }
 
-  return dataset.outputs.find((item) => item.id === evidenceItem.relatedEntityId)
-    ?.engagementId;
+  return dataset.outputs.find(
+    (item) => item.id === evidenceItem.relatedEntityId,
+  )?.engagementId;
 }
 
 function engagementBreadcrumbs(
@@ -1060,8 +1070,7 @@ export function buildEngagementCommandCentre(
           id: action.id,
           title: action.title,
           owner: action.ownerUserId
-            ? (maps.users.get(action.ownerUserId)?.displayName ??
-              'Unassigned')
+            ? (maps.users.get(action.ownerUserId)?.displayName ?? 'Unassigned')
             : 'Unassigned',
           status: labelise(action.status),
           statusTone: workStatusTone(action.status),
@@ -1079,7 +1088,11 @@ export function buildEngagementCommandCentre(
       const initiative = dataset.initiatives.find(
         (item) => item.id === action.initiativeId,
       );
-      if (!initiative || initiative.engagementId !== engagement.id || action.status === 'completed') {
+      if (
+        !initiative ||
+        initiative.engagementId !== engagement.id ||
+        action.status === 'completed'
+      ) {
         return [];
       }
       return [
@@ -1119,8 +1132,7 @@ export function buildEngagementCommandCentre(
         },
       ];
     }),
-  ]
-    .sort((left, right) => left.sortDate.localeCompare(right.sortDate));
+  ].sort((left, right) => left.sortDate.localeCompare(right.sortDate));
 
   const progress = [
     {
@@ -1229,13 +1241,11 @@ export function buildEngagementCommandCentre(
       ),
       draftClientFacing: countBy(
         evidence,
-        (evidenceItem) =>
-          evidenceItem.visibility === 'draft-client-facing',
+        (evidenceItem) => evidenceItem.visibility === 'draft-client-facing',
       ),
       approvedClientFacing: countBy(
         evidence,
-        (evidenceItem) =>
-          evidenceItem.visibility === 'approved-client-facing',
+        (evidenceItem) => evidenceItem.visibility === 'approved-client-facing',
       ),
     },
     diagnostics: diagnostics.map((diagnostic) => ({
@@ -1288,10 +1298,294 @@ export function buildEngagementCommandCentre(
         id: activity.id,
         summary: activity.summary,
         action: labelise(activity.action),
-        actor: maps.users.get(activity.actorUserId)?.displayName ?? 'Unknown user',
+        actor:
+          maps.users.get(activity.actorUserId)?.displayName ?? 'Unknown user',
         when: formatDateTime(activity.occurredAt),
         entityType: labelise(activity.entityType),
       })),
+  };
+}
+
+export interface LandscapeWorkbenchOptions {
+  view?: LandscapeView;
+  query?: string;
+  entityType?: LandscapeEntityType | 'all';
+  relationshipType?: LandscapeRelationshipType | 'all';
+}
+
+export interface LandscapeEntityView extends LandscapeEntity {
+  [key: string]: unknown;
+  siteName: string;
+  areaName?: string;
+  sourceName?: string;
+  ownerLabel?: string;
+  connectionCount: number;
+  observationCount: number;
+  evidenceCount: number;
+  frictionCount: number;
+  opportunityCount: number;
+}
+
+export interface LandscapeRelationshipView extends LandscapeRelationship {
+  fromName: string;
+  toName: string;
+  typeLabel: string;
+}
+
+export interface LandscapeWorkbenchViewModel {
+  engagement: {
+    id: EntityId;
+    name: string;
+    description: string;
+  };
+  clientName: string;
+  sites: Array<{ id: EntityId; name: string }>;
+  activeView: LandscapeView;
+  entities: LandscapeEntityView[];
+  relationships: LandscapeRelationshipView[];
+  versions: LandscapeVersion[];
+  currentVersion?: LandscapeVersion;
+  qualityIndicators: ReturnType<typeof buildLandscapeQualityIndicators>;
+  a3Projection: ReturnType<typeof buildApprovedLandscapeA3Projection>;
+  metrics: {
+    totalEntities: number;
+    totalRelationships: number;
+    visibleEntities: number;
+    visibleRelationships: number;
+    clientSafeItems: number;
+    qualityPromptCount: number;
+  };
+}
+
+const landscapeViewEntityTypes: Record<
+  Exclude<LandscapeView, 'opportunities'>,
+  readonly LandscapeEntityType[]
+> = {
+  process: ['area', 'process', 'process-step', 'handoff', 'role'],
+  systems: ['system', 'machine', 'process', 'data-object'],
+  'data-flow': ['process', 'system', 'machine', 'data-object', 'handoff'],
+  people: ['role', 'process', 'area'],
+};
+
+export function buildLandscapeWorkbench(
+  dataset: FabricDataset,
+  engagementId: EntityId,
+  options: LandscapeWorkbenchOptions = {},
+): LandscapeWorkbenchViewModel | undefined {
+  const engagement = dataset.engagements.find(
+    (item) => item.id === engagementId,
+  );
+  if (!engagement) {
+    return undefined;
+  }
+
+  const activeView = options.view ?? 'process';
+  const query = options.query?.trim().toLocaleLowerCase() ?? '';
+  const entityType = options.entityType ?? 'all';
+  const relationshipType = options.relationshipType ?? 'all';
+  const scopedEntities = dataset.landscapeEntities.filter(
+    (item) => item.engagementId === engagement.id,
+  );
+  const scopedEntityIds = new Set(scopedEntities.map((item) => item.id));
+  const scopedRelationships = dataset.landscapeRelationships.filter(
+    (item) =>
+      item.engagementId === engagement.id &&
+      scopedEntityIds.has(item.fromEntityId) &&
+      scopedEntityIds.has(item.toEntityId),
+  );
+  const entityById = new Map(
+    scopedEntities.map((entity) => [entity.id, entity]),
+  );
+  const roleById = new Map(
+    scopedEntities
+      .filter((entity) => entity.type === 'role')
+      .map((entity) => [entity.id, entity]),
+  );
+  const siteById = new Map(dataset.sites.map((site) => [site.id, site]));
+  const processById = new Map(
+    dataset.processes.map((process) => [process.id, process]),
+  );
+  const areaById = new Map(dataset.areas.map((area) => [area.id, area]));
+
+  const relationshipMatchesView = (relationship: LandscapeRelationship) => {
+    const definition = landscapeRelationshipDefinitions[relationship.type];
+    if (activeView === 'opportunities') {
+      return (
+        relationship.linkedOpportunityIds.length > 0 ||
+        relationship.type === 'opportunity-improves' ||
+        (entityById.get(relationship.fromEntityId)?.linkedOpportunityIds
+          .length ?? 0) > 0 ||
+        (entityById.get(relationship.toEntityId)?.linkedOpportunityIds.length ??
+          0) > 0
+      );
+    }
+
+    return definition.views.includes(activeView);
+  };
+
+  const relationshipCandidates = scopedRelationships.filter(
+    (relationship) =>
+      relationshipMatchesView(relationship) &&
+      (relationshipType === 'all' || relationship.type === relationshipType),
+  );
+  const relationshipMatchesQuery = (relationship: LandscapeRelationship) => {
+    if (!query) {
+      return true;
+    }
+    const fromName = entityById.get(relationship.fromEntityId)?.name ?? '';
+    const toName = entityById.get(relationship.toEntityId)?.name ?? '';
+    return `${relationship.rationale ?? ''} ${
+      landscapeRelationshipDefinitions[relationship.type].label
+    } ${fromName} ${toName}`
+      .toLocaleLowerCase()
+      .includes(query);
+  };
+  const relationshipSearchEntityIds = new Set(
+    relationshipCandidates
+      .filter(relationshipMatchesQuery)
+      .flatMap((relationship) => [
+        relationship.fromEntityId,
+        relationship.toEntityId,
+      ]),
+  );
+  const visibleEntityIds = new Set<EntityId>();
+  if (activeView === 'opportunities') {
+    const activeOpportunities = dataset.opportunities.filter(
+      (opportunity) =>
+        opportunity.engagementId === engagement.id &&
+        opportunity.visibility !== 'archived',
+    );
+    const activeOpportunityIds = new Set(
+      activeOpportunities.map((opportunity) => opportunity.id),
+    );
+    scopedEntities.forEach((entity) => {
+      if (
+        entity.linkedOpportunityIds.some((id) =>
+          activeOpportunityIds.has(id),
+        ) ||
+        activeOpportunities.some(
+          (opportunity) =>
+            entity.type === 'process' &&
+            entity.sourceEntityId === opportunity.processId,
+        )
+      ) {
+        visibleEntityIds.add(entity.id);
+      }
+    });
+  } else {
+    scopedEntities
+      .filter((entity) =>
+        landscapeViewEntityTypes[activeView].includes(entity.type),
+      )
+      .forEach((entity) => visibleEntityIds.add(entity.id));
+  }
+  relationshipCandidates.forEach((relationship) => {
+    visibleEntityIds.add(relationship.fromEntityId);
+    visibleEntityIds.add(relationship.toEntityId);
+  });
+
+  const entities = scopedEntities
+    .filter((entity) => visibleEntityIds.has(entity.id))
+    .filter((entity) => entityType === 'all' || entity.type === entityType)
+    .filter(
+      (entity) =>
+        !query ||
+        `${entity.name} ${entity.description} ${entity.ownerRole ?? ''}`
+          .toLocaleLowerCase()
+          .includes(query) ||
+        relationshipSearchEntityIds.has(entity.id),
+    )
+    .map((entity): LandscapeEntityView => {
+      const sourceProcess =
+        entity.type === 'process' && entity.sourceEntityId
+          ? processById.get(entity.sourceEntityId)
+          : undefined;
+      const sourceName =
+        entity.type === 'area' && entity.sourceEntityId
+          ? areaById.get(entity.sourceEntityId)?.name
+          : entity.name;
+      return {
+        ...entity,
+        siteName: siteById.get(entity.siteId)?.name ?? 'Unknown site',
+        areaName: sourceProcess
+          ? areaById.get(sourceProcess.areaId)?.name
+          : undefined,
+        sourceName,
+        ownerLabel:
+          roleById.get(entity.ownerEntityId ?? '')?.name ?? entity.ownerRole,
+        connectionCount: scopedRelationships.filter(
+          (relationship) =>
+            relationship.fromEntityId === entity.id ||
+            relationship.toEntityId === entity.id,
+        ).length,
+        observationCount: entity.linkedObservationIds.length,
+        evidenceCount: entity.linkedEvidenceIds.length,
+        frictionCount: entity.linkedFrictionItemIds.length,
+        opportunityCount: entity.linkedOpportunityIds.length,
+      };
+    })
+    .sort((left, right) => left.name.localeCompare(right.name));
+  const renderedEntityIds = new Set(entities.map((entity) => entity.id));
+  const relationships = relationshipCandidates
+    .filter(
+      (relationship) =>
+        renderedEntityIds.has(relationship.fromEntityId) &&
+        renderedEntityIds.has(relationship.toEntityId),
+    )
+    .filter(relationshipMatchesQuery)
+    .map(
+      (relationship): LandscapeRelationshipView => ({
+        ...relationship,
+        fromName:
+          entityById.get(relationship.fromEntityId)?.name ??
+          relationship.fromEntityId,
+        toName:
+          entityById.get(relationship.toEntityId)?.name ??
+          relationship.toEntityId,
+        typeLabel: landscapeRelationshipDefinitions[relationship.type].label,
+      }),
+    )
+    .sort((left, right) => left.typeLabel.localeCompare(right.typeLabel));
+  const versions = dataset.landscapeVersions
+    .filter((version) => version.engagementId === engagement.id)
+    .sort((left, right) => right.capturedAt.localeCompare(left.capturedAt));
+  const currentVersion = versions.find(
+    (version) => version.status === 'current',
+  );
+  const qualityIndicators = buildLandscapeQualityIndicators(
+    dataset,
+    engagement.id,
+  );
+
+  return {
+    engagement: {
+      id: engagement.id,
+      name: engagement.name,
+      description: engagement.description,
+    },
+    clientName:
+      dataset.clients.find((client) => client.id === engagement.clientId)
+        ?.name ?? 'Unknown client',
+    sites: dataset.sites
+      .filter((site) => engagement.siteIds.includes(site.id))
+      .map((site) => ({ id: site.id, name: site.name })),
+    activeView,
+    entities,
+    relationships,
+    versions,
+    currentVersion,
+    qualityIndicators,
+    a3Projection: buildApprovedLandscapeA3Projection(dataset, engagement.id),
+    metrics: {
+      totalEntities: scopedEntities.length,
+      totalRelationships: scopedRelationships.length,
+      visibleEntities: entities.length,
+      visibleRelationships: relationships.length,
+      clientSafeItems:
+        scopedEntities.filter(isClientSafeLandscapeEntity).length +
+        scopedRelationships.filter(isClientSafeLandscapeRelationship).length,
+      qualityPromptCount: qualityIndicators.length,
+    },
   };
 }
 
@@ -1361,6 +1655,13 @@ export function buildGlobalSearchResults(
       path: `/outputs/${output.id}`,
       type: 'Output',
     })),
+    ...dataset.landscapeEntities.map((entity) => ({
+      id: entity.id,
+      label: entity.name,
+      context: engagementName(entity.engagementId),
+      path: '/landscape',
+      type: 'Landscape item',
+    })),
   ];
 
   return searchEntries
@@ -1377,9 +1678,7 @@ export function buildBreadcrumbs(
   pathname: string,
   currentArea: string,
 ): WorkspaceBreadcrumb[] {
-  const root: WorkspaceBreadcrumb[] = [
-    { label: 'Fabric', path: '/workspace' },
-  ];
+  const root: WorkspaceBreadcrumb[] = [{ label: 'Fabric', path: '/workspace' }];
   const [area, recordId] = pathname.split('/').filter(Boolean);
 
   if (area === 'workspace') {
@@ -1406,7 +1705,11 @@ export function buildBreadcrumbs(
   }
 
   if (area === 'engagements' && recordId) {
-    return [...root, ...engagementBreadcrumbs(dataset, recordId), { label: 'Overview' }];
+    return [
+      ...root,
+      ...engagementBreadcrumbs(dataset, recordId),
+      { label: 'Overview' },
+    ];
   }
 
   if (area === 'site-walks' && recordId) {

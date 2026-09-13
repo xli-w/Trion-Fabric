@@ -254,17 +254,29 @@ ul {
 
 .ui-stat-card--accent {
   border-color: var(--fabric-accent-border);
-  background: linear-gradient(180deg, var(--fabric-accent-soft) 0%, var(--fabric-surface) 100%);
+  background: linear-gradient(
+    180deg,
+    var(--fabric-accent-soft) 0%,
+    var(--fabric-surface) 100%
+  );
 }
 
 .ui-stat-card--success {
   border-color: rgba(52, 211, 153, 0.3);
-  background: linear-gradient(180deg, var(--fabric-success-soft) 0%, var(--fabric-surface) 100%);
+  background: linear-gradient(
+    180deg,
+    var(--fabric-success-soft) 0%,
+    var(--fabric-surface) 100%
+  );
 }
 
 .ui-stat-card--warning {
   border-color: rgba(251, 191, 36, 0.3);
-  background: linear-gradient(180deg, var(--fabric-warning-soft) 0%, var(--fabric-surface) 100%);
+  background: linear-gradient(
+    180deg,
+    var(--fabric-warning-soft) 0%,
+    var(--fabric-surface) 100%
+  );
 }
 
 .ui-stat-card__label {
@@ -545,7 +557,9 @@ ul {
   font-weight: 700;
   color: var(--fabric-text-soft);
   cursor: pointer;
-  transition: color 120ms ease, border-color 120ms ease;
+  transition:
+    color 120ms ease,
+    border-color 120ms ease;
   margin-bottom: -1px;
 }
 
@@ -553,7 +567,7 @@ ul {
   color: var(--fabric-text);
 }
 
-.ui-tabs--underline .ui-tabs-trigger[data-state="active"] {
+.ui-tabs--underline .ui-tabs-trigger[data-state='active'] {
   color: var(--fabric-accent);
   border-bottom-color: var(--fabric-accent);
 }
@@ -584,7 +598,7 @@ ul {
   color: var(--fabric-text);
 }
 
-.ui-tabs--pills .ui-tabs-trigger[data-state="active"] {
+.ui-tabs--pills .ui-tabs-trigger[data-state='active'] {
   background: var(--fabric-surface);
   color: var(--fabric-text);
   box-shadow: var(--fabric-shadow-sm);
@@ -630,7 +644,9 @@ ul {
   cursor: pointer;
   outline: none;
   user-select: none;
-  transition: background-color 100ms ease, color 100ms ease;
+  transition:
+    background-color 100ms ease,
+    color 100ms ease;
 }
 
 .ui-dropdown-item:hover,
@@ -715,7 +731,9 @@ ul {
   background: var(--fabric-surface-alt);
   color: var(--fabric-text);
   font-size: 13px;
-  transition: border-color 120ms ease, background-color 120ms ease;
+  transition:
+    border-color 120ms ease,
+    background-color 120ms ease;
 }
 
 .ui-search-input:focus {
@@ -1033,7 +1051,10 @@ ul {
   border: 1.5px solid var(--fabric-border);
   box-shadow: var(--fabric-shadow-sm);
   cursor: pointer;
-  transition: border-color 150ms ease, box-shadow 150ms ease, transform 150ms ease;
+  transition:
+    border-color 150ms ease,
+    box-shadow 150ms ease,
+    transform 150ms ease;
   font-family: var(--fabric-font-sans);
 }
 
@@ -1139,6 +1160,16 @@ ul {
   overflow: hidden;
 }
 
+.fabric-flow-node-signals {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 8px;
+  margin-top: 8px;
+  color: var(--fabric-text-soft);
+  font-size: 10px;
+  font-weight: 700;
+}
+
 .fabric-flow-handle {
   width: 7px !important;
   height: 7px !important;
@@ -1163,13 +1194,6 @@ ul {
 
 .fabric-flow-controls button:hover {
   background: var(--fabric-surface-alt) !important;
-}
-
-.fabric-flow-minimap {
-  border-radius: var(--fabric-radius-md) !important;
-  border: 1px solid var(--fabric-border) !important;
-  box-shadow: var(--fabric-shadow-md) !important;
-  background: var(--fabric-surface) !important;
 }
 
 /* Maturity Radar & Scorecard */

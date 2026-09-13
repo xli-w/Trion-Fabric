@@ -19,6 +19,9 @@ import {
   investmentBands,
   landscapeEntityTypes,
   landscapeRelationshipTypes,
+  landscapeTransferModes,
+  landscapeVerificationStates,
+  landscapeVersionStatuses,
   maturityLevels,
   methodologyActivityRequirements,
   methodologyActivityStatuses,
@@ -53,6 +56,10 @@ import {
   transformationStages,
   userRoles,
   visibilityScopes,
+  canRecordLandscapeTransfer,
+  isClientSafeLandscapeEntity,
+  isClientSafeLandscapeRelationship,
+  isLandscapeRelationshipCompatible,
 } from '@domain';
 
 const isoDateTimeSchema = z.string().datetime({ offset: true });
@@ -226,7 +233,8 @@ export const observationSchema = baseEntitySchema
 
     if (
       observation.visibility === 'approved-client-facing' &&
-      (observation.aiStatus === 'suggested' || observation.aiStatus === 'rejected')
+      (observation.aiStatus === 'suggested' ||
+        observation.aiStatus === 'rejected')
     ) {
       context.addIssue({
         code: z.ZodIssueCode.custom,
@@ -361,11 +369,22 @@ export const findingSchema = baseEntitySchema.extend({
 
 export const landscapeEntitySchema = baseEntitySchema.extend({
   engagementId: z.string().min(1),
+  siteId: z.string().min(1),
   type: z.enum(landscapeEntityTypes),
   name: z.string().min(1),
   description: z.string().min(1),
   sourceEntityId: z.string().min(1).optional(),
   ownerRole: z.string().min(1).optional(),
+  ownerEntityId: z.string().min(1).optional(),
+  documentedMethod: z.string().min(1).optional(),
+  confidence: z.enum(confidenceLevels),
+  verificationStatus: z.enum(landscapeVerificationStates),
+  linkedObservationIds: z.array(z.string().min(1)),
+  linkedEvidenceIds: z.array(z.string().min(1)),
+  linkedFrictionItemIds: z.array(z.string().min(1)),
+  linkedOpportunityIds: z.array(z.string().min(1)),
+  internalNotes: z.string().min(1).optional(),
+  visibility: z.enum(visibilityScopes),
   reviewStatus: z.enum(reviewStatuses),
 });
 
@@ -376,7 +395,65 @@ export const landscapeRelationshipSchema = baseEntitySchema.extend({
   type: z.enum(landscapeRelationshipTypes),
   rationale: z.string().min(1).optional(),
   evidenceIds: z.array(z.string().min(1)),
+  linkedObservationIds: z.array(z.string().min(1)),
+  linkedOpportunityIds: z.array(z.string().min(1)),
+  transferMode: z.enum(landscapeTransferModes).optional(),
+  duplicateDataEntry: z.boolean().optional(),
+  confidence: z.enum(confidenceLevels),
+  verificationStatus: z.enum(landscapeVerificationStates),
+  internalNotes: z.string().min(1).optional(),
+  visibility: z.enum(visibilityScopes),
   reviewStatus: z.enum(reviewStatuses),
+});
+
+const landscapeEntitySnapshotSchema = z.object({
+  landscapeEntityId: z.string().min(1),
+  siteId: z.string().min(1),
+  type: z.enum(landscapeEntityTypes),
+  name: z.string().min(1),
+  description: z.string().min(1),
+  sourceEntityId: z.string().min(1).optional(),
+  ownerRole: z.string().min(1).optional(),
+  ownerEntityId: z.string().min(1).optional(),
+  documentedMethod: z.string().min(1).optional(),
+  confidence: z.enum(confidenceLevels),
+  verificationStatus: z.enum(landscapeVerificationStates),
+  linkedObservationIds: z.array(z.string().min(1)),
+  linkedEvidenceIds: z.array(z.string().min(1)),
+  linkedFrictionItemIds: z.array(z.string().min(1)),
+  linkedOpportunityIds: z.array(z.string().min(1)),
+  visibility: z.enum(visibilityScopes),
+  reviewStatus: z.enum(reviewStatuses),
+});
+
+const landscapeRelationshipSnapshotSchema = z.object({
+  landscapeRelationshipId: z.string().min(1),
+  fromEntityId: z.string().min(1),
+  toEntityId: z.string().min(1),
+  type: z.enum(landscapeRelationshipTypes),
+  rationale: z.string().min(1).optional(),
+  evidenceIds: z.array(z.string().min(1)),
+  linkedObservationIds: z.array(z.string().min(1)),
+  linkedOpportunityIds: z.array(z.string().min(1)),
+  transferMode: z.enum(landscapeTransferModes).optional(),
+  duplicateDataEntry: z.boolean().optional(),
+  confidence: z.enum(confidenceLevels),
+  verificationStatus: z.enum(landscapeVerificationStates),
+  visibility: z.enum(visibilityScopes),
+  reviewStatus: z.enum(reviewStatuses),
+});
+
+export const landscapeVersionSchema = baseEntitySchema.extend({
+  engagementId: z.string().min(1),
+  siteId: z.string().min(1).optional(),
+  title: z.string().min(1),
+  version: z.string().min(1),
+  status: z.enum(landscapeVersionStatuses),
+  capturedAt: isoDateTimeSchema,
+  capturedByUserId: z.string().min(1),
+  notes: z.string().min(1).optional(),
+  entities: z.array(landscapeEntitySnapshotSchema).min(1),
+  relationships: z.array(landscapeRelationshipSnapshotSchema),
 });
 
 export const opportunitySchema = baseEntitySchema
@@ -661,10 +738,7 @@ export const outputSchema = baseEntitySchema
       });
     }
 
-    if (
-      output.visibility === 'approved-client-facing' &&
-      !isApproved
-    ) {
+    if (output.visibility === 'approved-client-facing' && !isApproved) {
       context.addIssue({
         code: z.ZodIssueCode.custom,
         path: ['visibility'],
@@ -705,10 +779,7 @@ export const outputSchema = baseEntitySchema
       });
     }
 
-    if (
-      isApproved &&
-      output.visibility !== 'approved-client-facing'
-    ) {
+    if (isApproved && output.visibility !== 'approved-client-facing') {
       context.addIssue({
         code: z.ZodIssueCode.custom,
         path: ['visibility'],
@@ -716,10 +787,7 @@ export const outputSchema = baseEntitySchema
       });
     }
 
-    if (
-      output.visibility === 'draft-client-facing' &&
-      isApproved
-    ) {
+    if (output.visibility === 'draft-client-facing' && isApproved) {
       context.addIssue({
         code: z.ZodIssueCode.custom,
         path: ['visibility'],
@@ -728,10 +796,7 @@ export const outputSchema = baseEntitySchema
       });
     }
 
-    if (
-      output.status === 'archived' &&
-      output.visibility !== 'archived'
-    ) {
+    if (output.status === 'archived' && output.visibility !== 'archived') {
       context.addIssue({
         code: z.ZodIssueCode.custom,
         path: ['visibility'],
@@ -739,10 +804,7 @@ export const outputSchema = baseEntitySchema
       });
     }
 
-    if (
-      output.visibility === 'archived' &&
-      output.status !== 'archived'
-    ) {
+    if (output.visibility === 'archived' && output.status !== 'archived') {
       context.addIssue({
         code: z.ZodIssueCode.custom,
         path: ['status'],
@@ -832,10 +894,7 @@ export const engagementMethodologyRunSchema = baseEntitySchema
     promotedToRunId: z.string().min(1).optional(),
   })
   .superRefine((run, context) => {
-    if (
-      run.status === 'paused' &&
-      (!run.pausedAt || !run.pausedReason)
-    ) {
+    if (run.status === 'paused' && (!run.pausedAt || !run.pausedReason)) {
       context.addIssue({
         code: z.ZodIssueCode.custom,
         path: ['pausedReason'],
@@ -940,6 +999,7 @@ const fabricDatasetShape = z.object({
   findings: z.array(findingSchema).default([]),
   landscapeEntities: z.array(landscapeEntitySchema).default([]),
   landscapeRelationships: z.array(landscapeRelationshipSchema).default([]),
+  landscapeVersions: z.array(landscapeVersionSchema).default([]),
   opportunities: z.array(opportunitySchema),
   actionItems: z.array(actionItemSchema),
   initiatives: z.array(initiativeSchema),
@@ -1049,6 +1109,9 @@ export const fabricDatasetSchema = fabricDatasetShape.superRefine(
     const landscapeEntities = new Set(
       dataset.landscapeEntities.map((item) => item.id),
     );
+    const landscapeVersions = new Set(
+      dataset.landscapeVersions.map((item) => item.id),
+    );
     const opportunities = new Set(dataset.opportunities.map((item) => item.id));
     const actionItems = new Set(dataset.actionItems.map((item) => item.id));
     const initiatives = new Set(dataset.initiatives.map((item) => item.id));
@@ -1080,14 +1143,13 @@ export const fabricDatasetSchema = fabricDatasetShape.superRefine(
       evidence,
       'friction-item': new Set(dataset.frictionItems.map((item) => item.id)),
       diagnostic: diagnostics,
-      assessment: new Set(
-        dataset.maturityAssessments.map((item) => item.id),
-      ),
+      assessment: new Set(dataset.maturityAssessments.map((item) => item.id)),
       finding: findings,
       'landscape-entity': landscapeEntities,
       'landscape-relationship': new Set(
         dataset.landscapeRelationships.map((item) => item.id),
       ),
+      'landscape-version': landscapeVersions,
       opportunity: opportunities,
       action: actionItems,
       initiative: initiatives,
@@ -1122,6 +1184,7 @@ export const fabricDatasetSchema = fabricDatasetShape.superRefine(
       ['findings', dataset.findings],
       ['landscapeEntities', dataset.landscapeEntities],
       ['landscapeRelationships', dataset.landscapeRelationships],
+      ['landscapeVersions', dataset.landscapeVersions],
       ['opportunities', dataset.opportunities],
       ['actionItems', dataset.actionItems],
       ['initiatives', dataset.initiatives],
@@ -1159,6 +1222,9 @@ export const fabricDatasetSchema = fabricDatasetShape.superRefine(
     const evidenceById = new Map(
       dataset.evidence.map((item) => [item.id, item]),
     );
+    const frictionItemById = new Map(
+      dataset.frictionItems.map((item) => [item.id, item]),
+    );
     const diagnosticById = new Map(
       dataset.diagnostics.map((item) => [item.id, item]),
     );
@@ -1186,6 +1252,9 @@ export const fabricDatasetSchema = fabricDatasetShape.superRefine(
     );
     const methodologyRunById = new Map(
       dataset.engagementMethodologyRuns.map((item) => [item.id, item]),
+    );
+    const landscapeEntityById = new Map(
+      dataset.landscapeEntities.map((item) => [item.id, item]),
     );
 
     const siteBelongsToEngagement = (siteId: string, engagementId: string) =>
@@ -1278,6 +1347,14 @@ export const fabricDatasetSchema = fabricDatasetShape.superRefine(
       const evidenceItem = evidenceById.get(entityId);
       if (evidenceItem) {
         return evidenceEngagementId(evidenceItem) === engagementId;
+      }
+
+      const frictionItem = frictionItemById.get(entityId);
+      if (frictionItem) {
+        return (
+          siteWalkById.get(frictionItem.siteWalkId)?.engagementId ===
+          engagementId
+        );
       }
 
       const diagnostic = diagnosticById.get(entityId);
@@ -1373,7 +1450,7 @@ export const fabricDatasetSchema = fabricDatasetShape.superRefine(
       return output?.engagementId === engagementId;
     };
 
-    const isApprovedOutputSource = (entityId: string) => {
+    const isApprovedOutputSource = (entityId: string): boolean => {
       const observation = observationById.get(entityId);
       if (observation) {
         return (
@@ -1411,14 +1488,18 @@ export const fabricDatasetSchema = fabricDatasetShape.superRefine(
         (item) => item.id === entityId,
       );
       if (landscapeEntity) {
-        return landscapeEntity.reviewStatus === 'approved';
+        return isClientSafeLandscapeEntity(landscapeEntity);
       }
 
       const landscapeRelationship = dataset.landscapeRelationships.find(
         (item) => item.id === entityId,
       );
       if (landscapeRelationship) {
-        return landscapeRelationship.reviewStatus === 'approved';
+        return (
+          isClientSafeLandscapeRelationship(landscapeRelationship) &&
+          isApprovedOutputSource(landscapeRelationship.fromEntityId) &&
+          isApprovedOutputSource(landscapeRelationship.toEntityId)
+        );
       }
 
       const opportunity = opportunityById.get(entityId);
@@ -2091,6 +2172,7 @@ export const fabricDatasetSchema = fabricDatasetShape.superRefine(
       }
     });
 
+    const landscapeSourceKeys = new Set<string>();
     dataset.landscapeEntities.forEach((entity, index) => {
       ensureReference(
         context,
@@ -2099,6 +2181,90 @@ export const fabricDatasetSchema = fabricDatasetShape.superRefine(
         engagements,
         'engagement',
       );
+      ensureReference(
+        context,
+        ['landscapeEntities', index, 'siteId'],
+        entity.siteId,
+        sites,
+        'site',
+      );
+      if (!siteBelongsToEngagement(entity.siteId, entity.engagementId)) {
+        addIssue(
+          context,
+          ['landscapeEntities', index, 'siteId'],
+          'References a site outside the engagement scope.',
+        );
+      }
+      ensureDistinctValues(
+        context,
+        ['landscapeEntities', index, 'linkedObservationIds'],
+        entity.linkedObservationIds,
+        'linked observations',
+      );
+      ensureDistinctValues(
+        context,
+        ['landscapeEntities', index, 'linkedEvidenceIds'],
+        entity.linkedEvidenceIds,
+        'linked evidence',
+      );
+      ensureDistinctValues(
+        context,
+        ['landscapeEntities', index, 'linkedFrictionItemIds'],
+        entity.linkedFrictionItemIds,
+        'linked friction items',
+      );
+      ensureDistinctValues(
+        context,
+        ['landscapeEntities', index, 'linkedOpportunityIds'],
+        entity.linkedOpportunityIds,
+        'linked opportunities',
+      );
+      ensureReferenceList(
+        context,
+        ['landscapeEntities', index, 'linkedObservationIds'],
+        entity.linkedObservationIds,
+        observations,
+        'observation',
+      );
+      ensureReferenceList(
+        context,
+        ['landscapeEntities', index, 'linkedEvidenceIds'],
+        entity.linkedEvidenceIds,
+        evidence,
+        'evidence',
+      );
+      ensureReferenceList(
+        context,
+        ['landscapeEntities', index, 'linkedFrictionItemIds'],
+        entity.linkedFrictionItemIds,
+        new Set(dataset.frictionItems.map((item) => item.id)),
+        'friction item',
+      );
+      ensureReferenceList(
+        context,
+        ['landscapeEntities', index, 'linkedOpportunityIds'],
+        entity.linkedOpportunityIds,
+        opportunities,
+        'opportunity',
+      );
+      (
+        [
+          ['linkedObservationIds', entity.linkedObservationIds],
+          ['linkedEvidenceIds', entity.linkedEvidenceIds],
+          ['linkedFrictionItemIds', entity.linkedFrictionItemIds],
+          ['linkedOpportunityIds', entity.linkedOpportunityIds],
+        ] as const
+      ).forEach(([field, referenceIds]) => {
+        referenceIds.forEach((referenceId, referenceIndex) => {
+          if (!entityBelongsToEngagement(referenceId, entity.engagementId)) {
+            addIssue(
+              context,
+              ['landscapeEntities', index, field, referenceIndex],
+              'References material outside the engagement scope.',
+            );
+          }
+        });
+      });
       if (
         entity.sourceEntityId &&
         !entityBelongsToEngagement(entity.sourceEntityId, entity.engagementId)
@@ -2109,8 +2275,64 @@ export const fabricDatasetSchema = fabricDatasetShape.superRefine(
           'References a source outside the engagement scope.',
         );
       }
+      if (entity.sourceEntityId) {
+        const sourceMatchesEntityType =
+          (entity.type === 'area' &&
+            areaById.get(entity.sourceEntityId)?.siteId === entity.siteId) ||
+          (entity.type === 'process' &&
+            processById.get(entity.sourceEntityId)?.siteId === entity.siteId) ||
+          (entity.type === 'system' &&
+            systemById.get(entity.sourceEntityId)?.siteId === entity.siteId);
+        if (!sourceMatchesEntityType) {
+          addIssue(
+            context,
+            ['landscapeEntities', index, 'sourceEntityId'],
+            'Must reference a matching area, process, or system at the selected site.',
+          );
+        }
+        const sourceKey = `${entity.engagementId}:${entity.sourceEntityId}`;
+        if (landscapeSourceKeys.has(sourceKey)) {
+          addIssue(
+            context,
+            ['landscapeEntities', index, 'sourceEntityId'],
+            'A canonical source can only be represented once per engagement landscape.',
+          );
+        }
+        landscapeSourceKeys.add(sourceKey);
+      }
+      if (entity.ownerEntityId) {
+        ensureReference(
+          context,
+          ['landscapeEntities', index, 'ownerEntityId'],
+          entity.ownerEntityId,
+          landscapeEntities,
+          'landscape owner',
+        );
+        const owner = landscapeEntityById.get(entity.ownerEntityId);
+        if (
+          owner &&
+          (owner.engagementId !== entity.engagementId || owner.type !== 'role')
+        ) {
+          addIssue(
+            context,
+            ['landscapeEntities', index, 'ownerEntityId'],
+            'Must reference a role or person group in the same engagement.',
+          );
+        }
+      }
+      if (
+        entity.visibility === 'approved-client-facing' &&
+        entity.reviewStatus !== 'approved'
+      ) {
+        addIssue(
+          context,
+          ['landscapeEntities', index, 'visibility'],
+          'Client-facing landscape items must be approved.',
+        );
+      }
     });
 
+    const relationshipKeys = new Set<string>();
     dataset.landscapeRelationships.forEach((relationship, index) => {
       ensureReference(
         context,
@@ -2139,6 +2361,38 @@ export const fabricDatasetSchema = fabricDatasetShape.superRefine(
         relationship.evidenceIds,
         evidence,
         'evidence',
+      );
+      ensureDistinctValues(
+        context,
+        ['landscapeRelationships', index, 'evidenceIds'],
+        relationship.evidenceIds,
+        'evidence references',
+      );
+      ensureDistinctValues(
+        context,
+        ['landscapeRelationships', index, 'linkedObservationIds'],
+        relationship.linkedObservationIds,
+        'linked observations',
+      );
+      ensureDistinctValues(
+        context,
+        ['landscapeRelationships', index, 'linkedOpportunityIds'],
+        relationship.linkedOpportunityIds,
+        'linked opportunities',
+      );
+      ensureReferenceList(
+        context,
+        ['landscapeRelationships', index, 'linkedObservationIds'],
+        relationship.linkedObservationIds,
+        observations,
+        'observation',
+      );
+      ensureReferenceList(
+        context,
+        ['landscapeRelationships', index, 'linkedOpportunityIds'],
+        relationship.linkedOpportunityIds,
+        opportunities,
+        'opportunity',
       );
 
       if (
@@ -2169,6 +2423,266 @@ export const fabricDatasetSchema = fabricDatasetShape.superRefine(
             context,
             ['landscapeRelationships', index, 'evidenceIds', referenceIndex],
             'References evidence outside the engagement scope.',
+          );
+        }
+      });
+      (
+        [
+          ['linkedObservationIds', relationship.linkedObservationIds],
+          ['linkedOpportunityIds', relationship.linkedOpportunityIds],
+        ] as const
+      ).forEach(([field, referenceIds]) => {
+        referenceIds.forEach((id, referenceIndex) => {
+          if (!entityBelongsToEngagement(id, relationship.engagementId)) {
+            addIssue(
+              context,
+              ['landscapeRelationships', index, field, referenceIndex],
+              'References material outside the engagement scope.',
+            );
+          }
+        });
+      });
+
+      const fromEntity = landscapeEntityById.get(relationship.fromEntityId);
+      const toEntity = landscapeEntityById.get(relationship.toEntityId);
+      if (relationship.fromEntityId === relationship.toEntityId) {
+        addIssue(
+          context,
+          ['landscapeRelationships', index, 'toEntityId'],
+          'A landscape relationship cannot point to the same item.',
+        );
+      }
+      if (
+        fromEntity &&
+        toEntity &&
+        !isLandscapeRelationshipCompatible(
+          relationship.type,
+          fromEntity.type,
+          toEntity.type,
+        )
+      ) {
+        addIssue(
+          context,
+          ['landscapeRelationships', index, 'type'],
+          'The relationship type is not compatible with its source and target items.',
+        );
+      }
+      if (
+        relationship.transferMode &&
+        !canRecordLandscapeTransfer(relationship.type)
+      ) {
+        addIssue(
+          context,
+          ['landscapeRelationships', index, 'transferMode'],
+          'Transfer mode can only be recorded for information-flow or handoff relationships.',
+        );
+      }
+      if (
+        relationship.duplicateDataEntry &&
+        !canRecordLandscapeTransfer(relationship.type)
+      ) {
+        addIssue(
+          context,
+          ['landscapeRelationships', index, 'duplicateDataEntry'],
+          'Duplicate-entry prompts can only be recorded for information-flow or handoff relationships.',
+        );
+      }
+      if (
+        relationship.visibility === 'approved-client-facing' &&
+        relationship.reviewStatus !== 'approved'
+      ) {
+        addIssue(
+          context,
+          ['landscapeRelationships', index, 'visibility'],
+          'Client-facing landscape relationships must be approved.',
+        );
+      }
+      if (
+        relationship.visibility === 'approved-client-facing' &&
+        fromEntity &&
+        toEntity &&
+        (!isClientSafeLandscapeEntity(fromEntity) ||
+          !isClientSafeLandscapeEntity(toEntity))
+      ) {
+        addIssue(
+          context,
+          ['landscapeRelationships', index, 'visibility'],
+          'Client-facing relationships require approved client-facing source and target items.',
+        );
+      }
+
+      const relationshipKey = [
+        relationship.engagementId,
+        relationship.fromEntityId,
+        relationship.type,
+        relationship.toEntityId,
+      ].join(':');
+      if (relationshipKeys.has(relationshipKey)) {
+        addIssue(
+          context,
+          ['landscapeRelationships', index, 'type'],
+          'Duplicates an existing landscape relationship.',
+        );
+      }
+      relationshipKeys.add(relationshipKey);
+    });
+
+    const currentVersionScopes = new Set<string>();
+    const versionKeys = new Set<string>();
+    dataset.landscapeVersions.forEach((version, index) => {
+      ensureReference(
+        context,
+        ['landscapeVersions', index, 'engagementId'],
+        version.engagementId,
+        engagements,
+        'engagement',
+      );
+      ensureReference(
+        context,
+        ['landscapeVersions', index, 'capturedByUserId'],
+        version.capturedByUserId,
+        users,
+        'capturing user',
+      );
+      if (version.siteId) {
+        ensureReference(
+          context,
+          ['landscapeVersions', index, 'siteId'],
+          version.siteId,
+          sites,
+          'site',
+        );
+        if (!siteBelongsToEngagement(version.siteId, version.engagementId)) {
+          addIssue(
+            context,
+            ['landscapeVersions', index, 'siteId'],
+            'References a site outside the engagement scope.',
+          );
+        }
+      }
+
+      const scopeKey = `${version.engagementId}:${version.siteId ?? 'engagement'}`;
+      const versionKey = `${scopeKey}:${version.version}`;
+      if (versionKeys.has(versionKey)) {
+        addIssue(
+          context,
+          ['landscapeVersions', index, 'version'],
+          'Version identifiers must be unique within the landscape scope.',
+        );
+      }
+      versionKeys.add(versionKey);
+      if (version.status === 'current') {
+        if (currentVersionScopes.has(scopeKey)) {
+          addIssue(
+            context,
+            ['landscapeVersions', index, 'status'],
+            'Only one current landscape version is allowed for this scope.',
+          );
+        }
+        currentVersionScopes.add(scopeKey);
+      }
+
+      const snapshotEntityIds = new Set<string>();
+      version.entities.forEach((entity, entityIndex) => {
+        if (snapshotEntityIds.has(entity.landscapeEntityId)) {
+          addIssue(
+            context,
+            [
+              'landscapeVersions',
+              index,
+              'entities',
+              entityIndex,
+              'landscapeEntityId',
+            ],
+            'A landscape snapshot cannot contain the same item twice.',
+          );
+        }
+        snapshotEntityIds.add(entity.landscapeEntityId);
+        const currentEntity = landscapeEntityById.get(entity.landscapeEntityId);
+        if (
+          !currentEntity ||
+          currentEntity.engagementId !== version.engagementId
+        ) {
+          addIssue(
+            context,
+            [
+              'landscapeVersions',
+              index,
+              'entities',
+              entityIndex,
+              'landscapeEntityId',
+            ],
+            'Snapshot items must reference landscape items in the same engagement.',
+          );
+        }
+        if (version.siteId && entity.siteId !== version.siteId) {
+          addIssue(
+            context,
+            ['landscapeVersions', index, 'entities', entityIndex, 'siteId'],
+            'Snapshot items must belong to the selected site scope.',
+          );
+        }
+      });
+
+      const snapshotRelationshipIds = new Set<string>();
+      version.relationships.forEach((relationship, relationshipIndex) => {
+        if (snapshotRelationshipIds.has(relationship.landscapeRelationshipId)) {
+          addIssue(
+            context,
+            [
+              'landscapeVersions',
+              index,
+              'relationships',
+              relationshipIndex,
+              'landscapeRelationshipId',
+            ],
+            'A landscape snapshot cannot contain the same relationship twice.',
+          );
+        }
+        snapshotRelationshipIds.add(relationship.landscapeRelationshipId);
+        if (!snapshotEntityIds.has(relationship.fromEntityId)) {
+          addIssue(
+            context,
+            [
+              'landscapeVersions',
+              index,
+              'relationships',
+              relationshipIndex,
+              'fromEntityId',
+            ],
+            'Snapshot relationships must connect items included in the same snapshot.',
+          );
+        }
+        if (!snapshotEntityIds.has(relationship.toEntityId)) {
+          addIssue(
+            context,
+            [
+              'landscapeVersions',
+              index,
+              'relationships',
+              relationshipIndex,
+              'toEntityId',
+            ],
+            'Snapshot relationships must connect items included in the same snapshot.',
+          );
+        }
+        const currentRelationship = dataset.landscapeRelationships.find(
+          (item) => item.id === relationship.landscapeRelationshipId,
+        );
+        if (
+          !currentRelationship ||
+          currentRelationship.engagementId !== version.engagementId
+        ) {
+          addIssue(
+            context,
+            [
+              'landscapeVersions',
+              index,
+              'relationships',
+              relationshipIndex,
+              'landscapeRelationshipId',
+            ],
+            'Snapshot relationships must reference relationships in the same engagement.',
           );
         }
       });
@@ -3001,12 +3515,7 @@ export const fabricDatasetSchema = fabricDatasetShape.superRefine(
         if (!activityStateKeys.has(`${run.id}:${activityId}`)) {
           addIssue(
             context,
-            [
-              'engagementMethodologyRuns',
-              index,
-              'templateId',
-              activityIndex,
-            ],
+            ['engagementMethodologyRuns', index, 'templateId', activityIndex],
             'Must create a state for each activity in the assigned template.',
           );
         }

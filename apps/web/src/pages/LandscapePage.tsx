@@ -1,11 +1,29 @@
 import { useState } from 'react';
+import type { ReactNode } from 'react';
+
+import type {
+  LandscapeEntityType,
+  LandscapeRelationshipType,
+  LandscapeView,
+  ReviewStatus,
+} from '@domain';
+import {
+  landscapeEntityTypes,
+  landscapeRelationshipDefinitions,
+  landscapeRelationshipTypes,
+  landscapeViewLabels,
+  landscapeViews,
+} from '@domain';
 import {
   Badge,
   Button,
   Card,
   DataTable,
+  EmptyState,
+  FilterSelect,
   LandscapeCanvas,
   PageHeader,
+  SearchInput,
   Sheet,
   StatCard,
   Tabs,
@@ -13,257 +31,594 @@ import {
   TabsList,
   TabsTrigger,
   Toolbar,
-  SearchInput,
-  FilterSelect,
   ViewToggle,
 } from '@ui';
 import {
+  Database,
+  Edit3,
+  GitBranch,
+  History,
   Layers,
+  Lightbulb,
+  Link2,
+  Server,
+  ShieldCheck,
+  TriangleAlert,
+  UsersRound,
   Workflow,
-  ArrowRight,
 } from 'lucide-react';
+
 import { FabricDataView } from '@app/features/fabric-data/FabricDataView';
+import { useFabricData } from '@app/features/fabric-data/FabricDataContext';
+import {
+  buildLandscapeWorkbench,
+  type LandscapeEntityView,
+} from '@app/features/fabric-data/selectors';
+import {
+  LandscapeEntityForm,
+  LandscapeRelationshipForm,
+  LandscapeVersionForm,
+} from '@app/features/landscape/LandscapeForms';
+
+type LandscapeDisplayMode = 'canvas' | 'register';
+type EditorMode =
+  | 'create-entity'
+  | 'edit-entity'
+  | 'create-relationship'
+  | 'edit-relationship'
+  | 'capture-version'
+  | null;
+
+function labelise(value: string) {
+  return value
+    .split('-')
+    .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
+    .join(' ');
+}
+
+function reviewTone(reviewStatus: ReviewStatus) {
+  if (reviewStatus === 'approved') {
+    return 'success' as const;
+  }
+  if (reviewStatus === 'reviewed') {
+    return 'accent' as const;
+  }
+  return 'neutral' as const;
+}
+
+function viewIcon(view: LandscapeView): ReactNode {
+  if (view === 'systems') {
+    return <Server size={14} />;
+  }
+  if (view === 'data-flow') {
+    return <Database size={14} />;
+  }
+  if (view === 'people') {
+    return <UsersRound size={14} />;
+  }
+  if (view === 'opportunities') {
+    return <Lightbulb size={14} />;
+  }
+  return <Workflow size={14} />;
+}
+
+function viewForEntityType(type: LandscapeEntityType): LandscapeView {
+  if (type === 'system' || type === 'machine') {
+    return 'systems';
+  }
+  if (type === 'data-object' || type === 'handoff') {
+    return 'data-flow';
+  }
+  if (type === 'role') {
+    return 'people';
+  }
+  return 'process';
+}
+
+function linkedNames(
+  ids: string[],
+  records: Array<{
+    id: string;
+    name?: string;
+    title?: string;
+    summary?: string;
+  }>,
+) {
+  return ids
+    .map((id) => {
+      const record = records.find((item) => item.id === id);
+      return record?.name ?? record?.title ?? record?.summary ?? id;
+    })
+    .join(', ');
+}
 
 export function LandscapePage() {
-  const [viewMode, setViewMode] = useState<'canvas' | 'register'>('canvas');
+  const { canPerform } = useFabricData();
+  const [selectedEngagementId, setSelectedEngagementId] = useState('');
+  const [activeView, setActiveView] = useState<LandscapeView>('process');
+  const [displayMode, setDisplayMode] =
+    useState<LandscapeDisplayMode>('canvas');
   const [searchQuery, setSearchQuery] = useState('');
-  const [typeFilter, setTypeFilter] = useState('all');
+  const [entityType, setEntityType] = useState<LandscapeEntityType | 'all'>(
+    'all',
+  );
+  const [relationshipType, setRelationshipType] = useState<
+    LandscapeRelationshipType | 'all'
+  >('all');
   const [selectedEntityId, setSelectedEntityId] = useState<string | null>(null);
+  const [editingEntityId, setEditingEntityId] = useState<string | null>(null);
+  const [editingRelationshipId, setEditingRelationshipId] = useState<
+    string | null
+  >(null);
+  const [editorMode, setEditorMode] = useState<EditorMode>(null);
+  const [message, setMessage] = useState<string | null>(null);
 
   return (
     <FabricDataView
       emptyTitle="Landscape cannot be loaded"
-      loadingDescription="Loading structured areas, processes, systems, and relationships."
-      loadingTitle="Loading landscape"
+      loadingDescription="Loading structured areas, processes, systems, information flow, and version history."
+      loadingTitle="Loading digital landscape"
     >
       {(dataset) => {
-        const relationships = dataset.landscapeRelationships;
-        const entities = dataset.landscapeEntities;
+        const engagementId =
+          selectedEngagementId || dataset.engagements[0]?.id || '';
+        const workbench = engagementId
+          ? buildLandscapeWorkbench(dataset, engagementId, {
+              view: activeView,
+              query: searchQuery,
+              entityType,
+              relationshipType,
+            })
+          : undefined;
 
-        // Enrich entities with area name if available
-        const enrichedEntities = entities.map((entity) => {
-          let areaName: string | undefined;
-          if (entity.type === 'process' && entity.sourceEntityId) {
-            const proc = dataset.processes.find((p) => p.id === entity.sourceEntityId);
-            if (proc) {
-              const area = dataset.areas.find((a) => a.id === proc.areaId);
-              areaName = area?.name;
-            }
+        if (!workbench) {
+          return (
+            <>
+              <PageHeader
+                eyebrow="Diagnosis"
+                title="Digital landscape"
+                description="Start an engagement before recording a structured operational landscape."
+              />
+              <EmptyState
+                title="No engagement available"
+                description="Create an engagement, then capture its areas, processes, systems, data, people, and handoffs."
+              />
+            </>
+          );
+        }
+
+        const canEdit = canPerform('diagnostic:write', workbench.engagement.id);
+        const selectedEntity = workbench.entities.find(
+          (entity) => entity.id === selectedEntityId,
+        );
+        const allSelectedRelationships = selectedEntity
+          ? dataset.landscapeRelationships
+              .filter(
+                (relationship) =>
+                  relationship.engagementId === workbench.engagement.id &&
+                  (relationship.fromEntityId === selectedEntity.id ||
+                    relationship.toEntityId === selectedEntity.id),
+              )
+              .map((relationship) => ({
+                ...relationship,
+                fromName:
+                  dataset.landscapeEntities.find(
+                    (entity) => entity.id === relationship.fromEntityId,
+                  )?.name ?? relationship.fromEntityId,
+                toName:
+                  dataset.landscapeEntities.find(
+                    (entity) => entity.id === relationship.toEntityId,
+                  )?.name ?? relationship.toEntityId,
+                typeLabel:
+                  landscapeRelationshipDefinitions[relationship.type].label,
+              }))
+          : [];
+        const editingEntity = editingEntityId
+          ? dataset.landscapeEntities.find(
+              (entity) => entity.id === editingEntityId,
+            )
+          : undefined;
+        const editingRelationship = editingRelationshipId
+          ? dataset.landscapeRelationships.find(
+              (relationship) => relationship.id === editingRelationshipId,
+            )
+          : undefined;
+        const editorTitle =
+          editorMode === 'create-entity'
+            ? 'Add landscape item'
+            : editorMode === 'edit-entity'
+              ? `Edit ${editingEntity?.name ?? 'landscape item'}`
+              : editorMode === 'create-relationship'
+                ? 'Record landscape relationship'
+                : editorMode === 'edit-relationship'
+                  ? 'Edit landscape relationship'
+                  : 'Capture landscape version';
+        const editorDescription =
+          editorMode === 'capture-version'
+            ? 'Create an immutable current-state snapshot before future changes.'
+            : 'Record the current state with traceability, confidence, and an explicit verification state.';
+
+        const closeEditor = () => {
+          setEditorMode(null);
+          setEditingEntityId(null);
+          setEditingRelationshipId(null);
+        };
+        const openEntityEditor = (entity?: LandscapeEntityView) => {
+          setMessage(null);
+          setEditingEntityId(entity?.id ?? null);
+          if (entity) {
+            setSelectedEntityId(null);
           }
-          return {
-            id: entity.id,
-            name: entity.name,
-            description: entity.description,
-            type: entity.type,
-            ownerRole: entity.ownerRole,
-            sourceEntityId: entity.sourceEntityId,
-            areaName,
-          };
-        });
-
-        const selectedEntity = enrichedEntities.find((e) => e.id === selectedEntityId);
-
-        // Find incoming and outgoing relationships for selected entity
-        const incomingRelationships = selectedEntity
-          ? relationships.filter((r) => r.toEntityId === selectedEntity.id)
-          : [];
-        const outgoingRelationships = selectedEntity
-          ? relationships.filter((r) => r.fromEntityId === selectedEntity.id)
-          : [];
-
-        const filteredEntities = enrichedEntities.filter((entity) => {
-          const matchesType = typeFilter === 'all' || entity.type === typeFilter;
-          const matchesSearch =
-            !searchQuery ||
-            entity.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-            (entity.description &&
-              entity.description.toLowerCase().includes(searchQuery.toLowerCase()));
-          return matchesType && matchesSearch;
-        });
+          setEditorMode(entity ? 'edit-entity' : 'create-entity');
+        };
+        const openRelationshipEditor = (relationshipId?: string) => {
+          setMessage(null);
+          setEditingRelationshipId(relationshipId ?? null);
+          setEditorMode(
+            relationshipId ? 'edit-relationship' : 'create-relationship',
+          );
+        };
 
         return (
           <>
             <PageHeader
               eyebrow="Diagnosis"
-              title="Digital landscape structure"
-              description="A structured projection of areas, processes, systems, data, and information flow that informs evidence-led opportunities and delivery sequencing."
+              title="Digital landscape builder"
+              description="A living current-state model of areas, processes, people, systems, data, machines, and handoffs. Views are filters over the same traceable structure, not separate diagrams."
               metadata={[
-                'Operational context',
-                'Relationship-aware',
-                'Visual canvas & register',
+                workbench.clientName,
+                `${workbench.metrics.totalEntities} items`,
+                workbench.currentVersion
+                  ? `Version ${workbench.currentVersion.version}`
+                  : 'No snapshot yet',
               ]}
+              actions={
+                <select
+                  className="diagnostic-select"
+                  aria-label="Landscape engagement"
+                  value={workbench.engagement.id}
+                  onChange={(event) => {
+                    setSelectedEngagementId(event.target.value);
+                    setSelectedEntityId(null);
+                    setEditorMode(null);
+                  }}
+                >
+                  {dataset.engagements.map((engagement) => (
+                    <option key={engagement.id} value={engagement.id}>
+                      {engagement.name}
+                    </option>
+                  ))}
+                </select>
+              }
             />
+
+            {message ? (
+              <p className="form-success" role="status">
+                {message}
+              </p>
+            ) : null}
+
+            {!canEdit ? (
+              <Card
+                eyebrow="Read-only"
+                title="Landscape editing is unavailable for this role"
+                description="This workbench can be reviewed, but structured landscape changes require diagnostic write permission for the selected engagement."
+              >
+                <p className="body-copy">
+                  Select an engagement lead, analyst, or administrator to add
+                  current-state items, relationships, or snapshots.
+                </p>
+              </Card>
+            ) : null}
 
             <section className="metric-grid metric-grid--compact">
               <StatCard
-                label="Areas"
-                value={String(dataset.areas.length)}
-                detail="Operational areas linked to sites."
+                label="Landscape items"
+                value={String(workbench.metrics.totalEntities)}
+                detail="Areas, processes, systems, data, people, machines, and handoffs."
                 tone="accent"
               />
               <StatCard
-                label="Processes"
-                value={String(dataset.processes.length)}
-                detail="Processes available for assessment."
+                label="Relationships"
+                value={String(workbench.metrics.totalRelationships)}
+                detail="Explicit process, responsibility, system, and information-flow links."
                 tone="success"
               />
               <StatCard
-                label="Systems"
-                value={String(dataset.systems.length)}
-                detail="Known operational systems."
-                tone="neutral"
+                label="Review prompts"
+                value={String(workbench.metrics.qualityPromptCount)}
+                detail="Signals for a consultant to review, not automatic conclusions."
+                tone="warning"
               />
               <StatCard
-                label="Relationships"
-                value={String(relationships.length)}
-                detail="Explicit information and process flows."
-                tone="warning"
+                label="Client-safe items"
+                value={String(workbench.metrics.clientSafeItems)}
+                detail="Approved landscape records eligible for controlled output."
+                tone="neutral"
               />
             </section>
 
-            {/* Workbench Toolbar */}
             <Toolbar>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flexWrap: 'wrap' }}>
+              <div className="landscape-toolbar__filters">
                 <SearchInput
                   value={searchQuery}
                   onChange={setSearchQuery}
-                  placeholder="Filter entities & systems..."
+                  placeholder="Search names, descriptions, owners, and relationships..."
                 />
                 <FilterSelect
-                  label="Type"
-                  value={typeFilter}
-                  onChange={setTypeFilter}
+                  label="Item type"
+                  value={entityType}
+                  onChange={(value) =>
+                    setEntityType(value as LandscapeEntityType | 'all')
+                  }
                   options={[
-                    { value: 'all', label: 'All types' },
-                    { value: 'area', label: 'Areas' },
-                    { value: 'process', label: 'Processes' },
-                    { value: 'system', label: 'Systems' },
-                    { value: 'data-object', label: 'Data objects' },
+                    { value: 'all', label: 'All items' },
+                    ...landscapeEntityTypes.map((type) => ({
+                      value: type,
+                      label: labelise(type),
+                    })),
+                  ]}
+                />
+                <FilterSelect
+                  label="Relationship"
+                  value={relationshipType}
+                  onChange={(value) =>
+                    setRelationshipType(
+                      value as LandscapeRelationshipType | 'all',
+                    )
+                  }
+                  options={[
+                    { value: 'all', label: 'All relationships' },
+                    ...landscapeRelationshipTypes.map((type) => ({
+                      value: type,
+                      label: landscapeRelationshipDefinitions[type].label,
+                    })),
                   ]}
                 />
               </div>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-                <ViewToggle
-                  value={viewMode}
-                  onChange={(v: string) => setViewMode(v as 'canvas' | 'register')}
-                  options={[
-                    { id: 'canvas', label: 'Visual canvas', icon: <Workflow size={14} /> },
-                    { id: 'register', label: 'Register & tables', icon: <Layers size={14} /> },
-                  ]}
-                />
+              <div className="landscape-toolbar__actions">
+                <Button
+                  variant="secondary"
+                  disabled={!canEdit}
+                  onClick={() => openRelationshipEditor()}
+                >
+                  <Link2 size={15} /> Record relationship
+                </Button>
+                <Button disabled={!canEdit} onClick={() => openEntityEditor()}>
+                  <Layers size={15} /> Add landscape item
+                </Button>
               </div>
             </Toolbar>
 
-            {/* Main Content: Canvas or Register View */}
-            {viewMode === 'canvas' ? (
+            <section className="landscape-view-controls">
+              <ViewToggle
+                value={activeView}
+                onChange={(value) => {
+                  setActiveView(value as LandscapeView);
+                  setSelectedEntityId(null);
+                }}
+                options={landscapeViews.map((view) => ({
+                  id: view,
+                  label: landscapeViewLabels[view],
+                  icon: viewIcon(view),
+                }))}
+              />
+              <ViewToggle
+                value={displayMode}
+                onChange={(value) =>
+                  setDisplayMode(value as LandscapeDisplayMode)
+                }
+                options={[
+                  {
+                    id: 'canvas',
+                    label: 'Visual map',
+                    icon: <GitBranch size={14} />,
+                  },
+                  {
+                    id: 'register',
+                    label: 'Structured register',
+                    icon: <Layers size={14} />,
+                  },
+                ]}
+              />
+            </section>
+
+            {displayMode === 'canvas' ? (
               <Card
-                title="Interactive systems & process flow map"
-                description="Visual graph of physical zones, operational processes, software systems, and data dependencies. Drag to pan, scroll to zoom, click any node to inspect relationships."
+                title={landscapeViewLabels[activeView]}
+                description="Use the controls above to keep the map focused. Select any item to inspect its traceability and connected relationships."
               >
-                <LandscapeCanvas
-                  entities={enrichedEntities}
-                  relationships={relationships}
-                  selectedEntityId={selectedEntityId}
-                  onSelectEntity={(entity) => setSelectedEntityId(entity.id)}
-                  height={620}
-                />
+                {workbench.entities.length === 0 ? (
+                  <EmptyState
+                    title="No items match this view"
+                    description="Adjust the view or filters, or add the first structured landscape item for this engagement."
+                  />
+                ) : (
+                  <LandscapeCanvas
+                    entities={workbench.entities}
+                    relationships={workbench.relationships}
+                    selectedEntityId={selectedEntityId}
+                    onSelectEntity={(entity) => setSelectedEntityId(entity.id)}
+                    height={720}
+                  />
+                )}
               </Card>
             ) : (
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
+              <div className="landscape-register">
                 <Card
-                  title="Landscape entities"
-                  description="Structured catalog of enterprise entities. Click any row to inspect incoming/outgoing connections."
+                  title={`${landscapeViewLabels[activeView]} items`}
+                  description="Each record retains confidence, verification status, internal working context, and links to evidence-led work."
+                  actions={
+                    <Button
+                      variant="secondary"
+                      disabled={!canEdit}
+                      onClick={() => openEntityEditor()}
+                    >
+                      Add item
+                    </Button>
+                  }
                 >
                   <DataTable
-                    rows={filteredEntities}
-                    getRowKey={(row) => row.id}
+                    rows={workbench.entities}
+                    getRowKey={(entity) => entity.id}
                     selectedRowKey={selectedEntityId ?? undefined}
-                    onRowClick={(row) => setSelectedEntityId(row.id)}
+                    onRowClick={(entity) => setSelectedEntityId(entity.id)}
+                    emptyState="No landscape items match the current view and filters."
                     columns={[
                       {
-                        key: 'name',
-                        header: 'Entity name',
-                        render: (row) => (
+                        key: 'item',
+                        header: 'Item',
+                        render: (entity) => (
                           <div>
-                            <strong>{row.name}</strong>
-                            {row.description && (
-                              <div className="body-copy body-copy--small">
-                                {row.description}
-                              </div>
-                            )}
+                            <strong>{entity.name}</strong>
+                            <div className="body-copy body-copy--small">
+                              {entity.description}
+                            </div>
                           </div>
                         ),
                       },
                       {
                         key: 'type',
                         header: 'Type',
-                        render: (row) => (
-                          <Badge
-                            tone={
-                              row.type === 'system'
-                                ? 'accent'
-                                : row.type === 'process'
-                                ? 'warning'
-                                : row.type === 'area'
-                                ? 'success'
-                                : 'neutral'
-                            }
-                          >
-                            {row.type}
-                          </Badge>
+                        render: (entity) => (
+                          <Badge tone="accent">{labelise(entity.type)}</Badge>
                         ),
                       },
                       {
                         key: 'owner',
-                        header: 'Owner role',
-                        render: (row) => row.ownerRole || '—',
+                        header: 'Owner / responsibility',
+                        render: (entity) => entity.ownerLabel ?? 'Not recorded',
                       },
                       {
-                        key: 'area',
-                        header: 'Area / scope',
-                        render: (row) => row.areaName || '—',
+                        key: 'assurance',
+                        header: 'Confidence & verification',
+                        render: (entity) => (
+                          <div className="landscape-table-badges">
+                            <Badge tone="neutral">{entity.confidence}</Badge>
+                            <Badge
+                              tone={
+                                entity.verificationStatus === 'confirmed'
+                                  ? 'success'
+                                  : 'warning'
+                              }
+                            >
+                              {labelise(entity.verificationStatus)}
+                            </Badge>
+                          </div>
+                        ),
+                      },
+                      {
+                        key: 'links',
+                        header: 'Links',
+                        render: (entity) =>
+                          `${entity.observationCount} observation${
+                            entity.observationCount === 1 ? '' : 's'
+                          }, ${entity.opportunityCount} opportunit${
+                            entity.opportunityCount === 1 ? 'y' : 'ies'
+                          }`,
+                      },
+                      {
+                        key: 'edit',
+                        header: '',
+                        align: 'right',
+                        render: (entity) => (
+                          <Button
+                            variant="ghost"
+                            disabled={!canEdit}
+                            onClick={(event) => {
+                              event.stopPropagation();
+                              openEntityEditor(entity);
+                            }}
+                          >
+                            <Edit3 size={14} /> Edit
+                          </Button>
+                        ),
                       },
                     ]}
                   />
                 </Card>
 
                 <Card
-                  title="Relationships & information flows"
-                  description="Explicit dependencies, data integrations, and operational handoffs between systems and processes."
+                  title="Relationships and information transfer"
+                  description="Flows remain explicitly linked to their source and target items, supporting readable views without a free-form diagram."
+                  actions={
+                    <Button
+                      variant="secondary"
+                      disabled={!canEdit}
+                      onClick={() => openRelationshipEditor()}
+                    >
+                      <Link2 size={15} /> Add relationship
+                    </Button>
+                  }
                 >
                   <DataTable
-                    rows={relationships}
-                    getRowKey={(row) => row.id}
+                    rows={workbench.relationships}
+                    getRowKey={(relationship) => relationship.id}
+                    emptyState="No relationships match the current view and filters."
                     columns={[
                       {
-                        header: 'Source (from)',
-                        render: (row) => (
-                          <strong>
-                            {entities.find((e) => e.id === row.fromEntityId)?.name ||
-                              row.fromEntityId}
-                          </strong>
+                        key: 'from',
+                        header: 'From',
+                        render: (relationship) => (
+                          <strong>{relationship.fromName}</strong>
                         ),
                       },
                       {
-                        header: 'Relationship type',
-                        render: (row) => <Badge tone="accent">{row.type}</Badge>,
-                      },
-                      {
-                        header: 'Target (to)',
-                        render: (row) => (
-                          <strong>
-                            {entities.find((e) => e.id === row.toEntityId)?.name ||
-                              row.toEntityId}
-                          </strong>
+                        key: 'relationship',
+                        header: 'Relationship',
+                        render: (relationship) => (
+                          <div className="landscape-table-badges">
+                            <Badge tone="accent">
+                              {relationship.typeLabel}
+                            </Badge>
+                            {relationship.transferMode ? (
+                              <Badge
+                                tone={
+                                  relationship.transferMode === 'manual'
+                                    ? 'warning'
+                                    : 'success'
+                                }
+                              >
+                                {relationship.transferMode}
+                              </Badge>
+                            ) : null}
+                            {relationship.duplicateDataEntry ? (
+                              <Badge tone="warning">duplicate entry</Badge>
+                            ) : null}
+                          </div>
                         ),
                       },
                       {
-                        header: 'Rationale',
-                        render: (row) => row.rationale || 'No rationale recorded',
+                        key: 'to',
+                        header: 'To',
+                        render: (relationship) => (
+                          <strong>{relationship.toName}</strong>
+                        ),
                       },
                       {
-                        header: 'Evidence',
-                        render: (row) => `${row.evidenceIds.length} references`,
+                        key: 'review',
+                        header: 'Review',
+                        render: (relationship) => (
+                          <Badge tone={reviewTone(relationship.reviewStatus)}>
+                            {labelise(relationship.reviewStatus)}
+                          </Badge>
+                        ),
+                      },
+                      {
+                        key: 'edit',
+                        header: '',
+                        align: 'right',
+                        render: (relationship) => (
+                          <Button
+                            variant="ghost"
+                            disabled={!canEdit}
+                            onClick={() =>
+                              openRelationshipEditor(relationship.id)
+                            }
+                          >
+                            <Edit3 size={14} /> Edit
+                          </Button>
+                        ),
                       },
                     ]}
                   />
@@ -271,171 +626,350 @@ export function LandscapePage() {
               </div>
             )}
 
-            {/* Entity Inspector Sheet */}
+            <div className="landscape-secondary-grid">
+              <Card
+                eyebrow="Review prompts"
+                title="Landscape quality indicators"
+                description="These signals identify missing context or uncertainty for consultant review. They do not assert a diagnosis or recommendation."
+              >
+                {workbench.qualityIndicators.length === 0 ? (
+                  <p className="body-copy">
+                    No quality prompts are currently triggered for this
+                    engagement.
+                  </p>
+                ) : (
+                  <ul className="landscape-quality-list">
+                    {workbench.qualityIndicators.map((indicator) => (
+                      <li key={indicator.id}>
+                        <div>
+                          <strong>
+                            <TriangleAlert size={15} /> {indicator.title}
+                          </strong>
+                          <span>{indicator.detail}</span>
+                        </div>
+                        {indicator.entityId ? (
+                          <Button
+                            variant="ghost"
+                            onClick={() => {
+                              const entity = dataset.landscapeEntities.find(
+                                (item) => item.id === indicator.entityId,
+                              );
+                              if (entity) {
+                                setActiveView(viewForEntityType(entity.type));
+                              }
+                              setSearchQuery('');
+                              setEntityType('all');
+                              setRelationshipType('all');
+                              setSelectedEntityId(indicator.entityId ?? null);
+                              setDisplayMode('canvas');
+                            }}
+                          >
+                            Inspect
+                          </Button>
+                        ) : null}
+                      </li>
+                    ))}
+                  </ul>
+                )}
+              </Card>
+
+              <Card
+                eyebrow="Controlled output foundation"
+                title="Version and A3-ready landscape data"
+                description="The snapshot holds the current-state hierarchy, labels, and legend. External output uses only approved client-facing items and relationships."
+                actions={
+                  <Button
+                    variant="secondary"
+                    disabled={!canEdit}
+                    onClick={() => {
+                      setMessage(null);
+                      setEditorMode('capture-version');
+                    }}
+                  >
+                    <History size={15} /> Capture version
+                  </Button>
+                }
+              >
+                {workbench.currentVersion ? (
+                  <div className="landscape-version-summary">
+                    <div>
+                      <span>Current snapshot</span>
+                      <strong>
+                        {workbench.currentVersion.title} (v
+                        {workbench.currentVersion.version})
+                      </strong>
+                    </div>
+                    <div>
+                      <span>Captured</span>
+                      <strong>
+                        {new Date(
+                          workbench.currentVersion.capturedAt,
+                        ).toLocaleDateString('en-GB')}
+                      </strong>
+                    </div>
+                    <div>
+                      <span>Snapshot coverage</span>
+                      <strong>
+                        {workbench.currentVersion.entities.length} items,{' '}
+                        {workbench.currentVersion.relationships.length} links
+                      </strong>
+                    </div>
+                  </div>
+                ) : (
+                  <p className="body-copy">
+                    Capture a version before using this landscape as a
+                    controlled current-state output foundation.
+                  </p>
+                )}
+                {workbench.a3Projection ? (
+                  <div className="landscape-output-foundation">
+                    <div>
+                      <ShieldCheck size={18} />
+                      <div>
+                        <strong>
+                          {workbench.a3Projection.clientName} -{' '}
+                          {workbench.a3Projection.siteName}
+                        </strong>
+                        <span>
+                          {workbench.a3Projection.entities.length} approved
+                          items, {workbench.a3Projection.relationships.length}{' '}
+                          approved relationships, v
+                          {workbench.a3Projection.version}
+                        </span>
+                      </div>
+                    </div>
+                    <p>
+                      Internal notes, draft records, unapproved relationships,
+                      and raw evidence references are excluded from this
+                      projection.
+                    </p>
+                  </div>
+                ) : null}
+                {workbench.versions.length > 1 ? (
+                  <p className="body-copy body-copy--small">
+                    {
+                      workbench.versions.filter(
+                        (version) => version.status === 'superseded',
+                      ).length
+                    }{' '}
+                    historical snapshot
+                    {workbench.versions.filter(
+                      (version) => version.status === 'superseded',
+                    ).length === 1
+                      ? ''
+                      : 's'}{' '}
+                    retained.
+                  </p>
+                ) : null}
+              </Card>
+            </div>
+
+            <Sheet
+              open={editorMode !== null}
+              onOpenChange={(open) => {
+                if (!open) {
+                  closeEditor();
+                }
+              }}
+              eyebrow="Digital landscape"
+              title={editorTitle}
+              description={editorDescription}
+              size="xl"
+            >
+              {editorMode === 'create-entity' ||
+              editorMode === 'edit-entity' ? (
+                <LandscapeEntityForm
+                  key={`${editorMode}-${editingEntity?.id ?? workbench.engagement.id}`}
+                  dataset={dataset}
+                  engagementId={workbench.engagement.id}
+                  entity={editingEntity}
+                  onSaved={(entity) => {
+                    setSelectedEntityId(entity.id);
+                    closeEditor();
+                    setMessage('Landscape item saved.');
+                  }}
+                />
+              ) : null}
+              {editorMode === 'create-relationship' ||
+              editorMode === 'edit-relationship' ? (
+                <LandscapeRelationshipForm
+                  key={`${editorMode}-${editingRelationship?.id ?? workbench.engagement.id}`}
+                  dataset={dataset}
+                  engagementId={workbench.engagement.id}
+                  relationship={editingRelationship}
+                  onSaved={() => {
+                    closeEditor();
+                    setMessage('Landscape relationship saved.');
+                  }}
+                />
+              ) : null}
+              {editorMode === 'capture-version' ? (
+                <LandscapeVersionForm
+                  key={`version-${workbench.engagement.id}`}
+                  dataset={dataset}
+                  engagementId={workbench.engagement.id}
+                  onSaved={() => {
+                    closeEditor();
+                    setMessage(
+                      'Landscape version captured. The previous current version is retained as historical.',
+                    );
+                  }}
+                />
+              ) : null}
+            </Sheet>
+
             <Sheet
               open={Boolean(selectedEntity)}
               onOpenChange={(open) => {
-                if (!open) setSelectedEntityId(null);
+                if (!open) {
+                  setSelectedEntityId(null);
+                }
               }}
-              title={selectedEntity?.name || 'Entity inspector'}
-              description={selectedEntity?.type ? `Type: ${selectedEntity.type}` : undefined}
+              eyebrow="Landscape item"
+              title={selectedEntity?.name ?? 'Landscape item'}
+              description={
+                selectedEntity
+                  ? `${labelise(selectedEntity.type)} at ${selectedEntity.siteName}`
+                  : undefined
+              }
               size="lg"
             >
-              {selectedEntity && (
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
+              {selectedEntity ? (
+                <div className="landscape-inspector">
+                  <div className="detail-badges">
+                    <Badge tone="accent">{labelise(selectedEntity.type)}</Badge>
+                    <Badge tone="neutral">
+                      {selectedEntity.confidence} confidence
+                    </Badge>
+                    <Badge
+                      tone={
+                        selectedEntity.verificationStatus === 'confirmed'
+                          ? 'success'
+                          : 'warning'
+                      }
+                    >
+                      {labelise(selectedEntity.verificationStatus)}
+                    </Badge>
+                    <Badge tone={reviewTone(selectedEntity.reviewStatus)}>
+                      {labelise(selectedEntity.reviewStatus)}
+                    </Badge>
+                  </div>
                   <Tabs defaultValue="details" variant="underline">
                     <TabsList>
-                      <TabsTrigger value="details">Details & scope</TabsTrigger>
+                      <TabsTrigger value="details">Details</TabsTrigger>
                       <TabsTrigger
-                        value="flows"
-                        badge={String(incomingRelationships.length + outgoingRelationships.length)}
-                      >
-                        Information flows
-                      </TabsTrigger>
-                      <TabsTrigger value="relationships">Dependencies</TabsTrigger>
-                    </TabsList>
-
-                    <TabsContent value="details">
-                      <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
-                        <div>
-                          <span className="body-copy body-copy--small" style={{ fontWeight: 700 }}>
-                            Description:
-                          </span>
-                          <p className="body-copy" style={{ marginTop: '4px' }}>
-                            {selectedEntity.description || 'No detailed description provided.'}
-                          </p>
-                        </div>
-
-                        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
-                          <div style={{ padding: '12px', background: 'var(--fabric-surface-alt)', borderRadius: '6px' }}>
-                            <span className="body-copy body-copy--small" style={{ fontWeight: 700 }}>
-                              Type:
-                            </span>
-                            <div style={{ marginTop: '4px' }}>
-                              <Badge tone="accent">{selectedEntity.type}</Badge>
-                            </div>
-                          </div>
-
-                          <div style={{ padding: '12px', background: 'var(--fabric-surface-alt)', borderRadius: '6px' }}>
-                            <span className="body-copy body-copy--small" style={{ fontWeight: 700 }}>
-                              Owner role:
-                            </span>
-                            <div style={{ marginTop: '4px', fontWeight: 600 }}>
-                              {selectedEntity.ownerRole || 'Not assigned'}
-                            </div>
-                          </div>
-                        </div>
-
-                        {selectedEntity.areaName && (
-                          <div style={{ padding: '12px', background: 'var(--fabric-surface-alt)', borderRadius: '6px' }}>
-                            <span className="body-copy body-copy--small" style={{ fontWeight: 700 }}>
-                              Operational area:
-                            </span>
-                            <div style={{ marginTop: '4px', fontWeight: 600 }}>
-                              {selectedEntity.areaName}
-                            </div>
-                          </div>
+                        value="links"
+                        badge={String(
+                          selectedEntity.observationCount +
+                            selectedEntity.evidenceCount +
+                            selectedEntity.frictionCount +
+                            selectedEntity.opportunityCount,
                         )}
-                      </div>
+                      >
+                        Traceability
+                      </TabsTrigger>
+                      <TabsTrigger
+                        value="relationships"
+                        badge={String(allSelectedRelationships.length)}
+                      >
+                        Relationships
+                      </TabsTrigger>
+                    </TabsList>
+                    <TabsContent value="details">
+                      <dl className="detail-list">
+                        <dt>Description</dt>
+                        <dd>{selectedEntity.description}</dd>
+                        <dt>Owner / responsibility</dt>
+                        <dd>{selectedEntity.ownerLabel ?? 'Not recorded'}</dd>
+                        <dt>Documented method</dt>
+                        <dd>
+                          {selectedEntity.documentedMethod ??
+                            'No documented method recorded.'}
+                        </dd>
+                        <dt>Canonical source</dt>
+                        <dd>
+                          {selectedEntity.sourceEntityId ??
+                            'Landscape-only record'}
+                        </dd>
+                        <dt>Visibility</dt>
+                        <dd>{labelise(selectedEntity.visibility)}</dd>
+                      </dl>
                     </TabsContent>
-
-                    <TabsContent value="flows">
-                      <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
-                        <div>
-                          <strong style={{ fontSize: '13px', textTransform: 'uppercase', color: 'var(--fabric-text-soft)' }}>
-                            Outgoing flows ({outgoingRelationships.length})
-                          </strong>
-                          {outgoingRelationships.length === 0 ? (
-                            <p className="body-copy" style={{ marginTop: '6px', fontStyle: 'italic' }}>
-                              No outgoing flows recorded.
-                            </p>
-                          ) : (
-                            <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', marginTop: '8px' }}>
-                              {outgoingRelationships.map((r) => {
-                                const target = entities.find((e) => e.id === r.toEntityId);
-                                return (
-                                  <div
-                                    key={r.id}
-                                    style={{
-                                      padding: '10px 12px',
-                                      borderRadius: '6px',
-                                      border: '1px solid var(--fabric-border)',
-                                      background: 'var(--fabric-surface-alt)',
-                                    }}
-                                  >
-                                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '4px' }}>
-                                      <Badge tone="accent">{r.type}</Badge>
-                                      <ArrowRight size={14} />
-                                      <strong>{target?.name || r.toEntityId}</strong>
-                                    </div>
-                                    {r.rationale && (
-                                      <div className="body-copy body-copy--small">{r.rationale}</div>
-                                    )}
-                                  </div>
-                                );
-                              })}
-                            </div>
-                          )}
-                        </div>
-
-                        <div style={{ marginTop: '12px' }}>
-                          <strong style={{ fontSize: '13px', textTransform: 'uppercase', color: 'var(--fabric-text-soft)' }}>
-                            Incoming flows ({incomingRelationships.length})
-                          </strong>
-                          {incomingRelationships.length === 0 ? (
-                            <p className="body-copy" style={{ marginTop: '6px', fontStyle: 'italic' }}>
-                              No incoming flows recorded.
-                            </p>
-                          ) : (
-                            <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', marginTop: '8px' }}>
-                              {incomingRelationships.map((r) => {
-                                const src = entities.find((e) => e.id === r.fromEntityId);
-                                return (
-                                  <div
-                                    key={r.id}
-                                    style={{
-                                      padding: '10px 12px',
-                                      borderRadius: '6px',
-                                      border: '1px solid var(--fabric-border)',
-                                      background: 'var(--fabric-surface-alt)',
-                                    }}
-                                  >
-                                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '4px' }}>
-                                      <strong>{src?.name || r.fromEntityId}</strong>
-                                      <ArrowRight size={14} />
-                                      <Badge tone="accent">{r.type}</Badge>
-                                    </div>
-                                    {r.rationale && (
-                                      <div className="body-copy body-copy--small">{r.rationale}</div>
-                                    )}
-                                  </div>
-                                );
-                              })}
-                            </div>
-                          )}
-                        </div>
-                      </div>
+                    <TabsContent value="links">
+                      <dl className="detail-list">
+                        <dt>Observations</dt>
+                        <dd>
+                          {linkedNames(
+                            selectedEntity.linkedObservationIds,
+                            dataset.observations,
+                          ) || 'None linked'}
+                        </dd>
+                        <dt>Evidence</dt>
+                        <dd>
+                          {linkedNames(
+                            selectedEntity.linkedEvidenceIds,
+                            dataset.evidence,
+                          ) || 'None linked'}
+                        </dd>
+                        <dt>Friction items</dt>
+                        <dd>
+                          {linkedNames(
+                            selectedEntity.linkedFrictionItemIds,
+                            dataset.frictionItems.map((item) => ({
+                              id: item.id,
+                              summary: item.frictionPoint,
+                            })),
+                          ) || 'None linked'}
+                        </dd>
+                        <dt>Opportunities</dt>
+                        <dd>
+                          {linkedNames(
+                            selectedEntity.linkedOpportunityIds,
+                            dataset.opportunities,
+                          ) || 'None linked'}
+                        </dd>
+                      </dl>
                     </TabsContent>
-
                     <TabsContent value="relationships">
-                      <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                      {allSelectedRelationships.length === 0 ? (
                         <p className="body-copy">
-                          Traceability linkage connects this landscape node to observations, diagnostic dimensions, and delivery initiatives.
+                          No relationships are recorded for this item.
                         </p>
-                        <div style={{ padding: '12px', borderRadius: '6px', background: 'var(--fabric-accent-soft)', color: 'var(--fabric-accent)' }}>
-                          <strong>Source Reference:</strong> {selectedEntity.sourceEntityId || 'Structured Entity'}
-                        </div>
-                      </div>
+                      ) : (
+                        <ul className="landscape-relationship-list">
+                          {allSelectedRelationships.map((relationship) => (
+                            <li key={relationship.id}>
+                              <strong>
+                                {relationship.fromName} -{' '}
+                                {relationship.typeLabel} - {relationship.toName}
+                              </strong>
+                              <span>
+                                {relationship.rationale ??
+                                  'No rationale recorded.'}
+                              </span>
+                            </li>
+                          ))}
+                        </ul>
+                      )}
                     </TabsContent>
                   </Tabs>
-
-                  <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '8px', marginTop: '16px' }}>
-                    <Button variant="secondary" onClick={() => setSelectedEntityId(null)}>
-                      Close Inspector
+                  <div className="landscape-inspector__actions">
+                    <Button
+                      variant="secondary"
+                      disabled={!canEdit}
+                      onClick={() => openEntityEditor(selectedEntity)}
+                    >
+                      <Edit3 size={15} /> Edit item
+                    </Button>
+                    <Button
+                      variant="ghost"
+                      onClick={() => setSelectedEntityId(null)}
+                    >
+                      Close
                     </Button>
                   </div>
                 </div>
-              )}
+              ) : null}
             </Sheet>
           </>
         );

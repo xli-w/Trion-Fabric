@@ -27,10 +27,16 @@ import type {
   MaturityAssessment,
   MethodologyActivity,
   ActionItem,
+  Area,
   BenefitMeasurement,
   DeliveryAction,
   Initiative,
+  LandscapeEntity,
+  LandscapeRelationship,
+  LandscapeVersion,
   Milestone,
+  OperationalSystem,
+  Process,
   Roadmap,
   Opportunity,
   Output,
@@ -45,6 +51,7 @@ import {
   assertUserCanPerformAcrossEngagements,
   canUserPerform,
   createMethodologyRun,
+  createLandscapeVersionSnapshot,
   isOpportunityReadyForDelivery,
   permissionForVisibilityTransition,
   preparePreliminarySiteWalkPromotion,
@@ -76,9 +83,7 @@ interface FabricDataContextValue {
     input: Omit<Site, 'id' | 'createdAt' | 'updatedAt'>,
   ) => Promise<Site>;
   updateSite: (site: Site) => Promise<void>;
-  createEngagement: (
-    input: CreateEngagementInput,
-  ) => Promise<Engagement>;
+  createEngagement: (input: CreateEngagementInput) => Promise<Engagement>;
   updateEngagement: (engagement: Engagement) => Promise<void>;
   completeMethodologyActivity: (
     activityId: EntityId,
@@ -94,9 +99,7 @@ interface FabricDataContextValue {
   ) => Promise<void>;
   pauseMethodologyRun: (runId: EntityId, reason: string) => Promise<void>;
   resumeMethodologyRun: (runId: EntityId) => Promise<void>;
-  promotePreliminarySiteWalk: (
-    siteWalkId: EntityId,
-  ) => Promise<Engagement>;
+  promotePreliminarySiteWalk: (siteWalkId: EntityId) => Promise<Engagement>;
   createSiteWalk: (
     input: Omit<SiteWalk, 'id' | 'createdAt' | 'updatedAt'>,
   ) => Promise<SiteWalk>;
@@ -149,6 +152,20 @@ interface FabricDataContextValue {
     input: Omit<Output, 'id' | 'createdAt' | 'updatedAt'>,
   ) => Promise<Output>;
   updateOutput: (output: Output) => Promise<void>;
+  createLandscapeEntity: (
+    input: CreateLandscapeEntityInput,
+  ) => Promise<LandscapeEntity>;
+  updateLandscapeEntity: (entity: LandscapeEntity) => Promise<void>;
+  createLandscapeRelationship: (
+    input: CreateLandscapeRelationshipInput,
+  ) => Promise<LandscapeRelationship>;
+  updateLandscapeRelationship: (
+    relationship: LandscapeRelationship,
+  ) => Promise<void>;
+  captureLandscapeVersion: (
+    engagementId: EntityId,
+    input: CaptureLandscapeVersionInput,
+  ) => Promise<LandscapeVersion>;
   repositorySource: RepositorySource;
 }
 
@@ -166,6 +183,34 @@ export interface CreateEngagementInput
   methodologyTemplateId?: EntityId;
 }
 
+export interface CreateLandscapeEntityInput
+  extends Omit<
+    LandscapeEntity,
+    | 'id'
+    | 'createdAt'
+    | 'updatedAt'
+    | 'sourceEntityId'
+    | 'visibility'
+    | 'reviewStatus'
+  > {
+  sourceEntityId?: EntityId;
+  canonicalAreaId?: EntityId;
+  relatedSystemIds?: EntityId[];
+  systemCategory?: string;
+  systemOwnerTeam?: string;
+}
+
+export type CreateLandscapeRelationshipInput = Omit<
+  LandscapeRelationship,
+  'id' | 'createdAt' | 'updatedAt' | 'visibility' | 'reviewStatus'
+>;
+
+export interface CaptureLandscapeVersionInput {
+  title: string;
+  siteId?: EntityId;
+  notes?: string;
+}
+
 type ActivityCollection =
   | 'clients'
   | 'sites'
@@ -179,6 +224,7 @@ type ActivityCollection =
   | 'findings'
   | 'landscapeEntities'
   | 'landscapeRelationships'
+  | 'landscapeVersions'
   | 'opportunities'
   | 'actionItems'
   | 'initiatives'
@@ -233,6 +279,7 @@ const activityCollections: ActivityCollection[] = [
   'findings',
   'landscapeEntities',
   'landscapeRelationships',
+  'landscapeVersions',
   'opportunities',
   'actionItems',
   'initiatives',
@@ -261,6 +308,7 @@ const activityEntityTypesByCollection: Record<
   findings: 'finding',
   landscapeEntities: 'landscape-entity',
   landscapeRelationships: 'landscape-relationship',
+  landscapeVersions: 'landscape-version',
   opportunities: 'opportunity',
   actionItems: 'action',
   initiatives: 'initiative',
@@ -302,6 +350,8 @@ function recordsFor(
       return dataset.landscapeEntities;
     case 'landscapeRelationships':
       return dataset.landscapeRelationships;
+    case 'landscapeVersions':
+      return dataset.landscapeVersions;
     case 'opportunities':
       return dataset.opportunities;
     case 'actionItems':
@@ -414,7 +464,9 @@ function getEngagementIdForChange(
       return siteWalkId ? findSiteWalkEngagementId(siteWalkId) : undefined;
     }
     case 'evidence': {
-      const evidenceItem = dataset.evidence.find((item) => item.id === record.id);
+      const evidenceItem = dataset.evidence.find(
+        (item) => item.id === record.id,
+      );
       if (evidenceItem?.siteWalkId) {
         return findSiteWalkEngagementId(evidenceItem.siteWalkId);
       }
@@ -457,19 +509,27 @@ function getEngagementIdForChange(
       const diagnosticId = dataset.maturityAssessments.find(
         (item) => item.id === record.id,
       )?.diagnosticId;
-      return diagnosticId ? findDiagnosticEngagementId(diagnosticId) : undefined;
+      return diagnosticId
+        ? findDiagnosticEngagementId(diagnosticId)
+        : undefined;
     }
     case 'findings': {
       const diagnosticId = dataset.findings.find(
         (item) => item.id === record.id,
       )?.diagnosticId;
-      return diagnosticId ? findDiagnosticEngagementId(diagnosticId) : undefined;
+      return diagnosticId
+        ? findDiagnosticEngagementId(diagnosticId)
+        : undefined;
     }
     case 'landscapeEntities':
       return dataset.landscapeEntities.find((item) => item.id === record.id)
         ?.engagementId;
     case 'landscapeRelationships':
-      return dataset.landscapeRelationships.find((item) => item.id === record.id)
+      return dataset.landscapeRelationships.find(
+        (item) => item.id === record.id,
+      )?.engagementId;
+    case 'landscapeVersions':
+      return dataset.landscapeVersions.find((item) => item.id === record.id)
         ?.engagementId;
     case 'opportunities':
       return dataset.opportunities.find((item) => item.id === record.id)
@@ -494,22 +554,29 @@ function getEngagementIdForChange(
       const initiativeId = dataset.milestones.find(
         (item) => item.id === record.id,
       )?.initiativeId;
-      return initiativeId ? findInitiativeEngagementId(initiativeId) : undefined;
+      return initiativeId
+        ? findInitiativeEngagementId(initiativeId)
+        : undefined;
     }
     case 'deliveryActions': {
       const initiativeId = dataset.deliveryActions.find(
         (item) => item.id === record.id,
       )?.initiativeId;
-      return initiativeId ? findInitiativeEngagementId(initiativeId) : undefined;
+      return initiativeId
+        ? findInitiativeEngagementId(initiativeId)
+        : undefined;
     }
     case 'benefitMeasurements': {
       const initiativeId = dataset.benefitMeasurements.find(
         (item) => item.id === record.id,
       )?.initiativeId;
-      return initiativeId ? findInitiativeEngagementId(initiativeId) : undefined;
+      return initiativeId
+        ? findInitiativeEngagementId(initiativeId)
+        : undefined;
     }
     case 'outputs':
-      return dataset.outputs.find((item) => item.id === record.id)?.engagementId;
+      return dataset.outputs.find((item) => item.id === record.id)
+        ?.engagementId;
     case 'engagementMethodologyRuns':
       return dataset.engagementMethodologyRuns.find(
         (item) => item.id === record.id,
@@ -601,7 +668,8 @@ function permissionForChange(change: DatasetChange): WorkspacePermission {
     change.collection === 'maturityAssessments' ||
     change.collection === 'findings' ||
     change.collection === 'landscapeEntities' ||
-    change.collection === 'landscapeRelationships'
+    change.collection === 'landscapeRelationships' ||
+    change.collection === 'landscapeVersions'
   ) {
     return 'diagnostic:write';
   }
@@ -720,7 +788,7 @@ function createActivityEvent(
     record.name ??
     record.summary ??
     (change.collection === 'engagementMethodologyRuns'
-      ? record.templateName ?? 'methodology run'
+      ? (record.templateName ?? 'methodology run')
       : change.collection === 'engagementMethodologyActivities'
         ? 'methodology activity'
         : 'record');
@@ -911,9 +979,9 @@ export function FabricDataProvider({
   const [isLoading, setIsLoading] = useState(true);
   const [selectedUserId, setSelectedUserId] = useState<EntityId | null>(null);
   const currentUser = dataset
-    ? dataset.users.find((user) => user.id === selectedUserId) ??
+    ? (dataset.users.find((user) => user.id === selectedUserId) ??
       dataset.users[0] ??
-      null
+      null)
     : null;
   const actingUser = useMemo(
     () => (currentUser ? createAuthorizationActor(currentUser) : null),
@@ -969,7 +1037,9 @@ export function FabricDataProvider({
         throw new Error('The repository dataset is not loaded.');
       }
       if (!actingUser) {
-        throw new Error('Select an internal user before changing workspace data.');
+        throw new Error(
+          'Select an internal user before changing workspace data.',
+        );
       }
 
       const changes = getDatasetChanges(dataset, nextDataset);
@@ -991,9 +1061,7 @@ export function FabricDataProvider({
         const destinationEngagementId = destinationEngagementIds[index];
         const authorizationContexts = [
           sourceEngagementId
-            ? dataset.engagements.find(
-                (item) => item.id === sourceEngagementId,
-              )
+            ? dataset.engagements.find((item) => item.id === sourceEngagementId)
             : undefined,
           destinationEngagementId &&
           destinationEngagementId !== sourceEngagementId
@@ -1182,10 +1250,7 @@ export function FabricDataProvider({
         ...dataset,
         engagements: [...dataset.engagements, created],
         engagementMethodologyRuns: createdMethodologyRun
-          ? [
-              ...dataset.engagementMethodologyRuns,
-              createdMethodologyRun.run,
-            ]
+          ? [...dataset.engagementMethodologyRuns, createdMethodologyRun.run]
           : dataset.engagementMethodologyRuns,
         engagementMethodologyActivities: createdMethodologyRun
           ? [
@@ -1520,7 +1585,9 @@ export function FabricDataProvider({
         (item) => item.id === run.engagementId,
       );
       if (!engagement) {
-        throw new Error('The methodology run is not connected to an engagement.');
+        throw new Error(
+          'The methodology run is not connected to an engagement.',
+        );
       }
 
       const occurredAt = now();
@@ -1577,7 +1644,9 @@ export function FabricDataProvider({
       if (!engagement) {
         throw new Error('The site walk is not connected to an engagement.');
       }
-      if (dataset.diagnostics.some((item) => item.engagementId === engagement.id)) {
+      if (
+        dataset.diagnostics.some((item) => item.engagementId === engagement.id)
+      ) {
         throw new Error(
           'This engagement already has a diagnostic. Continue it instead of promoting the site walk.',
         );
@@ -1704,7 +1773,9 @@ export function FabricDataProvider({
       )
         throw new Error('Select a valid site walk for this observation.');
       if (!actingUser) {
-        throw new Error('Select an internal user before recording an observation.');
+        throw new Error(
+          'Select an internal user before recording an observation.',
+        );
       }
       const created = {
         ...input,
@@ -1862,6 +1933,423 @@ export function FabricDataProvider({
     [dataset, persist],
   );
 
+  const createLandscapeEntity = useCallback(
+    async (input: CreateLandscapeEntityInput) => {
+      if (!dataset) {
+        throw new Error('The repository dataset is not loaded.');
+      }
+      const engagement = dataset.engagements.find(
+        (item) => item.id === input.engagementId,
+      );
+      if (!engagement || !engagement.siteIds.includes(input.siteId)) {
+        throw new Error(
+          'Select a site that is included in the landscape engagement.',
+        );
+      }
+      if (!dataset.sites.some((item) => item.id === input.siteId)) {
+        throw new Error('Select a valid site for this landscape item.');
+      }
+
+      const occurredAt = now();
+      const {
+        sourceEntityId,
+        canonicalAreaId,
+        relatedSystemIds,
+        systemCategory,
+        systemOwnerTeam,
+        ...landscapeInput
+      } = input;
+      let resolvedSourceEntityId = sourceEntityId;
+      let nextAreas = dataset.areas;
+      let nextProcesses = dataset.processes;
+      let nextSystems = dataset.systems;
+      let nextSites = dataset.sites;
+
+      if (sourceEntityId) {
+        const matchesSource =
+          (input.type === 'area' &&
+            dataset.areas.some(
+              (item) =>
+                item.id === sourceEntityId && item.siteId === input.siteId,
+            )) ||
+          (input.type === 'process' &&
+            dataset.processes.some(
+              (item) =>
+                item.id === sourceEntityId && item.siteId === input.siteId,
+            )) ||
+          (input.type === 'system' &&
+            dataset.systems.some(
+              (item) =>
+                item.id === sourceEntityId && item.siteId === input.siteId,
+            ));
+        if (!matchesSource) {
+          throw new Error(
+            'Link an area, process, or system record that matches the item type and site.',
+          );
+        }
+      } else if (input.type === 'area') {
+        const createdArea: Area = {
+          id: createId('area'),
+          createdAt: occurredAt,
+          updatedAt: occurredAt,
+          siteId: input.siteId,
+          name: input.name,
+          description: input.description,
+        };
+        resolvedSourceEntityId = createdArea.id;
+        nextAreas = [...dataset.areas, createdArea];
+        nextSites = dataset.sites.map((site) =>
+          site.id === input.siteId
+            ? {
+                ...site,
+                updatedAt: occurredAt,
+                areaIds: [...site.areaIds, createdArea.id],
+              }
+            : site,
+        );
+      } else if (input.type === 'process') {
+        const area = canonicalAreaId
+          ? dataset.areas.find((item) => item.id === canonicalAreaId)
+          : undefined;
+        if (!area || area.siteId !== input.siteId) {
+          throw new Error(
+            'Select an operational area at the same site before creating a process.',
+          );
+        }
+        const selectedSystemIds = relatedSystemIds ?? [];
+        if (
+          selectedSystemIds.some(
+            (systemId) =>
+              dataset.systems.find((item) => item.id === systemId)?.siteId !==
+              input.siteId,
+          )
+        ) {
+          throw new Error(
+            'Only associate systems that belong to the selected process site.',
+          );
+        }
+        const createdProcess: Process = {
+          id: createId('process'),
+          createdAt: occurredAt,
+          updatedAt: occurredAt,
+          siteId: input.siteId,
+          areaId: area.id,
+          name: input.name,
+          description: input.description,
+          relatedSystemIds: selectedSystemIds,
+        };
+        resolvedSourceEntityId = createdProcess.id;
+        nextProcesses = [...dataset.processes, createdProcess];
+      } else if (input.type === 'system') {
+        const category = systemCategory?.trim();
+        const ownerTeam = systemOwnerTeam?.trim();
+        if (!category || !ownerTeam) {
+          throw new Error(
+            'Provide a category and owner team before creating a system.',
+          );
+        }
+        const createdSystem: OperationalSystem = {
+          id: createId('system'),
+          createdAt: occurredAt,
+          updatedAt: occurredAt,
+          siteId: input.siteId,
+          name: input.name,
+          description: input.description,
+          category,
+          ownerTeam,
+        };
+        resolvedSourceEntityId = createdSystem.id;
+        nextSystems = [...dataset.systems, createdSystem];
+        nextSites = dataset.sites.map((site) =>
+          site.id === input.siteId
+            ? {
+                ...site,
+                updatedAt: occurredAt,
+                systemIds: [...site.systemIds, createdSystem.id],
+              }
+            : site,
+        );
+      }
+
+      const created: LandscapeEntity = {
+        ...landscapeInput,
+        id: createId('landscape-entity'),
+        createdAt: occurredAt,
+        updatedAt: occurredAt,
+        sourceEntityId: resolvedSourceEntityId,
+        visibility: 'internal',
+        reviewStatus: 'draft',
+      };
+      await persist({
+        ...dataset,
+        sites: nextSites,
+        areas: nextAreas,
+        processes: nextProcesses,
+        systems: nextSystems,
+        landscapeEntities: [...dataset.landscapeEntities, created],
+      });
+      return created;
+    },
+    [dataset, persist],
+  );
+
+  const updateLandscapeEntity = useCallback(
+    async (entity: LandscapeEntity) => {
+      if (!dataset) {
+        throw new Error('The repository dataset is not loaded.');
+      }
+      const existing = dataset.landscapeEntities.find(
+        (item) => item.id === entity.id,
+      );
+      if (!existing) {
+        throw new Error('The landscape item no longer exists.');
+      }
+      if (
+        existing.engagementId !== entity.engagementId ||
+        existing.siteId !== entity.siteId ||
+        existing.type !== entity.type ||
+        existing.sourceEntityId !== entity.sourceEntityId ||
+        existing.createdAt !== entity.createdAt
+      ) {
+        throw new Error(
+          'Landscape item scope, type, source, and creation history cannot be changed.',
+        );
+      }
+
+      const occurredAt = now();
+      let nextAreas = dataset.areas;
+      let nextProcesses = dataset.processes;
+      let nextSystems = dataset.systems;
+      if (entity.type === 'area' && entity.sourceEntityId) {
+        const source = dataset.areas.find(
+          (item) => item.id === entity.sourceEntityId,
+        );
+        if (!source) {
+          throw new Error('The linked operational area no longer exists.');
+        }
+        nextAreas = replaceExistingRecord(
+          dataset.areas,
+          { ...source, name: entity.name, description: entity.description },
+          occurredAt,
+          'area',
+        );
+      }
+      if (entity.type === 'process' && entity.sourceEntityId) {
+        const source = dataset.processes.find(
+          (item) => item.id === entity.sourceEntityId,
+        );
+        if (!source) {
+          throw new Error('The linked process no longer exists.');
+        }
+        nextProcesses = replaceExistingRecord(
+          dataset.processes,
+          { ...source, name: entity.name, description: entity.description },
+          occurredAt,
+          'process',
+        );
+      }
+      if (entity.type === 'system' && entity.sourceEntityId) {
+        const source = dataset.systems.find(
+          (item) => item.id === entity.sourceEntityId,
+        );
+        if (!source) {
+          throw new Error('The linked system no longer exists.');
+        }
+        nextSystems = replaceExistingRecord(
+          dataset.systems,
+          { ...source, name: entity.name, description: entity.description },
+          occurredAt,
+          'system',
+        );
+      }
+
+      await persist({
+        ...dataset,
+        areas: nextAreas,
+        processes: nextProcesses,
+        systems: nextSystems,
+        landscapeEntities: replaceExistingRecord(
+          dataset.landscapeEntities,
+          entity,
+          occurredAt,
+          'landscape item',
+        ),
+      });
+    },
+    [dataset, persist],
+  );
+
+  const createLandscapeRelationship = useCallback(
+    async (input: CreateLandscapeRelationshipInput) => {
+      if (!dataset) {
+        throw new Error('The repository dataset is not loaded.');
+      }
+      const fromEntity = dataset.landscapeEntities.find(
+        (item) => item.id === input.fromEntityId,
+      );
+      const toEntity = dataset.landscapeEntities.find(
+        (item) => item.id === input.toEntityId,
+      );
+      if (
+        !fromEntity ||
+        !toEntity ||
+        fromEntity.engagementId !== input.engagementId ||
+        toEntity.engagementId !== input.engagementId
+      ) {
+        throw new Error(
+          'Connect landscape items that belong to the selected engagement.',
+        );
+      }
+
+      const occurredAt = now();
+      const created: LandscapeRelationship = {
+        ...input,
+        id: createId('landscape-relationship'),
+        createdAt: occurredAt,
+        updatedAt: occurredAt,
+        visibility: 'internal',
+        reviewStatus: 'draft',
+      };
+      await persist({
+        ...dataset,
+        landscapeRelationships: [...dataset.landscapeRelationships, created],
+      });
+      return created;
+    },
+    [dataset, persist],
+  );
+
+  const updateLandscapeRelationship = useCallback(
+    async (relationship: LandscapeRelationship) => {
+      if (!dataset) {
+        throw new Error('The repository dataset is not loaded.');
+      }
+      const existing = dataset.landscapeRelationships.find(
+        (item) => item.id === relationship.id,
+      );
+      if (!existing) {
+        throw new Error('The landscape relationship no longer exists.');
+      }
+      if (
+        existing.engagementId !== relationship.engagementId ||
+        existing.createdAt !== relationship.createdAt
+      ) {
+        throw new Error(
+          'Landscape relationship scope and creation history cannot be changed.',
+        );
+      }
+      const fromEntity = dataset.landscapeEntities.find(
+        (item) => item.id === relationship.fromEntityId,
+      );
+      const toEntity = dataset.landscapeEntities.find(
+        (item) => item.id === relationship.toEntityId,
+      );
+      if (
+        !fromEntity ||
+        !toEntity ||
+        fromEntity.engagementId !== relationship.engagementId ||
+        toEntity.engagementId !== relationship.engagementId
+      ) {
+        throw new Error(
+          'Connect landscape items that belong to the relationship engagement.',
+        );
+      }
+      await persist({
+        ...dataset,
+        landscapeRelationships: replaceExistingRecord(
+          dataset.landscapeRelationships,
+          relationship,
+          now(),
+          'landscape relationship',
+        ),
+      });
+    },
+    [dataset, persist],
+  );
+
+  const captureLandscapeVersion = useCallback(
+    async (engagementId: EntityId, input: CaptureLandscapeVersionInput) => {
+      if (!dataset) {
+        throw new Error('The repository dataset is not loaded.');
+      }
+      const engagement = dataset.engagements.find(
+        (item) => item.id === engagementId,
+      );
+      if (
+        !engagement ||
+        (input.siteId && !engagement.siteIds.includes(input.siteId))
+      ) {
+        throw new Error(
+          'Select a valid engagement and, when needed, a covered site for the landscape snapshot.',
+        );
+      }
+      if (!actingUser) {
+        throw new Error(
+          'Select an internal user before capturing a landscape version.',
+        );
+      }
+      const snapshot = createLandscapeVersionSnapshot(
+        dataset,
+        engagementId,
+        input.siteId,
+      );
+      if (snapshot.entities.length === 0) {
+        throw new Error(
+          'Add at least one landscape item before capturing a version.',
+        );
+      }
+
+      const occurredAt = now();
+      const scopedVersions = dataset.landscapeVersions.filter(
+        (item) =>
+          item.engagementId === engagementId && item.siteId === input.siteId,
+      );
+      const highestVersion = scopedVersions.reduce((highest, item) => {
+        const numericVersion = Number.parseFloat(item.version);
+        return Number.isFinite(numericVersion)
+          ? Math.max(highest, numericVersion)
+          : highest;
+      }, 0);
+      const created: LandscapeVersion = {
+        id: createId('landscape-version'),
+        createdAt: occurredAt,
+        updatedAt: occurredAt,
+        engagementId,
+        siteId: input.siteId,
+        title: input.title.trim(),
+        version: (highestVersion + 0.1).toFixed(1),
+        status: 'current',
+        capturedAt: occurredAt,
+        capturedByUserId: actingUser.id,
+        notes: input.notes?.trim() || undefined,
+        ...snapshot,
+      };
+      if (!created.title) {
+        throw new Error('Provide a title for the landscape version.');
+      }
+
+      await persist({
+        ...dataset,
+        landscapeVersions: [
+          ...dataset.landscapeVersions.map((item) =>
+            item.engagementId === engagementId &&
+            item.siteId === input.siteId &&
+            item.status === 'current'
+              ? {
+                  ...item,
+                  status: 'superseded' as const,
+                  updatedAt: occurredAt,
+                }
+              : item,
+          ),
+          created,
+        ],
+      });
+      return created;
+    },
+    [actingUser, dataset, persist],
+  );
+
   const saveMaturityAssessment = useCallback(
     async (assessment: MaturityAssessment) => {
       if (
@@ -1935,11 +2423,7 @@ export function FabricDataProvider({
         existing,
         opportunity,
       );
-      assertOpportunityApprovalCanBeRevoked(
-        dataset,
-        existing,
-        nextOpportunity,
-      );
+      assertOpportunityApprovalCanBeRevoked(dataset, existing, nextOpportunity);
       const updatedAt = now();
       await persist({
         ...dataset,
@@ -2347,6 +2831,11 @@ export function FabricDataProvider({
         updateRoadmap,
         createOutput,
         updateOutput,
+        createLandscapeEntity,
+        updateLandscapeEntity,
+        createLandscapeRelationship,
+        updateLandscapeRelationship,
+        captureLandscapeVersion,
         repositorySource: repository.source,
       }}
     >

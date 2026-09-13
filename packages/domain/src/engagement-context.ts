@@ -3,6 +3,10 @@ import {
   isOpportunityReadyForDelivery,
   type WorkspacePermission,
 } from './access';
+import {
+  buildApprovedLandscapeA3Projection,
+  type LandscapeA3Projection,
+} from './landscape';
 import { buildMethodologyRunProgress } from './methodology';
 import type {
   ActivityEvent,
@@ -16,6 +20,8 @@ import type {
   FrictionItem,
   Initiative,
   LandscapeEntity,
+  LandscapeRelationship,
+  LandscapeVersion,
   MethodologyRunStatus,
   MaturityAssessment,
   Observation,
@@ -28,9 +34,7 @@ import type {
   User,
 } from './model';
 
-export type EngagementContextAudience =
-  | 'internal'
-  | 'approved-client-facing';
+export type EngagementContextAudience = 'internal' | 'approved-client-facing';
 
 export interface EngagementContextOptions {
   audience?: EngagementContextAudience;
@@ -74,6 +78,11 @@ export interface InternalEngagementContext {
   systems: OperationalSystem[];
   dataObjects: LandscapeEntity[];
   roles: LandscapeEntity[];
+  landscape: {
+    entities: LandscapeEntity[];
+    relationships: LandscapeRelationship[];
+    versions: LandscapeVersion[];
+  };
   siteWalks: SiteWalk[];
   observations: Observation[];
   evidence: Evidence[];
@@ -159,6 +168,7 @@ export interface ApprovedClientFacingEngagementContext {
     version: string;
     publishedAt?: string;
   }>;
+  landscape?: LandscapeA3Projection;
 }
 
 export interface EngagementContext {
@@ -213,9 +223,8 @@ function evidenceBelongsToEngagement(
 
   if (evidence.relatedEntityType === 'opportunity') {
     return (
-      dataset.opportunities.find(
-        (item) => item.id === evidence.relatedEntityId,
-      )?.engagementId === engagementId
+      dataset.opportunities.find((item) => item.id === evidence.relatedEntityId)
+        ?.engagementId === engagementId
     );
   }
 
@@ -237,8 +246,8 @@ function buildOutstandingActions(
     ...dataset.actionItems.flatMap((action) => {
       if (
         action.status === 'completed' ||
-        (!action.opportunityId || !opportunityIds.has(action.opportunityId)) &&
-          (!action.initiativeId || !initiativeIds.has(action.initiativeId))
+        ((!action.opportunityId || !opportunityIds.has(action.opportunityId)) &&
+          (!action.initiativeId || !initiativeIds.has(action.initiativeId)))
       ) {
         return [];
       }
@@ -299,7 +308,9 @@ export function buildEngagementContext(
   engagementId: EntityId,
   options: EngagementContextOptions = {},
 ): EngagementContext | undefined {
-  const engagement = dataset.engagements.find((item) => item.id === engagementId);
+  const engagement = dataset.engagements.find(
+    (item) => item.id === engagementId,
+  );
   if (!engagement) {
     return undefined;
   }
@@ -308,7 +319,9 @@ export function buildEngagementContext(
   const siteIds = new Set(engagement.siteIds);
   const sites = dataset.sites.filter((item) => siteIds.has(item.id));
   const areas = dataset.areas.filter((item) => siteIds.has(item.siteId));
-  const processes = dataset.processes.filter((item) => siteIds.has(item.siteId));
+  const processes = dataset.processes.filter((item) =>
+    siteIds.has(item.siteId),
+  );
   const systems = dataset.systems.filter((item) => siteIds.has(item.siteId));
   const siteWalks = dataset.siteWalks.filter(
     (item) => item.engagementId === engagement.id,
@@ -341,6 +354,12 @@ export function buildEngagementContext(
     diagnosticIds.has(item.diagnosticId),
   );
   const landscapeEntities = dataset.landscapeEntities.filter(
+    (item) => item.engagementId === engagement.id,
+  );
+  const landscapeRelationships = dataset.landscapeRelationships.filter(
+    (item) => item.engagementId === engagement.id,
+  );
+  const landscapeVersions = dataset.landscapeVersions.filter(
     (item) => item.engagementId === engagement.id,
   );
   const outputs = dataset.outputs.filter(
@@ -394,6 +413,11 @@ export function buildEngagementContext(
               (item) => item.type === 'data-object',
             ),
             roles: landscapeEntities.filter((item) => item.type === 'role'),
+            landscape: {
+              entities: landscapeEntities,
+              relationships: landscapeRelationships,
+              versions: landscapeVersions,
+            },
             siteWalks,
             observations,
             evidence,
@@ -518,6 +542,7 @@ export function buildEngagementContext(
           version: item.version,
           publishedAt: item.publishedAt,
         })),
+      landscape: buildApprovedLandscapeA3Projection(dataset, engagement.id),
     },
   };
 }

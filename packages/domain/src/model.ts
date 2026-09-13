@@ -167,17 +167,37 @@ export const landscapeEntityTypes = [
 ] as const;
 export type LandscapeEntityType = (typeof landscapeEntityTypes)[number];
 export const landscapeRelationshipTypes = [
+  'contains-process',
+  'contains-process-step',
   'uses-system',
   'produces-data',
+  'consumes-data',
   'exchanges-data',
   'performs-process',
   'produces-machine-data',
   'depends-on-process',
+  'has-handoff',
+  'hands-off-to-process',
   'observation-relates',
   'opportunity-improves',
 ] as const;
 export type LandscapeRelationshipType =
   (typeof landscapeRelationshipTypes)[number];
+
+export const landscapeVerificationStates = [
+  'confirmed',
+  'reported',
+  'assumed',
+  'to-be-validated',
+] as const;
+export type LandscapeVerificationState =
+  (typeof landscapeVerificationStates)[number];
+
+export const landscapeTransferModes = ['manual', 'automated'] as const;
+export type LandscapeTransferMode = (typeof landscapeTransferModes)[number];
+
+export const landscapeVersionStatuses = ['current', 'superseded'] as const;
+export type LandscapeVersionStatus = (typeof landscapeVersionStatuses)[number];
 
 export const observationAssuranceLevels = [
   'observed-fact',
@@ -389,8 +409,7 @@ export const methodologyActivityTypes = [
   'output',
   'decision',
 ] as const;
-export type MethodologyActivityType =
-  (typeof methodologyActivityTypes)[number];
+export type MethodologyActivityType = (typeof methodologyActivityTypes)[number];
 
 export const methodologyLinkedDomains = [
   'engagement',
@@ -412,8 +431,7 @@ export const methodologyLinkedDomains = [
   'output',
   'action',
 ] as const;
-export type MethodologyLinkedDomain =
-  (typeof methodologyLinkedDomains)[number];
+export type MethodologyLinkedDomain = (typeof methodologyLinkedDomains)[number];
 
 export const methodologyCompletionRuleTypes = [
   'all-required-activities',
@@ -453,6 +471,7 @@ export const activityEntityTypes = [
   'finding',
   'landscape-entity',
   'landscape-relationship',
+  'landscape-version',
   'opportunity',
   'action',
   'initiative',
@@ -716,11 +735,22 @@ export interface Finding extends BaseEntity {
 
 export interface LandscapeEntity extends BaseEntity {
   engagementId: EntityId;
+  siteId: EntityId;
   type: LandscapeEntityType;
   name: string;
   description: string;
   sourceEntityId?: EntityId;
   ownerRole?: string;
+  ownerEntityId?: EntityId;
+  documentedMethod?: string;
+  confidence: ConfidenceLevel;
+  verificationStatus: LandscapeVerificationState;
+  linkedObservationIds: EntityId[];
+  linkedEvidenceIds: EntityId[];
+  linkedFrictionItemIds: EntityId[];
+  linkedOpportunityIds: EntityId[];
+  internalNotes?: string;
+  visibility: VisibilityScope;
   reviewStatus: ReviewStatus;
 }
 
@@ -731,7 +761,65 @@ export interface LandscapeRelationship extends BaseEntity {
   type: LandscapeRelationshipType;
   rationale?: string;
   evidenceIds: EntityId[];
+  linkedObservationIds: EntityId[];
+  linkedOpportunityIds: EntityId[];
+  transferMode?: LandscapeTransferMode;
+  duplicateDataEntry?: boolean;
+  confidence: ConfidenceLevel;
+  verificationStatus: LandscapeVerificationState;
+  internalNotes?: string;
+  visibility: VisibilityScope;
   reviewStatus: ReviewStatus;
+}
+
+export interface LandscapeEntitySnapshot {
+  landscapeEntityId: EntityId;
+  siteId: EntityId;
+  type: LandscapeEntityType;
+  name: string;
+  description: string;
+  sourceEntityId?: EntityId;
+  ownerRole?: string;
+  ownerEntityId?: EntityId;
+  documentedMethod?: string;
+  confidence: ConfidenceLevel;
+  verificationStatus: LandscapeVerificationState;
+  linkedObservationIds: EntityId[];
+  linkedEvidenceIds: EntityId[];
+  linkedFrictionItemIds: EntityId[];
+  linkedOpportunityIds: EntityId[];
+  visibility: VisibilityScope;
+  reviewStatus: ReviewStatus;
+}
+
+export interface LandscapeRelationshipSnapshot {
+  landscapeRelationshipId: EntityId;
+  fromEntityId: EntityId;
+  toEntityId: EntityId;
+  type: LandscapeRelationshipType;
+  rationale?: string;
+  evidenceIds: EntityId[];
+  linkedObservationIds: EntityId[];
+  linkedOpportunityIds: EntityId[];
+  transferMode?: LandscapeTransferMode;
+  duplicateDataEntry?: boolean;
+  confidence: ConfidenceLevel;
+  verificationStatus: LandscapeVerificationState;
+  visibility: VisibilityScope;
+  reviewStatus: ReviewStatus;
+}
+
+export interface LandscapeVersion extends BaseEntity {
+  engagementId: EntityId;
+  siteId?: EntityId;
+  title: string;
+  version: string;
+  status: LandscapeVersionStatus;
+  capturedAt: IsoDateTimeString;
+  capturedByUserId: EntityId;
+  notes?: string;
+  entities: LandscapeEntitySnapshot[];
+  relationships: LandscapeRelationshipSnapshot[];
 }
 
 export interface Opportunity extends BaseEntity {
@@ -1009,6 +1097,7 @@ export interface FabricDataset {
   findings: Finding[];
   landscapeEntities: LandscapeEntity[];
   landscapeRelationships: LandscapeRelationship[];
+  landscapeVersions: LandscapeVersion[];
   opportunities: Opportunity[];
   actionItems: ActionItem[];
   initiatives: Initiative[];
