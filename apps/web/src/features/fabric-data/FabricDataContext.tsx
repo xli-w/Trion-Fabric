@@ -1,7 +1,18 @@
 import { createContext, useCallback, useContext, useEffect, useState } from 'react';
 import type { ReactNode } from 'react';
 
-import type { Client, Engagement, FabricDataset, FabricRepository, RepositorySource, Site } from '@domain';
+import type {
+  Client,
+  Engagement,
+  Evidence,
+  FabricDataset,
+  FabricRepository,
+  FrictionItem,
+  Observation,
+  RepositorySource,
+  Site,
+  SiteWalk,
+} from '@domain';
 
 interface FabricDataContextValue {
   dataset: FabricDataset | null;
@@ -14,6 +25,13 @@ interface FabricDataContextValue {
   updateSite: (site: Site) => Promise<void>;
   createEngagement: (input: Omit<Engagement, 'id' | 'createdAt' | 'updatedAt'>) => Promise<Engagement>;
   updateEngagement: (engagement: Engagement) => Promise<void>;
+  createSiteWalk: (input: Omit<SiteWalk, 'id' | 'createdAt' | 'updatedAt'>) => Promise<SiteWalk>;
+  updateSiteWalk: (walk: SiteWalk) => Promise<void>;
+  createObservation: (input: Omit<Observation, 'id' | 'createdAt' | 'updatedAt'>) => Promise<Observation>;
+  updateObservation: (observation: Observation) => Promise<void>;
+  createEvidence: (input: Omit<Evidence, 'id' | 'createdAt' | 'updatedAt'>) => Promise<Evidence>;
+  createFrictionItem: (input: Omit<FrictionItem, 'id' | 'createdAt' | 'updatedAt'>) => Promise<FrictionItem>;
+  updateFrictionItem: (item: FrictionItem) => Promise<void>;
   repositorySource: RepositorySource;
 }
 
@@ -92,6 +110,55 @@ export function FabricDataProvider({ children, repository }: FabricDataProviderP
     await persist({ ...dataset, engagements: dataset.engagements.map((item) => item.id === engagement.id ? { ...engagement, updatedAt: now() } : item) });
   }, [dataset, persist]);
 
+  const createSiteWalk = useCallback(async (input: Omit<SiteWalk, 'id' | 'createdAt' | 'updatedAt'>) => {
+    if (!dataset || !dataset.engagements.some((item) => item.id === input.engagementId) || !dataset.sites.some((item) => item.id === input.siteId)) {
+      throw new Error('Select a valid engagement and site for this walk.');
+    }
+    const created = { ...input, id: createId('walk'), createdAt: now(), updatedAt: now() };
+    await persist({ ...dataset, siteWalks: [...dataset.siteWalks, created] });
+    return created;
+  }, [dataset, persist]);
+
+  const updateSiteWalk = useCallback(async (walk: SiteWalk) => {
+    if (!dataset || !dataset.engagements.some((item) => item.id === walk.engagementId) || !dataset.sites.some((item) => item.id === walk.siteId)) {
+      throw new Error('Select a valid engagement and site for this walk.');
+    }
+    await persist({ ...dataset, siteWalks: dataset.siteWalks.map((item) => item.id === walk.id ? { ...walk, updatedAt: now() } : item) });
+  }, [dataset, persist]);
+
+  const createObservation = useCallback(async (input: Omit<Observation, 'id' | 'createdAt' | 'updatedAt'>) => {
+    if (!dataset || !dataset.siteWalks.some((item) => item.id === input.siteWalkId)) throw new Error('Select a valid site walk for this observation.');
+    const created = { ...input, id: createId('observation'), createdAt: now(), updatedAt: now() };
+    await persist({ ...dataset, observations: [...dataset.observations, created] });
+    return created;
+  }, [dataset, persist]);
+
+  const updateObservation = useCallback(async (observation: Observation) => {
+    if (!dataset || !dataset.siteWalks.some((item) => item.id === observation.siteWalkId)) throw new Error('Select a valid site walk for this observation.');
+    await persist({ ...dataset, observations: dataset.observations.map((item) => item.id === observation.id ? { ...observation, updatedAt: now() } : item) });
+  }, [dataset, persist]);
+
+  const createEvidence = useCallback(async (input: Omit<Evidence, 'id' | 'createdAt' | 'updatedAt'>) => {
+    if (!dataset || (input.siteWalkId && !dataset.siteWalks.some((item) => item.id === input.siteWalkId)) || (input.observationId && !dataset.observations.some((item) => item.id === input.observationId))) {
+      throw new Error('Select a valid site walk or observation for this evidence.');
+    }
+    const created = { ...input, id: createId('evidence'), createdAt: now(), updatedAt: now() };
+    await persist({ ...dataset, evidence: [...dataset.evidence, created] });
+    return created;
+  }, [dataset, persist]);
+
+  const createFrictionItem = useCallback(async (input: Omit<FrictionItem, 'id' | 'createdAt' | 'updatedAt'>) => {
+    if (!dataset || !dataset.siteWalks.some((item) => item.id === input.siteWalkId)) throw new Error('Select a valid site walk for this friction item.');
+    const created = { ...input, id: createId('friction'), createdAt: now(), updatedAt: now() };
+    await persist({ ...dataset, frictionItems: [...dataset.frictionItems, created] });
+    return created;
+  }, [dataset, persist]);
+
+  const updateFrictionItem = useCallback(async (item: FrictionItem) => {
+    if (!dataset || !dataset.siteWalks.some((walk) => walk.id === item.siteWalkId)) throw new Error('Select a valid site walk for this friction item.');
+    await persist({ ...dataset, frictionItems: dataset.frictionItems.map((existing) => existing.id === item.id ? { ...item, updatedAt: now() } : existing) });
+  }, [dataset, persist]);
+
   useEffect(() => {
     void loadDataset();
   }, [loadDataset]);
@@ -109,6 +176,13 @@ export function FabricDataProvider({ children, repository }: FabricDataProviderP
         updateSite,
         createEngagement,
         updateEngagement,
+        createSiteWalk,
+        updateSiteWalk,
+        createObservation,
+        updateObservation,
+        createEvidence,
+        createFrictionItem,
+        updateFrictionItem,
         repositorySource: repository.source,
       }}
     >

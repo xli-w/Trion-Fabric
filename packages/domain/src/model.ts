@@ -36,11 +36,66 @@ export type EngagementType = (typeof engagementTypes)[number];
 export const engagementStatuses = ['planned', 'active', 'at-risk', 'completed'] as const;
 export type EngagementStatus = (typeof engagementStatuses)[number];
 
-export const siteWalkStatuses = ['planned', 'in-progress', 'completed'] as const;
+export const siteWalkStatuses = ['planned', 'in-progress', 'completed', 'needs-follow-up', 'cancelled'] as const;
 export type SiteWalkStatus = (typeof siteWalkStatuses)[number];
 
 export const informationOrigins = ['consultant', 'client', 'imported', 'ai'] as const;
 export type InformationOrigin = (typeof informationOrigins)[number];
+
+export const siteWalkTypes = [
+  'Preliminary Site Walk',
+  'Diagnostic Site Walk',
+  'Follow-up Investigation',
+  'Validation Visit',
+  'Implementation Review',
+] as const;
+export type SiteWalkType = (typeof siteWalkTypes)[number];
+
+export const observationTypes = [
+  'Process',
+  'People',
+  'Technology',
+  'Data',
+  'Quality',
+  'Productivity',
+  'Planning',
+  'Maintenance',
+  'Logistics',
+  'Commercial',
+  'Other',
+] as const;
+export type ObservationType = (typeof observationTypes)[number];
+
+export const observationSources = [
+  'Directly observed',
+  'Reported by client',
+  'Document / system review',
+  'Consultant interpretation',
+  'Assumption',
+  'AI suggestion',
+] as const;
+export type ObservationSource = (typeof observationSources)[number];
+
+export const observationStatuses = ['draft', 'needs-review', 'verified', 'disputed'] as const;
+export type ObservationStatus = (typeof observationStatuses)[number];
+
+export const evidenceTypes = [
+  'Photograph',
+  'Document',
+  'Interview Note',
+  'Voice Note',
+  'Data Extract',
+  'Screenshot',
+  'Consultant Note',
+  'Other',
+] as const;
+export type EvidenceType = (typeof evidenceTypes)[number];
+
+export const evidenceReviewStatuses = ['draft', 'needs-review', 'verified', 'rejected'] as const;
+export type EvidenceReviewStatus = (typeof evidenceReviewStatuses)[number];
+
+export const frictionCategories = ['Time', 'Quality', 'Cost', 'Flow', 'Data', 'People', 'Technology', 'Other'] as const;
+export type FrictionCategory = (typeof frictionCategories)[number];
 
 export const observationAssuranceLevels = [
   'observed-fact',
@@ -206,6 +261,30 @@ export interface SiteWalk extends BaseEntity {
   completedScope: string[];
   status: SiteWalkStatus;
   followUpActionIds: EntityId[];
+  date?: string;
+  startTime?: string;
+  endTime?: string;
+  leadConsultantId?: EntityId;
+  participantUserIds?: EntityId[];
+  participants?: string;
+  objectives?: string;
+  businessContext?: string;
+  focusAreas?: string[];
+  areasCovered?: EntityId[];
+  processesCovered?: EntityId[];
+  overallProcessSummary?: string;
+  candidateBottleneck?: string;
+  agreedNextStep?: string;
+  internalNotes?: string;
+  briefingChecklist?: Record<string, boolean>;
+  postTourNotes?: string;
+  validationNotes?: string;
+  confirmedBottleneck?: string;
+  correctedMisunderstandings?: string;
+  immediateOpportunities?: string;
+  recommendDiagnostic?: boolean;
+  followUpOwnerId?: EntityId;
+  followUpDate?: string;
 }
 
 export interface Observation extends BaseEntity {
@@ -219,6 +298,17 @@ export interface Observation extends BaseEntity {
   visibility: VisibilityScope;
   aiStatus: AiStatus;
   evidenceIds: EntityId[];
+  title?: string;
+  description?: string;
+  observationType?: ObservationType;
+  areaId?: EntityId;
+  systemId?: EntityId;
+  stationOrLine?: string;
+  source?: ObservationSource;
+  confidence?: ConfidenceLevel;
+  status?: ObservationStatus;
+  recordedByUserId?: EntityId;
+  internalNotes?: string;
 }
 
 export interface Evidence extends BaseEntity {
@@ -231,6 +321,30 @@ export interface Evidence extends BaseEntity {
   origin: InformationOrigin;
   visibility: VisibilityScope;
   approvalState: ApprovalState;
+  observationId?: EntityId;
+  siteWalkId?: EntityId;
+  evidenceType?: EvidenceType;
+  description?: string;
+  fileReference?: string;
+  source?: ObservationSource;
+  capturedByUserId?: EntityId;
+  reviewStatus?: EvidenceReviewStatus;
+}
+
+export interface FrictionItem extends BaseEntity {
+  siteWalkId: EntityId;
+  stationOrLine: string;
+  frictionPoint: string;
+  category: FrictionCategory;
+  estimatedTimeLost?: string;
+  frequency?: string;
+  peopleOrShiftsAffected?: string;
+  estimatedAnnualHours?: number;
+  estimatedAnnualCostImpact?: string;
+  confidence: ConfidenceLevel;
+  evidenceReference?: string;
+  assumptions?: string;
+  notes?: string;
 }
 
 export interface Opportunity extends BaseEntity {
@@ -300,6 +414,7 @@ export interface FabricDataset {
   siteWalks: SiteWalk[];
   observations: Observation[];
   evidence: Evidence[];
+  frictionItems: FrictionItem[];
   opportunities: Opportunity[];
   actionItems: ActionItem[];
   initiatives: Initiative[];

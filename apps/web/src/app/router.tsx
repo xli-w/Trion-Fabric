@@ -8,7 +8,7 @@ import { EngagementDetailPage } from '@app/pages/EngagementDetailPage';
 import { OpportunitiesPage } from '@app/pages/OpportunitiesPage';
 import { OutputsPage } from '@app/pages/OutputsPage';
 import { PlannedPage } from '@app/pages/PlannedPage';
-import { SiteWalksPage } from '@app/pages/SiteWalksPage';
+import { SiteWalksPage, SiteWalkWorkspacePage } from '@app/pages/SiteWalksPage';
 import { WorkspacePage } from '@app/pages/WorkspacePage';
 import { SiteDetailPage, SitesPage } from '@app/pages/SitesPage';
 
@@ -25,6 +25,7 @@ export function AppRouter() {
           <Route element={<EngagementsPage />} path="engagements" />
           <Route element={<EngagementDetailPage />} path="engagements/:engagementId" />
           <Route element={<SiteWalksPage />} path="site-walks" />
+          <Route element={<SiteWalkWorkspacePage />} path="site-walks/:siteWalkId" />
           <Route
             element={
               <PlannedPage
