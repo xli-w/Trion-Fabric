@@ -101,7 +101,7 @@ export function SiteWalksPage() {
         return (
           <>
             <PageHeader
-              eyebrow="Clients & sites"
+              eyebrow="Diagnosis"
               title="Structured fieldwork & investigation"
               description="A flexible investigation workspace for preliminary walks and deeper diagnostic visits. Capture context, findings, evidence, friction, and next steps without turning the checklist into the product."
               metadata={['Fast capture', 'Traceable evidence', 'Review-ready']}

@@ -25,7 +25,7 @@ export function ClientsPage() {
         return (
           <>
             <PageHeader
-              eyebrow="Clients & sites"
+              eyebrow="Clients"
               title="Client organisations and context"
               description="The organisation anchor for sites, engagements, and long-term transformation history."
               metadata={['Organisation model', 'Engagement context']}

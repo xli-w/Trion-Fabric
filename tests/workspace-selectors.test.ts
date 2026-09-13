@@ -104,7 +104,7 @@ describe('workspace selectors', () => {
     const breadcrumbs = buildBreadcrumbs(
       fabricFixtures,
       '/outputs/output-northbank-transformation-roadmap',
-      'Diagnosis & outputs',
+      'Transformation',
     );
 
     expect(results.some((result) => result.type === 'Opportunity')).toBe(true);

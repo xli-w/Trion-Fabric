@@ -113,7 +113,7 @@ export function EngagementsPage() {
         return (
           <>
             <PageHeader
-              eyebrow="Clients & sites"
+              eyebrow="Clients"
               title="Client and engagement workspace"
               description="Start with the client context, then define scoped transformation assignments, delivery teams, and the work that follows."
               metadata={['Client context', 'Scoped engagements', 'Stage-aware']}

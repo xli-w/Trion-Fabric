@@ -6,20 +6,30 @@ describe('workstream navigation', () => {
   it('exposes a workspace entry alongside coherent grouped workstreams', () => {
     expect(fabricNavigation.map((item) => item.label)).toEqual([
       'Workspace',
-      'Clients & sites',
+      'Clients',
+      'Diagnosis',
       'Transformation',
-      'Diagnosis & outputs',
     ]);
   });
 
   it.each([
     ['/workspace', 'workspace'],
-    ['/clients/client-northbank-precision', 'clients-sites'],
-    ['/engagements/eng-northbank-diag', 'clients-sites'],
-    ['/sites/site-northbank-main', 'clients-sites'],
-    ['/site-walks/walk-northbank-machine-shop-01', 'clients-sites'],
+    ['/clients', 'clients'],
+    ['/clients/client-northbank-precision', 'clients'],
+    ['/engagements', 'clients'],
+    ['/engagements/eng-northbank-diag', 'clients'],
+    ['/sites', 'clients'],
+    ['/sites/site-northbank-main', 'clients'],
+    ['/diagnosis', 'diagnosis'],
+    ['/site-walks', 'diagnosis'],
+    ['/site-walks/walk-northbank-machine-shop-01', 'diagnosis'],
+    ['/landscape', 'diagnosis'],
+    ['/opportunities', 'transformation'],
+    ['/opportunities/opp-handover-standardisation', 'transformation'],
+    ['/roadmap', 'transformation'],
     ['/roadmap/initiative-handover-foundation', 'transformation'],
-    ['/outputs/output-northbank-transformation-roadmap', 'diagnosis-outputs'],
+    ['/outputs', 'transformation'],
+    ['/outputs/output-northbank-transformation-roadmap', 'transformation'],
   ])('maps %s to the %s workstream', (pathname, workstreamKey) => {
     expect(findNavigationItem(pathname)?.key).toBe(workstreamKey);
   });

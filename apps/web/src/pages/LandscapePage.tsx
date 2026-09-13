@@ -84,7 +84,7 @@ export function LandscapePage() {
         return (
           <>
             <PageHeader
-              eyebrow="Transformation"
+              eyebrow="Diagnosis"
               title="Digital landscape structure"
               description="A structured projection of areas, processes, systems, data, and information flow that informs evidence-led opportunities and delivery sequencing."
               metadata={[

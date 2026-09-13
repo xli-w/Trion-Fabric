@@ -71,7 +71,7 @@ export function DiagnosisPage() {
           return (
             <>
               <PageHeader
-                eyebrow="Diagnosis & outputs"
+                eyebrow="Diagnosis"
                 title="Digital and operational maturity"
                 description="Create a diagnostic from a client engagement to assess fit-for-purpose maturity and prepare controlled engagement outputs."
               />
@@ -161,7 +161,7 @@ export function DiagnosisPage() {
         return (
           <>
             <PageHeader
-              eyebrow="Diagnosis & outputs"
+              eyebrow="Diagnosis"
               title={diagnostic.title}
               description={`${diagnostic.description} Approved diagnostic records flow into controlled engagement outputs.`}
               metadata={[

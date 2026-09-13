@@ -23,17 +23,29 @@ export const fabricNavigation: NavigationItem[] = [
     sections: [{ label: 'Work queue', path: '/workspace' }],
   },
   {
-    key: 'clients-sites',
-    label: 'Clients & sites',
-    path: '/engagements',
+    key: 'clients',
+    label: 'Clients',
+    path: '/clients',
     description:
-      'Client organisations, scoped transformation engagements, operating sites, and structured fieldwork.',
-    routePrefixes: ['/engagements', '/clients', '/sites', '/site-walks'],
+      'Client organisations, scoped transformation engagements, and operating manufacturing sites.',
+    routePrefixes: ['/clients', '/engagements', '/sites'],
     sections: [
-      { label: 'Engagements', path: '/engagements' },
       { label: 'Clients', path: '/clients' },
+      { label: 'Engagements', path: '/engagements' },
       { label: 'Sites', path: '/sites' },
+    ],
+  },
+  {
+    key: 'diagnosis',
+    label: 'Diagnosis',
+    path: '/diagnosis',
+    description:
+      'Operational maturity assessment, factory site walks, digital landscape mapping, and diagnostic findings.',
+    routePrefixes: ['/diagnosis', '/site-walks', '/landscape'],
+    sections: [
+      { label: 'Diagnosis', path: '/diagnosis' },
       { label: 'Site walks', path: '/site-walks' },
+      { label: 'Landscape', path: '/landscape' },
     ],
   },
   {
@@ -41,23 +53,11 @@ export const fabricNavigation: NavigationItem[] = [
     label: 'Transformation',
     path: '/opportunities',
     description:
-      'Landscape context, prioritised improvements, and sequenced delivery initiatives.',
-    routePrefixes: ['/landscape', '/opportunities', '/roadmap'],
+      'Prioritised transformation opportunities, sequenced roadmap delivery, and controlled client deliverables.',
+    routePrefixes: ['/opportunities', '/roadmap', '/outputs'],
     sections: [
-      { label: 'Landscape', path: '/landscape' },
       { label: 'Opportunities', path: '/opportunities' },
       { label: 'Roadmap', path: '/roadmap' },
-    ],
-  },
-  {
-    key: 'diagnosis-outputs',
-    label: 'Diagnosis & outputs',
-    path: '/diagnosis',
-    description:
-      'Maturity assessment, findings, and controlled engagement deliverables.',
-    routePrefixes: ['/diagnosis', '/outputs'],
-    sections: [
-      { label: 'Diagnosis', path: '/diagnosis' },
       { label: 'Outputs', path: '/outputs' },
     ],
   },

@@ -33,7 +33,7 @@ export function SitesPage() {
         return (
           <>
             <PageHeader
-              eyebrow="Clients & sites"
+              eyebrow="Clients"
               title="Operational context and fieldwork"
               description="Maintain the operating environment, then use structured visits to capture observations, evidence, friction, and next steps."
               metadata={['Site context', 'Guided fieldwork', 'Evidence-led']}
