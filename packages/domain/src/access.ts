@@ -20,6 +20,8 @@ export const workspacePermissions = [
   'output:approve',
   'output:publish',
   'output:archive',
+  'output:comment',
+  'output:export',
   'visibility:prepare-client-facing',
   'visibility:approve-client-facing',
   'visibility:archive',
@@ -44,6 +46,8 @@ const engagementScopedPermissions = new Set<WorkspacePermission>([
   'output:submit-for-review',
   'output:publish',
   'output:archive',
+  'output:comment',
+  'output:export',
   'visibility:prepare-client-facing',
   'visibility:archive',
 ]);
@@ -64,6 +68,8 @@ const outputContentFields: Array<keyof Output> = [
   'outputType',
   'title',
   'version',
+  'sectionOverrides',
+  'reportSnapshot',
   'createdByUserId',
   'sourceReferences',
   'contentReference',
@@ -73,8 +79,10 @@ const outputContentFields: Array<keyof Output> = [
 const outputInvariantFields: Array<keyof Output> = [
   'engagementId',
   'outputType',
+  'templateVersion',
   'createdByUserId',
   'createdAt',
+  'supersedesOutputId',
 ];
 
 const opportunityContentFields: Array<keyof Opportunity> = [
@@ -248,7 +256,9 @@ export function canUserPerform(
 
   if (user.role === 'consultant') {
     return (
-      permission === 'fieldwork:write' || permission === 'methodology:write'
+      permission === 'fieldwork:write' ||
+      permission === 'methodology:write' ||
+      permission === 'output:comment'
     );
   }
 
@@ -259,6 +269,8 @@ export function canUserPerform(
       permission === 'opportunity:write' ||
       permission === 'output:write' ||
       permission === 'output:submit-for-review' ||
+      permission === 'output:comment' ||
+      permission === 'output:export' ||
       permission === 'visibility:prepare-client-facing' ||
       permission === 'knowledge:write'
     );
@@ -267,6 +279,8 @@ export function canUserPerform(
   if (user.role === 'reviewer') {
     return (
       permission === 'output:approve' ||
+      permission === 'output:comment' ||
+      permission === 'output:export' ||
       permission === 'visibility:approve-client-facing' ||
       permission === 'knowledge:approve'
     );

@@ -8,6 +8,7 @@ import {
   buildEngagementCommandCentre,
   buildGlobalSearchResults,
   buildOpportunitiesViewModel,
+  buildOutputReportWorkspace,
   buildOutputsViewModel,
   buildRoadmapViewModel,
   buildWorkspaceSnapshot,
@@ -148,6 +149,55 @@ describe('workspace selectors', () => {
     expect(outputs.readyToShareCount).toBe(1);
     expect(outputs.coreOutputCount).toBe(5);
     expect(outputs.rows[0]?.title).toBe('Northbank executive summary');
+  });
+
+  it('builds a report workspace with source freshness, reviews, exports, and version comparison', () => {
+    const scorecardWorkspace = buildOutputReportWorkspace(
+      fabricFixtures,
+      'output-northbank-maturity-scorecard',
+    );
+    const landscapeWorkspace = buildOutputReportWorkspace(
+      fabricFixtures,
+      'output-northbank-landscape-map',
+    );
+    const roadmapWorkspace = buildOutputReportWorkspace(
+      fabricFixtures,
+      'output-northbank-transformation-roadmap',
+    );
+    const changedDataset = fabricDatasetSchema.parse(fabricFixtures);
+    const executiveSource = changedDataset.opportunities.find(
+      (item) => item.id === 'opportunity-digitise-handover',
+    );
+    if (
+      !scorecardWorkspace ||
+      !landscapeWorkspace ||
+      !roadmapWorkspace ||
+      !executiveSource
+    ) {
+      throw new Error('Expected controlled report workspaces.');
+    }
+
+    executiveSource.updatedAt = '2026-09-14T09:00:00Z';
+    const staleExecutiveWorkspace = buildOutputReportWorkspace(
+      changedDataset,
+      'output-northbank-executive-summary',
+    );
+
+    expect(scorecardWorkspace.previousOutput?.version).toBe('0.1');
+    expect(scorecardWorkspace.comparison?.currentVersion).toBe('0.2');
+    expect(
+      scorecardWorkspace.sourceCatalog.every(
+        (source) =>
+          typeof source.isApplicable === 'boolean' &&
+          typeof source.isSelected === 'boolean',
+      ),
+    ).toBe(true);
+    expect(landscapeWorkspace.openReviewCommentCount).toBe(1);
+    expect(roadmapWorkspace.exports).toHaveLength(1);
+    expect(roadmapWorkspace.exports[0]?.sourceFingerprint).toBe(
+      roadmapWorkspace.report.snapshot.sourceFingerprint,
+    );
+    expect(staleExecutiveWorkspace?.sourceDataChanged).toBe(true);
   });
 
   it('keeps unsequenced initiatives out of roadmap phase groups', () => {

@@ -33,12 +33,12 @@ describe('internal workspace access policy', () => {
     const northbank = fixtureEngagement('engagement-northbank-diagnostic');
     const airedale = fixtureEngagement('engagement-airedale-discovery');
 
-    expect(canUserPerform(lead, 'fieldwork:write', { engagement: northbank })).toBe(
-      true,
-    );
-    expect(canUserPerform(lead, 'fieldwork:write', { engagement: airedale })).toBe(
-      false,
-    );
+    expect(
+      canUserPerform(lead, 'fieldwork:write', { engagement: northbank }),
+    ).toBe(true);
+    expect(
+      canUserPerform(lead, 'fieldwork:write', { engagement: airedale }),
+    ).toBe(false);
   });
 
   it('authorizes a change against both source and destination engagement contexts', () => {
@@ -79,6 +79,22 @@ describe('internal workspace access policy', () => {
     expect(canUserPerform(analyst, 'output:approve')).toBe(false);
   });
 
+  it('allows report discussion and exports without conflating them with approval', () => {
+    const consultant = fixtureUser('user-sarah-mitchell');
+    const analyst = fixtureUser('user-james-carter');
+    const reviewer = fixtureUser('user-nadia-khan');
+    const readOnlyUser = fixtureUser('user-daniel-ward');
+
+    expect(canUserPerform(consultant, 'output:comment')).toBe(true);
+    expect(canUserPerform(consultant, 'output:export')).toBe(false);
+    expect(canUserPerform(analyst, 'output:comment')).toBe(true);
+    expect(canUserPerform(analyst, 'output:export')).toBe(true);
+    expect(canUserPerform(reviewer, 'output:comment')).toBe(true);
+    expect(canUserPerform(reviewer, 'output:export')).toBe(true);
+    expect(canUserPerform(readOnlyUser, 'output:comment')).toBe(false);
+    expect(canUserPerform(readOnlyUser, 'output:export')).toBe(false);
+  });
+
   it('denies write access to read-only internal users', () => {
     const readOnlyUser = fixtureUser('user-daniel-ward');
 
@@ -113,10 +129,7 @@ describe('internal workspace access policy', () => {
       undefined,
     );
     expect(
-      permissionForVisibilityTransition(
-        'internal',
-        'draft-client-facing',
-      ),
+      permissionForVisibilityTransition('internal', 'draft-client-facing'),
     ).toBe('visibility:prepare-client-facing');
     expect(
       permissionForVisibilityTransition(
@@ -125,10 +138,7 @@ describe('internal workspace access policy', () => {
       ),
     ).toBe('visibility:approve-client-facing');
     expect(
-      permissionForVisibilityTransition(
-        'approved-client-facing',
-        'archived',
-      ),
+      permissionForVisibilityTransition('approved-client-facing', 'archived'),
     ).toBe('visibility:archive');
   });
 

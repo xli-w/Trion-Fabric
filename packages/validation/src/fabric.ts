@@ -38,6 +38,9 @@ import {
   methodologyRunStatuses,
   methodologyTemplateStatuses,
   opportunityPriorityCategories,
+  outputExportAudiences,
+  outputExportFormats,
+  outputReviewCommentStatuses,
   outputStatuses,
   outputTypes,
   roadmapPhases,
@@ -47,7 +50,6 @@ import {
   engagementStatuses,
   evidenceKinds,
   informationOrigins,
-  isOpportunityReadyForDelivery,
   observationAssuranceLevels,
   observationSources,
   observationStatuses,
@@ -65,8 +67,9 @@ import {
   visibilityScopes,
   canRecordLandscapeTransfer,
   isClientSafeLandscapeEntity,
-  isClientSafeLandscapeRelationship,
+  isClientSafeOutputSource,
   isLandscapeRelationshipCompatible,
+  getOutputTemplate,
 } from '@domain';
 
 const isoDateTimeSchema = z.string().datetime({ offset: true });
@@ -287,21 +290,41 @@ export const evidenceSchema = baseEntitySchema
     }
   });
 
-export const frictionItemSchema = baseEntitySchema.extend({
-  siteWalkId: z.string().min(1),
-  stationOrLine: z.string().min(1),
-  frictionPoint: z.string().min(1),
-  category: z.enum(frictionCategories),
-  estimatedTimeLost: z.string().min(1).optional(),
-  frequency: z.string().min(1).optional(),
-  peopleOrShiftsAffected: z.string().min(1).optional(),
-  estimatedAnnualHours: z.number().nonnegative().optional(),
-  estimatedAnnualCostImpact: z.string().min(1).optional(),
-  confidence: z.enum(confidenceLevels),
-  evidenceReference: z.string().min(1).optional(),
-  assumptions: z.string().min(1).optional(),
-  notes: z.string().min(1).optional(),
-});
+export const frictionItemSchema = baseEntitySchema
+  .extend({
+    siteWalkId: z.string().min(1),
+    stationOrLine: z.string().min(1),
+    frictionPoint: z.string().min(1),
+    category: z.enum(frictionCategories),
+    estimatedTimeLost: z.string().min(1).optional(),
+    frequency: z.string().min(1).optional(),
+    peopleOrShiftsAffected: z.string().min(1).optional(),
+    estimatedAnnualHours: z.number().nonnegative().optional(),
+    estimatedAnnualCostImpact: z.string().min(1).optional(),
+    confidence: z.enum(confidenceLevels),
+    evidenceReference: z.string().min(1).optional(),
+    assumptions: z.string().min(1).optional(),
+    notes: z.string().min(1).optional(),
+    clientSummary: z.string().min(1).optional(),
+    approvalState: z.enum(approvalStates).optional(),
+    visibility: z.enum(visibilityScopes).optional(),
+    reviewStatus: z.enum(reviewStatuses).optional(),
+  })
+  .superRefine((frictionItem, context) => {
+    if (
+      frictionItem.visibility === 'approved-client-facing' &&
+      (frictionItem.approvalState !== 'approved' ||
+        frictionItem.reviewStatus !== 'approved' ||
+        !frictionItem.clientSummary)
+    ) {
+      context.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ['visibility'],
+        message:
+          'Client-facing friction requires approval, approved review, and a client summary.',
+      });
+    }
+  });
 
 export const diagnosticDimensionSchema = baseEntitySchema.extend({
   key: z.string().min(1),
@@ -600,6 +623,9 @@ export const actionItemSchema = baseEntitySchema.extend({
   dependencies: z.string().min(1).optional(),
   notes: z.string().min(1).optional(),
   owner: z.string().min(1).optional(),
+  clientSummary: z.string().min(1).optional(),
+  visibility: z.enum(visibilityScopes).optional(),
+  reviewStatus: z.enum(reviewStatuses).optional(),
 });
 
 export const initiativeSchema = baseEntitySchema.extend({
@@ -697,6 +723,121 @@ export const benefitMeasurementSchema = baseEntitySchema
     }
   });
 
+const outputSectionOverrideSchema = z.object({
+  sectionId: z.string().min(1),
+  narrative: z.string().min(1),
+});
+
+const outputReportBlockSchema = z.discriminatedUnion('type', [
+  z.object({
+    type: z.literal('paragraph'),
+    content: z.string().min(1),
+  }),
+  z.object({
+    type: z.literal('bullet-list'),
+    items: z.array(z.string().min(1)).min(1),
+  }),
+  z.object({
+    type: z.literal('table'),
+    columns: z.array(z.string().min(1)).min(1),
+    rows: z.array(z.array(z.string().min(1))).min(1),
+  }),
+  z.object({
+    type: z.literal('callout'),
+    tone: z.enum(['information', 'warning']),
+    content: z.string().min(1),
+  }),
+]);
+
+const outputReportSectionSchema = z.object({
+  id: z.string().min(1),
+  title: z.string().min(1),
+  description: z.string().min(1).optional(),
+  editable: z.boolean(),
+  blocks: z.array(outputReportBlockSchema).min(1),
+  sourceReferences: z.array(z.string().min(1)),
+});
+
+const outputReportContextSchema = z.object({
+  clientId: z.string().min(1),
+  clientName: z.string().min(1),
+  clientIndustry: z.string().min(1),
+  engagementId: z.string().min(1),
+  engagementName: z.string().min(1),
+  engagementType: z.enum(engagementTypes),
+  engagementStage: z.enum(transformationStages),
+  siteNames: z.array(z.string().min(1)),
+});
+
+const outputReportSnapshotSchema = z.object({
+  schemaVersion: z.literal('trion-output-report/v1'),
+  templateId: z.enum(outputTypes),
+  templateVersion: z.string().min(1),
+  generatedAt: isoDateTimeSchema,
+  sourceFingerprint: z.string().min(1),
+  context: outputReportContextSchema,
+  sections: z.array(outputReportSectionSchema).min(1),
+  includedSources: z.array(
+    z.object({
+      id: z.string().min(1),
+      type: z.string().min(1),
+      title: z.string().min(1),
+    }),
+  ),
+  excludedSources: z.array(
+    z.object({
+      sourceId: z.string().min(1),
+      reason: z.string().min(1),
+    }),
+  ),
+});
+
+export const outputReviewCommentSchema = baseEntitySchema
+  .extend({
+    outputId: z.string().min(1),
+    body: z.string().min(1),
+    authorUserId: z.string().min(1),
+    status: z.enum(outputReviewCommentStatuses),
+    resolvedByUserId: z.string().min(1).optional(),
+    resolvedAt: isoDateTimeSchema.optional(),
+  })
+  .superRefine((comment, context) => {
+    if (
+      comment.status === 'resolved' &&
+      (!comment.resolvedByUserId || !comment.resolvedAt)
+    ) {
+      context.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ['resolvedAt'],
+        message:
+          'A resolved output review comment requires an actor and timestamp.',
+      });
+    }
+
+    if (
+      comment.status === 'open' &&
+      (comment.resolvedByUserId || comment.resolvedAt)
+    ) {
+      context.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ['status'],
+        message:
+          'An open output review comment cannot retain resolution metadata.',
+      });
+    }
+  });
+
+export const outputExportReferenceSchema = baseEntitySchema.extend({
+  outputId: z.string().min(1),
+  format: z.enum(outputExportFormats),
+  audience: z.enum(outputExportAudiences),
+  fileName: z.string().min(1),
+  outputVersion: z.string().min(1),
+  sourceFingerprint: z.string().min(1),
+  exportedByUserId: z.string().min(1),
+  exportedAt: isoDateTimeSchema,
+});
+
 export const outputSchema = baseEntitySchema
   .extend({
     engagementId: z.string().min(1),
@@ -705,11 +846,15 @@ export const outputSchema = baseEntitySchema
     status: z.enum(outputStatuses),
     visibility: z.enum(visibilityScopes),
     version: z.string().min(1),
+    templateVersion: z.string().min(1).default('2026.1'),
     createdByUserId: z.string().min(1),
     approvedByUserId: z.string().min(1).optional(),
     approvedAt: isoDateTimeSchema.optional(),
     publishedAt: isoDateTimeSchema.optional(),
     sourceReferences: z.array(z.string().min(1)).min(1),
+    sectionOverrides: z.array(outputSectionOverrideSchema).default([]),
+    reportSnapshot: outputReportSnapshotSchema.optional(),
+    supersedesOutputId: z.string().min(1).optional(),
     contentReference: z.string().min(1).optional(),
     internalNotes: z.string().min(1).optional(),
   })
@@ -818,6 +963,77 @@ export const outputSchema = baseEntitySchema
         message: 'Only archived outputs can use archived visibility.',
       });
     }
+
+    if (
+      output.reportSnapshot &&
+      output.reportSnapshot.templateId !== output.outputType
+    ) {
+      context.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ['reportSnapshot', 'templateId'],
+        message: 'A report snapshot must use the same output template type.',
+      });
+    }
+
+    if (
+      output.reportSnapshot &&
+      output.reportSnapshot.templateVersion !== output.templateVersion
+    ) {
+      context.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ['reportSnapshot', 'templateVersion'],
+        message: 'A report snapshot must retain the output template version.',
+      });
+    }
+
+    if (isApproved && !output.reportSnapshot) {
+      context.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ['reportSnapshot'],
+        message:
+          'Approved outputs require a generated report snapshot so published content cannot change silently.',
+      });
+    }
+
+    if (isApproved && output.reportSnapshot?.includedSources.length === 0) {
+      context.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ['reportSnapshot', 'includedSources'],
+        message:
+          'Approved outputs require at least one approved source in their report snapshot.',
+      });
+    }
+
+    const template = getOutputTemplate(output.outputType);
+    const overrideIds = new Set<string>();
+    output.sectionOverrides.forEach((override, index) => {
+      const section = template.sections.find(
+        (item) => item.id === override.sectionId,
+      );
+      if (!section) {
+        context.addIssue({
+          code: z.ZodIssueCode.custom,
+          path: ['sectionOverrides', index, 'sectionId'],
+          message:
+            'The section override does not belong to this output template.',
+        });
+      } else if (!section.editable) {
+        context.addIssue({
+          code: z.ZodIssueCode.custom,
+          path: ['sectionOverrides', index, 'sectionId'],
+          message: 'Only editorial report sections can be manually overridden.',
+        });
+      }
+
+      if (overrideIds.has(override.sectionId)) {
+        context.addIssue({
+          code: z.ZodIssueCode.custom,
+          path: ['sectionOverrides', index, 'sectionId'],
+          message: 'A report section can only have one editorial override.',
+        });
+      }
+      overrideIds.add(override.sectionId);
+    });
   });
 
 export const knowledgeTagsSchema = z.object({
@@ -1086,6 +1302,8 @@ const fabricDatasetShape = z.object({
   deliveryActions: z.array(deliveryActionSchema).default([]),
   benefitMeasurements: z.array(benefitMeasurementSchema).default([]),
   outputs: z.array(outputSchema),
+  outputReviewComments: z.array(outputReviewCommentSchema).default([]),
+  outputExports: z.array(outputExportReferenceSchema).default([]),
   knowledgeEntries: z.array(knowledgeEntrySchema).default([]),
   methodologyTemplates: z.array(methodologyTemplateSchema).default([]),
   methodologyStages: z.array(methodologyStageSchema).default([]),
@@ -1195,6 +1413,10 @@ export const fabricDatasetSchema = fabricDatasetShape.superRefine(
     const actionItems = new Set(dataset.actionItems.map((item) => item.id));
     const initiatives = new Set(dataset.initiatives.map((item) => item.id));
     const outputs = new Set(dataset.outputs.map((item) => item.id));
+    const outputReviewComments = new Set(
+      dataset.outputReviewComments.map((item) => item.id),
+    );
+    const outputExports = new Set(dataset.outputExports.map((item) => item.id));
     const knowledgeEntries = new Set(
       dataset.knowledgeEntries.map((item) => item.id),
     );
@@ -1244,6 +1466,8 @@ export const fabricDatasetSchema = fabricDatasetShape.superRefine(
         dataset.benefitMeasurements.map((item) => item.id),
       ),
       output: outputs,
+      'output-review-comment': outputReviewComments,
+      'output-export': outputExports,
       'knowledge-entry': knowledgeEntries,
       'methodology-run': methodologyRuns,
       'methodology-activity': methodologyActivityStates,
@@ -1276,6 +1500,8 @@ export const fabricDatasetSchema = fabricDatasetShape.superRefine(
       ['deliveryActions', dataset.deliveryActions],
       ['benefitMeasurements', dataset.benefitMeasurements],
       ['outputs', dataset.outputs],
+      ['outputReviewComments', dataset.outputReviewComments],
+      ['outputExports', dataset.outputExports],
       ['knowledgeEntries', dataset.knowledgeEntries],
       ['methodologyTemplates', dataset.methodologyTemplates],
       ['methodologyStages', dataset.methodologyStages],
@@ -1534,81 +1760,8 @@ export const fabricDatasetSchema = fabricDatasetShape.superRefine(
       return output?.engagementId === engagementId;
     };
 
-    const isApprovedOutputSource = (entityId: string): boolean => {
-      const observation = observationById.get(entityId);
-      if (observation) {
-        return (
-          observation.status === 'verified' &&
-          observation.visibility === 'approved-client-facing' &&
-          observation.aiStatus !== 'suggested' &&
-          observation.aiStatus !== 'rejected'
-        );
-      }
-
-      const evidenceItem = evidenceById.get(entityId);
-      if (evidenceItem) {
-        return (
-          evidenceItem.approvalState === 'approved' &&
-          evidenceItem.reviewStatus === 'verified' &&
-          evidenceItem.visibility === 'approved-client-facing'
-        );
-      }
-
-      const assessment = dataset.maturityAssessments.find(
-        (item) => item.id === entityId,
-      );
-      if (assessment) {
-        return assessment.reviewStatus === 'approved';
-      }
-
-      const finding = dataset.findings.find((item) => item.id === entityId);
-      if (finding) {
-        return (
-          finding.reviewStatus === 'approved' && Boolean(finding.clientSummary)
-        );
-      }
-
-      const landscapeEntity = dataset.landscapeEntities.find(
-        (item) => item.id === entityId,
-      );
-      if (landscapeEntity) {
-        return isClientSafeLandscapeEntity(landscapeEntity);
-      }
-
-      const landscapeRelationship = dataset.landscapeRelationships.find(
-        (item) => item.id === entityId,
-      );
-      if (landscapeRelationship) {
-        return (
-          isClientSafeLandscapeRelationship(landscapeRelationship) &&
-          isApprovedOutputSource(landscapeRelationship.fromEntityId) &&
-          isApprovedOutputSource(landscapeRelationship.toEntityId)
-        );
-      }
-
-      const opportunity = opportunityById.get(entityId);
-      if (opportunity) {
-        return isOpportunityReadyForDelivery(opportunity);
-      }
-
-      const initiative = initiativeById.get(entityId);
-      if (initiative) {
-        return (
-          initiative.reviewStatus === 'approved' &&
-          Boolean(initiative.clientSummary)
-        );
-      }
-
-      const roadmap = dataset.roadmaps.find((item) => item.id === entityId);
-      if (roadmap) {
-        return roadmap.reviewStatus === 'approved';
-      }
-
-      const benefit = dataset.benefitMeasurements.find(
-        (item) => item.id === entityId,
-      );
-      return benefit?.status === 'validated';
-    };
+    const isApprovedOutputSource = (entityId: string): boolean =>
+      isClientSafeOutputSource(dataset, entityId);
 
     dataset.sites.forEach((site, index) => {
       ensureReference(
@@ -3043,6 +3196,28 @@ export const fabricDatasetSchema = fabricDatasetShape.superRefine(
           );
         }
       }
+
+      if (
+        action.visibility === 'approved-client-facing' &&
+        (action.reviewStatus !== 'approved' || !action.clientSummary)
+      ) {
+        addIssue(
+          context,
+          ['actionItems', index, 'visibility'],
+          'Client-facing actions require approved review and a client summary.',
+        );
+      }
+
+      if (action.visibility === 'approved-client-facing') {
+        const parentSourceId = action.opportunityId ?? action.initiativeId;
+        if (!parentSourceId || !isApprovedOutputSource(parentSourceId)) {
+          addIssue(
+            context,
+            ['actionItems', index, 'visibility'],
+            'Client-facing actions require an approved parent opportunity or initiative.',
+          );
+        }
+      }
     });
 
     dataset.initiatives.forEach((initiative, index) => {
@@ -3716,6 +3891,57 @@ export const fabricDatasetSchema = fabricDatasetShape.superRefine(
         );
       }
 
+      if (output.supersedesOutputId) {
+        ensureReference(
+          context,
+          ['outputs', index, 'supersedesOutputId'],
+          output.supersedesOutputId,
+          outputs,
+          'previous output version',
+        );
+        const previousOutput = outputById.get(output.supersedesOutputId);
+        if (
+          previousOutput &&
+          (previousOutput.engagementId !== output.engagementId ||
+            previousOutput.outputType !== output.outputType)
+        ) {
+          addIssue(
+            context,
+            ['outputs', index, 'supersedesOutputId'],
+            'A new output version must supersede the same output type in the same engagement.',
+          );
+        }
+
+        const visitedOutputIds = new Set<string>([output.id]);
+        let predecessorId: string | undefined = output.supersedesOutputId;
+        while (predecessorId) {
+          if (visitedOutputIds.has(predecessorId)) {
+            addIssue(
+              context,
+              ['outputs', index, 'supersedesOutputId'],
+              'Output versions cannot form a revision cycle.',
+            );
+            break;
+          }
+          visitedOutputIds.add(predecessorId);
+          predecessorId = outputById.get(predecessorId)?.supersedesOutputId;
+        }
+      }
+
+      if (
+        (output.status === 'approved' || output.status === 'published') &&
+        dataset.outputReviewComments.some(
+          (comment) =>
+            comment.outputId === output.id && comment.status === 'open',
+        )
+      ) {
+        addIssue(
+          context,
+          ['outputs', index, 'status'],
+          'Resolve all output review comments before approving the report.',
+        );
+      }
+
       output.sourceReferences.forEach((referenceId, referenceIndex) => {
         if (!entityBelongsToEngagement(referenceId, output.engagementId)) {
           addIssue(
@@ -3736,6 +3962,219 @@ export const fabricDatasetSchema = fabricDatasetShape.superRefine(
           );
         }
       });
+
+      if (output.reportSnapshot) {
+        if (
+          output.reportSnapshot.context.engagementId !== output.engagementId
+        ) {
+          addIssue(
+            context,
+            ['outputs', index, 'reportSnapshot', 'context', 'engagementId'],
+            'The report snapshot context must match the output engagement.',
+          );
+        }
+        ensureDistinctValues(
+          context,
+          ['outputs', index, 'reportSnapshot', 'includedSources'],
+          output.reportSnapshot.includedSources.map((source) => source.id),
+          'included report source references',
+        );
+        ensureDistinctValues(
+          context,
+          ['outputs', index, 'reportSnapshot', 'excludedSources'],
+          output.reportSnapshot.excludedSources.map(
+            (source) => source.sourceId,
+          ),
+          'excluded report source references',
+        );
+        output.reportSnapshot.includedSources.forEach((source, sourceIndex) => {
+          if (!output.sourceReferences.includes(source.id)) {
+            addIssue(
+              context,
+              [
+                'outputs',
+                index,
+                'reportSnapshot',
+                'includedSources',
+                sourceIndex,
+                'id',
+              ],
+              'A report snapshot can only include an explicitly selected output source.',
+            );
+          }
+        });
+        output.reportSnapshot.excludedSources.forEach((source, sourceIndex) => {
+          if (!output.sourceReferences.includes(source.sourceId)) {
+            addIssue(
+              context,
+              [
+                'outputs',
+                index,
+                'reportSnapshot',
+                'excludedSources',
+                sourceIndex,
+                'sourceId',
+              ],
+              'A report snapshot exclusion must refer to an explicitly selected output source.',
+            );
+          }
+        });
+        output.reportSnapshot.sections.forEach((section, sectionIndex) => {
+          section.blocks.forEach((block, blockIndex) => {
+            if (
+              block.type === 'table' &&
+              block.rows.some((row) => row.length !== block.columns.length)
+            ) {
+              addIssue(
+                context,
+                [
+                  'outputs',
+                  index,
+                  'reportSnapshot',
+                  'sections',
+                  sectionIndex,
+                  'blocks',
+                  blockIndex,
+                  'rows',
+                ],
+                'Each report table row must contain a value for every column.',
+              );
+            }
+          });
+          ensureDistinctValues(
+            context,
+            [
+              'outputs',
+              index,
+              'reportSnapshot',
+              'sections',
+              sectionIndex,
+              'sourceReferences',
+            ],
+            section.sourceReferences,
+            'report section source references',
+          );
+          section.sourceReferences.forEach((sourceId, sourceIndex) => {
+            if (
+              !output.reportSnapshot?.includedSources.some(
+                (source) => source.id === sourceId,
+              )
+            ) {
+              addIssue(
+                context,
+                [
+                  'outputs',
+                  index,
+                  'reportSnapshot',
+                  'sections',
+                  sectionIndex,
+                  'sourceReferences',
+                  sourceIndex,
+                ],
+                'A report section can only cite an included client-safe source.',
+              );
+            }
+          });
+        });
+      }
+    });
+
+    dataset.outputReviewComments.forEach((comment, index) => {
+      ensureReference(
+        context,
+        ['outputReviewComments', index, 'outputId'],
+        comment.outputId,
+        outputs,
+        'output',
+      );
+      ensureReference(
+        context,
+        ['outputReviewComments', index, 'authorUserId'],
+        comment.authorUserId,
+        users,
+        'comment author',
+      );
+      if (comment.resolvedByUserId) {
+        ensureReference(
+          context,
+          ['outputReviewComments', index, 'resolvedByUserId'],
+          comment.resolvedByUserId,
+          users,
+          'resolving user',
+        );
+      }
+    });
+
+    dataset.outputExports.forEach((exportReference, index) => {
+      ensureReference(
+        context,
+        ['outputExports', index, 'outputId'],
+        exportReference.outputId,
+        outputs,
+        'output',
+      );
+      ensureReference(
+        context,
+        ['outputExports', index, 'exportedByUserId'],
+        exportReference.exportedByUserId,
+        users,
+        'exporting user',
+      );
+
+      const output = outputById.get(exportReference.outputId);
+      if (output && exportReference.outputVersion !== output.version) {
+        addIssue(
+          context,
+          ['outputExports', index, 'outputVersion'],
+          'An export reference must retain the version of its output.',
+        );
+      }
+      if (
+        output &&
+        exportReference.audience === 'client-facing' &&
+        output.status !== 'approved' &&
+        output.status !== 'published'
+      ) {
+        addIssue(
+          context,
+          ['outputExports', index, 'audience'],
+          'Client-facing report exports require an approved or published output.',
+        );
+      }
+      if (
+        output &&
+        exportReference.audience === 'client-facing' &&
+        output.visibility !== 'approved-client-facing'
+      ) {
+        addIssue(
+          context,
+          ['outputExports', index, 'audience'],
+          'Client-facing report exports require approved client-facing visibility.',
+        );
+      }
+      if (output && output.status === 'archived') {
+        addIssue(
+          context,
+          ['outputExports', index, 'outputId'],
+          'Archived outputs cannot retain new report export references.',
+        );
+      }
+      if (!output?.reportSnapshot) {
+        addIssue(
+          context,
+          ['outputExports', index, 'sourceFingerprint'],
+          'An output export reference requires a frozen report snapshot.',
+        );
+      } else if (
+        exportReference.sourceFingerprint !==
+        output.reportSnapshot.sourceFingerprint
+      ) {
+        addIssue(
+          context,
+          ['outputExports', index, 'sourceFingerprint'],
+          'An export reference must retain the source fingerprint of its report snapshot.',
+        );
+      }
     });
 
     dataset.activityEvents.forEach((activityEvent, index) => {

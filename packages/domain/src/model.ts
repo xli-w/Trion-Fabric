@@ -444,6 +444,19 @@ export const outputStatuses = [
 ] as const;
 export type OutputStatus = (typeof outputStatuses)[number];
 
+export const outputReviewCommentStatuses = ['open', 'resolved'] as const;
+export type OutputReviewCommentStatus =
+  (typeof outputReviewCommentStatuses)[number];
+
+export const outputExportFormats = ['markdown', 'json'] as const;
+export type OutputExportFormat = (typeof outputExportFormats)[number];
+
+export const outputExportAudiences = [
+  'internal-review',
+  'client-facing',
+] as const;
+export type OutputExportAudience = (typeof outputExportAudiences)[number];
+
 export const methodologyTemplateStatuses = [
   'draft',
   'active',
@@ -531,6 +544,10 @@ export const activityActions = [
   'submitted-for-review',
   'approved',
   'published',
+  'regenerated',
+  'commented',
+  'resolved',
+  'exported',
   'archived',
   'converted-from-preliminary-site-walk-to-diagnostic',
 ] as const;
@@ -558,6 +575,8 @@ export const activityEntityTypes = [
   'delivery-action',
   'benefit-measurement',
   'output',
+  'output-review-comment',
+  'output-export',
   'knowledge-entry',
   'methodology-run',
   'methodology-activity',
@@ -749,6 +768,10 @@ export interface FrictionItem extends BaseEntity {
   evidenceReference?: string;
   assumptions?: string;
   notes?: string;
+  clientSummary?: string;
+  approvalState?: ApprovalState;
+  visibility?: VisibilityScope;
+  reviewStatus?: ReviewStatus;
 }
 
 export interface DiagnosticDimension extends BaseEntity {
@@ -969,6 +992,9 @@ export interface ActionItem extends BaseEntity {
   dependencies?: string;
   notes?: string;
   owner?: string;
+  clientSummary?: string;
+  visibility?: VisibilityScope;
+  reviewStatus?: ReviewStatus;
 }
 
 export interface Initiative extends BaseEntity {
@@ -1055,13 +1081,105 @@ export interface Output extends BaseEntity {
   status: OutputStatus;
   visibility: VisibilityScope;
   version: string;
+  templateVersion: string;
   createdByUserId: EntityId;
   approvedByUserId?: EntityId;
   approvedAt?: IsoDateTimeString;
   publishedAt?: IsoDateTimeString;
   sourceReferences: EntityId[];
+  sectionOverrides: OutputSectionOverride[];
+  reportSnapshot?: OutputReportSnapshot;
+  supersedesOutputId?: EntityId;
   contentReference?: string;
   internalNotes?: string;
+}
+
+export interface OutputSectionOverride {
+  sectionId: string;
+  narrative: string;
+}
+
+export type OutputReportBlock =
+  | {
+      type: 'paragraph';
+      content: string;
+    }
+  | {
+      type: 'bullet-list';
+      items: string[];
+    }
+  | {
+      type: 'table';
+      columns: string[];
+      rows: string[][];
+    }
+  | {
+      type: 'callout';
+      tone: 'information' | 'warning';
+      content: string;
+    };
+
+export interface OutputReportSection {
+  id: string;
+  title: string;
+  description?: string;
+  editable: boolean;
+  blocks: OutputReportBlock[];
+  sourceReferences: EntityId[];
+}
+
+export interface OutputReportContext {
+  clientId: EntityId;
+  clientName: string;
+  clientIndustry: string;
+  engagementId: EntityId;
+  engagementName: string;
+  engagementType: EngagementType;
+  engagementStage: TransformationStage;
+  siteNames: string[];
+}
+
+export interface OutputReportSource {
+  id: EntityId;
+  type: string;
+  title: string;
+}
+
+export interface OutputReportSourceExclusion {
+  sourceId: EntityId;
+  reason: string;
+}
+
+export interface OutputReportSnapshot {
+  schemaVersion: 'trion-output-report/v1';
+  templateId: OutputType;
+  templateVersion: string;
+  generatedAt: IsoDateTimeString;
+  sourceFingerprint: string;
+  context: OutputReportContext;
+  sections: OutputReportSection[];
+  includedSources: OutputReportSource[];
+  excludedSources: OutputReportSourceExclusion[];
+}
+
+export interface OutputReviewComment extends BaseEntity {
+  outputId: EntityId;
+  body: string;
+  authorUserId: EntityId;
+  status: OutputReviewCommentStatus;
+  resolvedByUserId?: EntityId;
+  resolvedAt?: IsoDateTimeString;
+}
+
+export interface OutputExportReference extends BaseEntity {
+  outputId: EntityId;
+  format: OutputExportFormat;
+  audience: OutputExportAudience;
+  fileName: string;
+  outputVersion: string;
+  sourceFingerprint: string;
+  exportedByUserId: EntityId;
+  exportedAt: IsoDateTimeString;
 }
 
 export interface KnowledgeTags {
@@ -1212,6 +1330,8 @@ export interface FabricDataset {
   deliveryActions: DeliveryAction[];
   benefitMeasurements: BenefitMeasurement[];
   outputs: Output[];
+  outputReviewComments: OutputReviewComment[];
+  outputExports: OutputExportReference[];
   knowledgeEntries: KnowledgeEntry[];
   methodologyTemplates: MethodologyTemplate[];
   methodologyStages: MethodologyStage[];

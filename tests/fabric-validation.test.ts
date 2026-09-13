@@ -103,11 +103,16 @@ describe('Fabric dataset relationship and governance validation', () => {
     if (!output) throw new Error('Expected a published roadmap output.');
 
     output.sourceReferences = ['opportunity-unify-ncr-routing'];
+    const outputIndex = dataset.outputs.findIndex(
+      (item) => item.id === output.id,
+    );
 
     const result = fabricDatasetSchema.safeParse(dataset);
 
     expect(result.success).toBe(false);
-    expect(hasIssueAtPath(result, 'outputs.4.sourceReferences.0')).toBe(true);
+    expect(
+      hasIssueAtPath(result, `outputs.${outputIndex}.sourceReferences.0`),
+    ).toBe(true);
   });
 
   it('rejects approval metadata on an internal-review output', () => {
@@ -119,11 +124,16 @@ describe('Fabric dataset relationship and governance validation', () => {
 
     output.approvedByUserId = 'user-amy-wilkinson';
     output.approvedAt = '2026-09-12T15:30:00Z';
+    const outputIndex = dataset.outputs.findIndex(
+      (item) => item.id === output.id,
+    );
 
     const result = fabricDatasetSchema.safeParse(dataset);
 
     expect(result.success).toBe(false);
-    expect(hasIssueAtPath(result, 'outputs.1.approvedAt')).toBe(true);
+    expect(hasIssueAtPath(result, `outputs.${outputIndex}.approvedAt`)).toBe(
+      true,
+    );
   });
 
   it('requires client-facing observations to be verified before approval', () => {
@@ -220,5 +230,242 @@ describe('Fabric dataset relationship and governance validation', () => {
     benefit.measurementDate = '2026-11-01T09:00:00Z';
 
     expect(fabricDatasetSchema.safeParse(dataset).success).toBe(true);
+  });
+
+  it('requires a frozen report snapshot before an output can be approved or published', () => {
+    const dataset = copyDataset();
+    const output = dataset.outputs.find(
+      (item) => item.id === 'output-northbank-transformation-roadmap',
+    );
+    if (!output) throw new Error('Expected a published roadmap output.');
+
+    output.reportSnapshot = undefined;
+    const outputIndex = dataset.outputs.findIndex(
+      (item) => item.id === output.id,
+    );
+    const result = fabricDatasetSchema.safeParse(dataset);
+
+    expect(result.success).toBe(false);
+    expect(
+      hasIssueAtPath(result, `outputs.${outputIndex}.reportSnapshot`),
+    ).toBe(true);
+  });
+
+  it('rejects invalid, non-editorial, and duplicate report overrides', () => {
+    const dataset = copyDataset();
+    const output = dataset.outputs.find(
+      (item) => item.id === 'output-northbank-executive-summary',
+    );
+    if (!output) throw new Error('Expected an executive-summary output.');
+
+    output.sectionOverrides = [
+      {
+        sectionId: 'missing-report-section',
+        narrative: 'A report section that is not part of this template.',
+      },
+      {
+        sectionId: 'key-findings',
+        narrative: 'An attempt to replace generated findings.',
+      },
+      {
+        sectionId: 'current-state',
+        narrative: 'First controlled editorial narrative.',
+      },
+      {
+        sectionId: 'current-state',
+        narrative: 'Duplicate controlled editorial narrative.',
+      },
+    ];
+    const outputIndex = dataset.outputs.findIndex(
+      (item) => item.id === output.id,
+    );
+    const result = fabricDatasetSchema.safeParse(dataset);
+
+    expect(result.success).toBe(false);
+    expect(
+      hasIssueAtPath(
+        result,
+        `outputs.${outputIndex}.sectionOverrides.0.sectionId`,
+      ),
+    ).toBe(true);
+    expect(
+      hasIssueAtPath(
+        result,
+        `outputs.${outputIndex}.sectionOverrides.1.sectionId`,
+      ),
+    ).toBe(true);
+    expect(
+      hasIssueAtPath(
+        result,
+        `outputs.${outputIndex}.sectionOverrides.3.sectionId`,
+      ),
+    ).toBe(true);
+  });
+
+  it('keeps report snapshot sources and tables structurally aligned', () => {
+    const dataset = copyDataset();
+    const output = dataset.outputs.find(
+      (item) => item.id === 'output-northbank-transformation-roadmap',
+    );
+    if (!output?.reportSnapshot) {
+      throw new Error('Expected a roadmap report snapshot.');
+    }
+    const reportSectionIndex = output.reportSnapshot.sections.findIndex(
+      (section) => section.blocks.some((block) => block.type === 'table'),
+    );
+    const reportSection = output.reportSnapshot.sections[reportSectionIndex];
+    const reportBlockIndex = reportSection?.blocks.findIndex(
+      (block) => block.type === 'table',
+    );
+    const reportTable =
+      reportBlockIndex === undefined || reportBlockIndex < 0
+        ? undefined
+        : reportSection?.blocks[reportBlockIndex];
+    if (!reportTable || reportTable.type !== 'table') {
+      throw new Error('Expected a report table.');
+    }
+
+    const includedSourceIndex = output.reportSnapshot.includedSources.length;
+    output.reportSnapshot.includedSources.push({
+      id: 'source-not-selected-by-output',
+      type: 'finding',
+      title: 'A source that is not selected by the output',
+    });
+    reportTable.rows[0]?.push('Unexpected extra table cell');
+
+    const outputIndex = dataset.outputs.findIndex(
+      (item) => item.id === output.id,
+    );
+    const result = fabricDatasetSchema.safeParse(dataset);
+
+    expect(result.success).toBe(false);
+    expect(
+      hasIssueAtPath(
+        result,
+        `outputs.${outputIndex}.reportSnapshot.includedSources.${includedSourceIndex}.id`,
+      ),
+    ).toBe(true);
+    expect(
+      result.success ||
+        result.error.issues.some(
+          (issue) =>
+            issue.path.join('.') ===
+            `outputs.${outputIndex}.reportSnapshot.sections.${reportSectionIndex}.blocks.${reportBlockIndex}.rows`,
+        ),
+    ).toBe(true);
+  });
+
+  it('rejects output revision cycles and approval with open review comments', () => {
+    const dataset = copyDataset();
+    const current = dataset.outputs.find(
+      (item) => item.id === 'output-northbank-maturity-scorecard',
+    );
+    const predecessor = dataset.outputs.find(
+      (item) => item.id === 'output-northbank-maturity-scorecard-v01',
+    );
+    const published = dataset.outputs.find(
+      (item) => item.id === 'output-northbank-transformation-roadmap',
+    );
+    if (!current || !predecessor || !published) {
+      throw new Error('Expected versioned and published output fixtures.');
+    }
+
+    predecessor.supersedesOutputId = current.id;
+    dataset.outputReviewComments.push({
+      id: 'output-review-comment-published-open',
+      createdAt: '2026-09-13T11:00:00Z',
+      updatedAt: '2026-09-13T11:00:00Z',
+      outputId: published.id,
+      body: 'Confirm the owner wording before approval.',
+      authorUserId: 'user-nadia-khan',
+      status: 'open',
+    });
+
+    const currentIndex = dataset.outputs.findIndex(
+      (item) => item.id === current.id,
+    );
+    const publishedIndex = dataset.outputs.findIndex(
+      (item) => item.id === published.id,
+    );
+    const result = fabricDatasetSchema.safeParse(dataset);
+
+    expect(result.success).toBe(false);
+    expect(
+      hasIssueAtPath(result, `outputs.${currentIndex}.supersedesOutputId`),
+    ).toBe(true);
+    expect(hasIssueAtPath(result, `outputs.${publishedIndex}.status`)).toBe(
+      true,
+    );
+  });
+
+  it('rejects unsafe client-facing friction and action summaries', () => {
+    const dataset = copyDataset();
+    const friction = dataset.frictionItems[0];
+    const action = dataset.actionItems.find(
+      (item) => item.id === 'action-map-handover-fields',
+    );
+    if (!friction || !action) {
+      throw new Error('Expected client-facing friction and action fixtures.');
+    }
+
+    friction.clientSummary = undefined;
+    action.clientSummary = undefined;
+    const actionIndex = dataset.actionItems.findIndex(
+      (item) => item.id === action.id,
+    );
+    const result = fabricDatasetSchema.safeParse(dataset);
+
+    expect(result.success).toBe(false);
+    expect(hasIssueAtPath(result, 'frictionItems.0.visibility')).toBe(true);
+    expect(
+      hasIssueAtPath(result, `actionItems.${actionIndex}.visibility`),
+    ).toBe(true);
+  });
+
+  it('rejects client-facing and mismatched-fingerprint export references', () => {
+    const dataset = copyDataset();
+    const draft = dataset.outputs.find(
+      (item) => item.id === 'output-northbank-executive-summary',
+    );
+    const published = dataset.outputs.find(
+      (item) => item.id === 'output-northbank-transformation-roadmap',
+    );
+    const existingExport = dataset.outputExports[0];
+    if (!draft || !published || !existingExport) {
+      throw new Error('Expected report export fixtures.');
+    }
+
+    dataset.outputExports.push({
+      ...existingExport,
+      id: 'output-export-draft-client-facing',
+      outputId: draft.id,
+      outputVersion: draft.version,
+      audience: 'client-facing',
+      fileName: 'draft-client-facing-report.md',
+      sourceFingerprint: draft.reportSnapshot?.sourceFingerprint ?? 'missing',
+    });
+    const fingerprintExportIndex = dataset.outputExports.length;
+    dataset.outputExports.push({
+      ...existingExport,
+      id: 'output-export-wrong-fingerprint',
+      outputId: published.id,
+      outputVersion: published.version,
+      sourceFingerprint: 'not-the-report-snapshot-fingerprint',
+    });
+    const draftExportIndex = dataset.outputExports.findIndex(
+      (item) => item.id === 'output-export-draft-client-facing',
+    );
+    const result = fabricDatasetSchema.safeParse(dataset);
+
+    expect(result.success).toBe(false);
+    expect(
+      hasIssueAtPath(result, `outputExports.${draftExportIndex}.audience`),
+    ).toBe(true);
+    expect(
+      hasIssueAtPath(
+        result,
+        `outputExports.${fingerprintExportIndex}.sourceFingerprint`,
+      ),
+    ).toBe(true);
   });
 });

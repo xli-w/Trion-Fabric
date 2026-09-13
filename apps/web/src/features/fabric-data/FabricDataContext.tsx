@@ -41,6 +41,10 @@ import type {
   Roadmap,
   Opportunity,
   Output,
+  OutputExportAudience,
+  OutputExportFormat,
+  OutputExportReference,
+  OutputReviewComment,
   RepositorySource,
   Site,
   SiteWalk,
@@ -53,7 +57,12 @@ import {
   canUserPerform,
   createMethodologyRun,
   createLandscapeVersionSnapshot,
+  createOutputReportSnapshot,
+  getOutputReportFileName,
+  getOutputTemplate,
+  isOutputReportClientReady,
   isOpportunityReadyForDelivery,
+  nextOutputVersion,
   permissionForVisibilityTransition,
   preparePreliminarySiteWalkPromotion,
   prepareControlledOutputUpdate,
@@ -150,10 +159,19 @@ interface FabricDataContextValue {
     input: Omit<Roadmap, 'id' | 'createdAt' | 'updatedAt'>,
   ) => Promise<Roadmap>;
   updateRoadmap: (roadmap: Roadmap) => Promise<void>;
-  createOutput: (
-    input: Omit<Output, 'id' | 'createdAt' | 'updatedAt'>,
-  ) => Promise<Output>;
+  createOutput: (input: CreateOutputInput) => Promise<Output>;
   updateOutput: (output: Output) => Promise<void>;
+  regenerateOutputReport: (outputId: EntityId) => Promise<Output>;
+  createOutputRevision: (outputId: EntityId) => Promise<Output>;
+  createOutputReviewComment: (
+    input: CreateOutputReviewCommentInput,
+  ) => Promise<OutputReviewComment>;
+  resolveOutputReviewComment: (commentId: EntityId) => Promise<void>;
+  recordOutputExport: (
+    outputId: EntityId,
+    format: OutputExportFormat,
+    audience: OutputExportAudience,
+  ) => Promise<OutputExportReference>;
   createKnowledgeEntry: (
     input: CreateKnowledgeEntryInput,
   ) => Promise<KnowledgeEntry>;
@@ -187,6 +205,18 @@ interface FabricDataProviderProps {
 export interface CreateEngagementInput
   extends Omit<Engagement, 'id' | 'createdAt' | 'updatedAt'> {
   methodologyTemplateId?: EntityId;
+}
+
+export interface CreateOutputInput {
+  engagementId: EntityId;
+  outputType: Output['outputType'];
+  title: string;
+  sourceReferences: EntityId[];
+}
+
+export interface CreateOutputReviewCommentInput {
+  outputId: EntityId;
+  body: string;
 }
 
 export interface CreateLandscapeEntityInput
@@ -251,6 +281,8 @@ type ActivityCollection =
   | 'deliveryActions'
   | 'benefitMeasurements'
   | 'outputs'
+  | 'outputReviewComments'
+  | 'outputExports'
   | 'knowledgeEntries'
   | 'engagementMethodologyRuns'
   | 'engagementMethodologyActivities';
@@ -269,6 +301,7 @@ interface ActivityTrackedRecord extends BaseEntity {
   templateId?: EntityId;
   templateName?: string;
   reopenedAt?: string;
+  reportSnapshot?: Output['reportSnapshot'];
 }
 
 interface DatasetChange {
@@ -307,6 +340,8 @@ const activityCollections: ActivityCollection[] = [
   'deliveryActions',
   'benefitMeasurements',
   'outputs',
+  'outputReviewComments',
+  'outputExports',
   'knowledgeEntries',
   'engagementMethodologyRuns',
   'engagementMethodologyActivities',
@@ -337,6 +372,8 @@ const activityEntityTypesByCollection: Record<
   deliveryActions: 'delivery-action',
   benefitMeasurements: 'benefit-measurement',
   outputs: 'output',
+  outputReviewComments: 'output-review-comment',
+  outputExports: 'output-export',
   knowledgeEntries: 'knowledge-entry',
   engagementMethodologyRuns: 'methodology-run',
   engagementMethodologyActivities: 'methodology-activity',
@@ -389,6 +426,10 @@ function recordsFor(
       return dataset.benefitMeasurements;
     case 'outputs':
       return dataset.outputs;
+    case 'outputReviewComments':
+      return dataset.outputReviewComments;
+    case 'outputExports':
+      return dataset.outputExports;
     case 'knowledgeEntries':
       return dataset.knowledgeEntries;
     case 'engagementMethodologyRuns':
@@ -600,6 +641,22 @@ function getEngagementIdForChange(
     case 'outputs':
       return dataset.outputs.find((item) => item.id === record.id)
         ?.engagementId;
+    case 'outputReviewComments': {
+      const outputId = dataset.outputReviewComments.find(
+        (item) => item.id === record.id,
+      )?.outputId;
+      return outputId
+        ? dataset.outputs.find((item) => item.id === outputId)?.engagementId
+        : undefined;
+    }
+    case 'outputExports': {
+      const outputId = dataset.outputExports.find(
+        (item) => item.id === record.id,
+      )?.outputId;
+      return outputId
+        ? dataset.outputs.find((item) => item.id === outputId)?.engagementId
+        : undefined;
+    }
     case 'knowledgeEntries':
       return undefined;
     case 'engagementMethodologyRuns':
@@ -622,6 +679,14 @@ function getEngagementIdForChange(
 }
 
 function permissionForChange(change: DatasetChange): WorkspacePermission {
+  if (change.collection === 'outputReviewComments') {
+    return 'output:comment';
+  }
+
+  if (change.collection === 'outputExports') {
+    return 'output:export';
+  }
+
   if (change.collection === 'outputs') {
     const previousStatus = change.previous?.status;
     const nextStatus = change.next?.status;
@@ -728,6 +793,12 @@ function activityActionForChange(change: DatasetChange): ActivityAction {
   const next = change.next;
 
   if (!previous) {
+    if (change.collection === 'outputReviewComments') {
+      return 'commented';
+    }
+    if (change.collection === 'outputExports') {
+      return 'exported';
+    }
     return 'created';
   }
 
@@ -789,6 +860,13 @@ function activityActionForChange(change: DatasetChange): ActivityAction {
       }
     }
 
+    if (
+      change.collection === 'outputReviewComments' &&
+      next.status === 'resolved'
+    ) {
+      return 'resolved';
+    }
+
     if (change.collection === 'knowledgeEntries') {
       if (next.status === 'internal-review') {
         return 'submitted-for-review';
@@ -811,6 +889,13 @@ function activityActionForChange(change: DatasetChange): ActivityAction {
     }
 
     return 'status-changed';
+  }
+
+  if (
+    change.collection === 'outputs' &&
+    previous.reportSnapshot !== next.reportSnapshot
+  ) {
+    return 'regenerated';
   }
 
   return 'updated';
@@ -838,7 +923,11 @@ function createActivityEvent(
       ? (record.templateName ?? 'methodology run')
       : change.collection === 'engagementMethodologyActivities'
         ? 'methodology activity'
-        : 'record');
+        : change.collection === 'outputReviewComments'
+          ? 'output review comment'
+          : change.collection === 'outputExports'
+            ? 'output report export'
+            : 'record');
   const changedFields = changedFieldNames(change.previous, change.next);
   const metadata: Record<string, string> = {
     collection: change.collection,
@@ -2768,26 +2857,46 @@ export function FabricDataProvider({
   );
 
   const createOutput = useCallback(
-    async (input: Omit<Output, 'id' | 'createdAt' | 'updatedAt'>) => {
+    async (input: CreateOutputInput) => {
       if (
         !dataset ||
         !dataset.engagements.some((item) => item.id === input.engagementId)
       )
         throw new Error('Select a valid engagement for this output.');
-      if (input.status !== 'draft' || input.visibility !== 'internal') {
-        throw new Error(
-          'New controlled outputs must start as internal drafts.',
-        );
-      }
       if (!actingUser) {
         throw new Error('Select an internal user before creating an output.');
       }
-      const created = {
-        ...input,
+      const timestamp = now();
+      const outputBase: Output = {
         id: createId('output'),
-        createdAt: now(),
-        updatedAt: now(),
+        createdAt: timestamp,
+        updatedAt: timestamp,
+        engagementId: input.engagementId,
+        outputType: input.outputType,
+        title: input.title,
+        status: 'draft',
+        visibility: 'internal',
+        version: nextOutputVersion(
+          dataset.outputs
+            .filter(
+              (output) =>
+                output.engagementId === input.engagementId &&
+                output.outputType === input.outputType,
+            )
+            .map((output) => output.version),
+        ),
+        templateVersion: getOutputTemplate(input.outputType).version,
         createdByUserId: actingUser.id,
+        sourceReferences: input.sourceReferences,
+        sectionOverrides: [],
+      };
+      const created: Output = {
+        ...outputBase,
+        reportSnapshot: createOutputReportSnapshot(
+          dataset,
+          outputBase,
+          timestamp,
+        ),
       };
       await persist({ ...dataset, outputs: [...dataset.outputs, created] });
       return created;
@@ -2807,21 +2916,286 @@ export function FabricDataProvider({
       }
       const existing = dataset.outputs.find((item) => item.id === output.id);
       if (!existing) throw new Error('The output no longer exists.');
-      const nextOutput = prepareControlledOutputUpdate(
+      const timestamp = now();
+      let nextOutput = prepareControlledOutputUpdate(
         existing,
         output,
         actingUser.id,
-        now(),
+        timestamp,
       );
+      if (
+        nextOutput.status === 'approved' &&
+        existing.status !== 'approved' &&
+        dataset.outputReviewComments.some(
+          (comment) =>
+            comment.outputId === nextOutput.id && comment.status === 'open',
+        )
+      ) {
+        throw new Error(
+          'Resolve all output review comments before approving the report.',
+        );
+      }
+
+      if (nextOutput.status === 'draft') {
+        nextOutput = {
+          ...nextOutput,
+          reportSnapshot: createOutputReportSnapshot(
+            dataset,
+            nextOutput,
+            timestamp,
+          ),
+        };
+      }
       await persist({
         ...dataset,
         outputs: replaceExistingRecord(
           dataset.outputs,
           nextOutput,
-          now(),
+          timestamp,
           'output',
         ),
       });
+    },
+    [actingUser, dataset, persist],
+  );
+
+  const regenerateOutputReport = useCallback(
+    async (outputId: EntityId) => {
+      if (!dataset) {
+        throw new Error('The repository dataset is not loaded.');
+      }
+      const output = dataset.outputs.find((item) => item.id === outputId);
+      if (!output) {
+        throw new Error('The output no longer exists.');
+      }
+      if (output.status !== 'draft') {
+        throw new Error(
+          'Return the output to draft before regenerating its report.',
+        );
+      }
+
+      const timestamp = now();
+      const regenerated: Output = {
+        ...output,
+        reportSnapshot: createOutputReportSnapshot(dataset, output, timestamp),
+      };
+      await persist({
+        ...dataset,
+        outputs: replaceExistingRecord(
+          dataset.outputs,
+          regenerated,
+          timestamp,
+          'output',
+        ),
+      });
+      return { ...regenerated, updatedAt: timestamp };
+    },
+    [dataset, persist],
+  );
+
+  const createOutputRevision = useCallback(
+    async (outputId: EntityId) => {
+      if (!dataset) {
+        throw new Error('The repository dataset is not loaded.');
+      }
+      if (!actingUser) {
+        throw new Error(
+          'Select an internal user before creating a new output version.',
+        );
+      }
+      const existing = dataset.outputs.find((item) => item.id === outputId);
+      if (!existing) {
+        throw new Error('The output no longer exists.');
+      }
+
+      const timestamp = now();
+      const revisionBase: Output = {
+        ...existing,
+        id: createId('output'),
+        createdAt: timestamp,
+        updatedAt: timestamp,
+        version: nextOutputVersion(
+          dataset.outputs
+            .filter(
+              (output) =>
+                output.engagementId === existing.engagementId &&
+                output.outputType === existing.outputType,
+            )
+            .map((output) => output.version),
+        ),
+        templateVersion: getOutputTemplate(existing.outputType).version,
+        status: 'draft',
+        visibility: 'internal',
+        createdByUserId: actingUser.id,
+        approvedByUserId: undefined,
+        approvedAt: undefined,
+        publishedAt: undefined,
+        sectionOverrides: [...existing.sectionOverrides],
+        reportSnapshot: undefined,
+        supersedesOutputId: existing.id,
+      };
+      const revision: Output = {
+        ...revisionBase,
+        reportSnapshot: createOutputReportSnapshot(
+          dataset,
+          revisionBase,
+          timestamp,
+        ),
+      };
+      await persist({
+        ...dataset,
+        outputs: [...dataset.outputs, revision],
+      });
+      return revision;
+    },
+    [actingUser, dataset, persist],
+  );
+
+  const createOutputReviewComment = useCallback(
+    async (input: CreateOutputReviewCommentInput) => {
+      if (!dataset) {
+        throw new Error('The repository dataset is not loaded.');
+      }
+      if (!actingUser) {
+        throw new Error(
+          'Select an internal user before adding an output review comment.',
+        );
+      }
+      const output = dataset.outputs.find((item) => item.id === input.outputId);
+      if (!output) {
+        throw new Error('Select a valid output for the review comment.');
+      }
+      if (output.status !== 'draft' && output.status !== 'internal-review') {
+        throw new Error(
+          'Review comments can only be added while an output is in draft or internal review.',
+        );
+      }
+      const body = input.body.trim();
+      if (!body) {
+        throw new Error('Write a review comment before saving it.');
+      }
+
+      const timestamp = now();
+      const comment: OutputReviewComment = {
+        id: createId('output-review-comment'),
+        createdAt: timestamp,
+        updatedAt: timestamp,
+        outputId: input.outputId,
+        body,
+        authorUserId: actingUser.id,
+        status: 'open',
+      };
+      await persist({
+        ...dataset,
+        outputReviewComments: [...dataset.outputReviewComments, comment],
+      });
+      return comment;
+    },
+    [actingUser, dataset, persist],
+  );
+
+  const resolveOutputReviewComment = useCallback(
+    async (commentId: EntityId) => {
+      if (!dataset) {
+        throw new Error('The repository dataset is not loaded.');
+      }
+      if (!actingUser) {
+        throw new Error(
+          'Select an internal user before resolving an output review comment.',
+        );
+      }
+      const comment = dataset.outputReviewComments.find(
+        (item) => item.id === commentId,
+      );
+      if (!comment) {
+        throw new Error('The output review comment no longer exists.');
+      }
+      if (comment.status === 'resolved') {
+        throw new Error('This output review comment is already resolved.');
+      }
+      const output = dataset.outputs.find(
+        (item) => item.id === comment.outputId,
+      );
+      if (
+        !output ||
+        (output.status !== 'draft' && output.status !== 'internal-review')
+      ) {
+        throw new Error(
+          'Review comments can only be resolved while their output is in draft or internal review.',
+        );
+      }
+
+      const timestamp = now();
+      const resolved: OutputReviewComment = {
+        ...comment,
+        status: 'resolved',
+        resolvedByUserId: actingUser.id,
+        resolvedAt: timestamp,
+      };
+      await persist({
+        ...dataset,
+        outputReviewComments: replaceExistingRecord(
+          dataset.outputReviewComments,
+          resolved,
+          timestamp,
+          'output review comment',
+        ),
+      });
+    },
+    [actingUser, dataset, persist],
+  );
+
+  const recordOutputExport = useCallback(
+    async (
+      outputId: EntityId,
+      format: OutputExportFormat,
+      audience: OutputExportAudience,
+    ) => {
+      if (!dataset) {
+        throw new Error('The repository dataset is not loaded.');
+      }
+      if (!actingUser) {
+        throw new Error('Select an internal user before exporting a report.');
+      }
+      const output = dataset.outputs.find((item) => item.id === outputId);
+      if (!output) {
+        throw new Error('The output no longer exists.');
+      }
+      if (output.status === 'archived') {
+        throw new Error('Archived outputs cannot be exported.');
+      }
+      if (
+        audience === 'client-facing' &&
+        !isOutputReportClientReady(dataset, output)
+      ) {
+        throw new Error(
+          'Client-facing report exports require an approved report with approved source data.',
+        );
+      }
+
+      const snapshot =
+        output.reportSnapshot ??
+        createOutputReportSnapshot(dataset, output, now());
+      const timestamp = now();
+      const extension = format === 'markdown' ? 'md' : 'json';
+      const exportReference: OutputExportReference = {
+        id: createId('output-export'),
+        createdAt: timestamp,
+        updatedAt: timestamp,
+        outputId: output.id,
+        format,
+        audience,
+        fileName: getOutputReportFileName(output, extension),
+        outputVersion: output.version,
+        sourceFingerprint: snapshot.sourceFingerprint,
+        exportedByUserId: actingUser.id,
+        exportedAt: timestamp,
+      };
+      await persist({
+        ...dataset,
+        outputExports: [...dataset.outputExports, exportReference],
+      });
+      return exportReference;
     },
     [actingUser, dataset, persist],
   );
@@ -2944,6 +3318,11 @@ export function FabricDataProvider({
         updateRoadmap,
         createOutput,
         updateOutput,
+        regenerateOutputReport,
+        createOutputRevision,
+        createOutputReviewComment,
+        resolveOutputReviewComment,
+        recordOutputExport,
         createKnowledgeEntry,
         updateKnowledgeEntry,
         createLandscapeEntity,

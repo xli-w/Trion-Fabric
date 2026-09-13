@@ -26,12 +26,19 @@ import {
   buildEngagementContext,
   buildLandscapeQualityIndicators,
   canUserPerform,
+  compareOutputReportSnapshots,
+  getOutputSourceCatalog,
+  getOutputTemplate,
   getAccessibleEngagementIds,
   getEvidenceEngagementId,
   getSearchRelevance,
+  hasOutputReportSourceChanges,
+  isOutputReportClientReady,
+  isOutputSourceSupportedByTemplate,
   isClientSafeLandscapeEntity,
   isClientSafeLandscapeRelationship,
   landscapeRelationshipDefinitions,
+  resolveOutputReport,
   retrieveRelevantFabricKnowledge,
 } from '@domain';
 
@@ -189,16 +196,6 @@ function outputStatusTone(status: OutputStatus): DisplayTone {
   }
 
   return 'neutral';
-}
-
-function isOutputReadyToShare(
-  status: OutputStatus,
-  visibility: VisibilityScope,
-): boolean {
-  return (
-    visibility === 'approved-client-facing' &&
-    (status === 'approved' || status === 'published')
-  );
 }
 
 function deliveryStatusTone(status: DeliveryStatus): DisplayTone {
@@ -749,16 +746,24 @@ export function buildOutputsViewModel(dataset: FabricDataset) {
       statusTone: outputStatusTone(output.status),
       visibility: visibilityLabels[output.visibility],
       sourceCount: output.sourceReferences.length,
+      includedSourceCount: resolveOutputReport(dataset, output).snapshot
+        .includedSources.length,
+      excludedSourceCount: resolveOutputReport(dataset, output).snapshot
+        .excludedSources.length,
+      reportGeneratedAt: output.reportSnapshot?.generatedAt
+        ? formatDateTime(output.reportSnapshot.generatedAt)
+        : 'Not generated',
+      sourceDataChanged: hasOutputReportSourceChanges(dataset, output),
       publishedAt: output.publishedAt
         ? formatDate(output.publishedAt)
         : 'Not shared',
-      isReadyToShare: isOutputReadyToShare(output.status, output.visibility),
+      isReadyToShare: isOutputReportClientReady(dataset, output),
     }));
 
   return {
     rows,
     readyToShareCount: countBy(dataset.outputs, (output) =>
-      isOutputReadyToShare(output.status, output.visibility),
+      isOutputReportClientReady(dataset, output),
     ),
     reviewQueueCount: countBy(
       dataset.outputs,
@@ -778,6 +783,111 @@ export function buildOutputsViewModel(dataset: FabricDataset) {
         )
         .map((output) => output.outputType),
     ).size,
+  };
+}
+
+function compareOutputVersions(left: string, right: string) {
+  const parse = (value: string) => {
+    const match = /^(\d+)\.(\d+)$/.exec(value);
+    return match
+      ? { major: Number(match[1]), minor: Number(match[2]) }
+      : { major: 0, minor: 0 };
+  };
+  const leftVersion = parse(left);
+  const rightVersion = parse(right);
+  return (
+    rightVersion.major - leftVersion.major ||
+    rightVersion.minor - leftVersion.minor
+  );
+}
+
+export function buildOutputReportWorkspace(
+  dataset: FabricDataset,
+  outputId: EntityId,
+) {
+  const output = dataset.outputs.find((item) => item.id === outputId);
+  if (!output) {
+    return undefined;
+  }
+
+  const maps = createMaps(dataset);
+  const report = resolveOutputReport(dataset, output);
+  const previousOutput = output.supersedesOutputId
+    ? dataset.outputs.find((item) => item.id === output.supersedesOutputId)
+    : undefined;
+  const comparison =
+    previousOutput?.reportSnapshot && report.snapshot
+      ? compareOutputReportSnapshots(
+          previousOutput.reportSnapshot,
+          report.snapshot,
+          previousOutput.version,
+          output.version,
+        )
+      : undefined;
+  const sourceCatalog = getOutputSourceCatalog(
+    dataset,
+    output.engagementId,
+  ).map((source) => ({
+    ...source,
+    isSelected: output.sourceReferences.includes(source.id),
+    isApplicable: isOutputSourceSupportedByTemplate(
+      output.outputType,
+      source.type,
+    ),
+  }));
+
+  return {
+    output,
+    report,
+    template: getOutputTemplate(output.outputType),
+    sourceCatalog,
+    sourceDataChanged: hasOutputReportSourceChanges(dataset, output),
+    openReviewCommentCount: dataset.outputReviewComments.filter(
+      (comment) => comment.outputId === output.id && comment.status === 'open',
+    ).length,
+    reviewComments: dataset.outputReviewComments
+      .filter((comment) => comment.outputId === output.id)
+      .sort((left, right) => right.createdAt.localeCompare(left.createdAt))
+      .map((comment) => ({
+        ...comment,
+        authorName:
+          maps.users.get(comment.authorUserId)?.displayName ?? 'Unknown user',
+        resolvedByName: comment.resolvedByUserId
+          ? (maps.users.get(comment.resolvedByUserId)?.displayName ??
+            'Unknown user')
+          : undefined,
+        createdAtLabel: formatDateTime(comment.createdAt),
+        resolvedAtLabel: comment.resolvedAt
+          ? formatDateTime(comment.resolvedAt)
+          : undefined,
+      })),
+    exports: dataset.outputExports
+      .filter((exportReference) => exportReference.outputId === output.id)
+      .sort((left, right) => right.exportedAt.localeCompare(left.exportedAt))
+      .map((exportReference) => ({
+        ...exportReference,
+        exportedByName:
+          maps.users.get(exportReference.exportedByUserId)?.displayName ??
+          'Unknown user',
+        exportedAtLabel: formatDateTime(exportReference.exportedAt),
+      })),
+    previousOutput,
+    comparison,
+    versionHistory: dataset.outputs
+      .filter(
+        (item) =>
+          item.engagementId === output.engagementId &&
+          item.outputType === output.outputType,
+      )
+      .sort((left, right) => compareOutputVersions(left.version, right.version))
+      .map((item) => ({
+        id: item.id,
+        title: item.title,
+        version: item.version,
+        status: outputStatusLabels[item.status],
+        isCurrent: item.id === output.id,
+        path: `/outputs/${item.id}`,
+      })),
   };
 }
 

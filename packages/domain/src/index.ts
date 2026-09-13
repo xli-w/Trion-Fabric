@@ -5,3 +5,4 @@ export * from './engagement-context';
 export * from './landscape';
 export * from './methodology';
 export * from './retrieval';
+export * from './reporting';

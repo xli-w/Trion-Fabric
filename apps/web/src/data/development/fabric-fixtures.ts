@@ -3,7 +3,7 @@ import type {
   FabricDataset,
   MethodologyActivityStatus,
 } from '@domain';
-import { createLandscapeSnapshot } from '@domain';
+import { createLandscapeSnapshot, createOutputReportSnapshot } from '@domain';
 import { diagnosticDimensions } from './diagnostic-dimensions';
 import {
   methodologyActivities,
@@ -705,7 +705,7 @@ const northbankCurrentLandscapeSnapshot = createLandscapeSnapshot(
   northbankLandscapeRelationships,
 );
 
-export const fabricFixtures: FabricDataset = {
+const fixtureDataset: FabricDataset = {
   users: [
     {
       id: 'user-amy-wilkinson',
@@ -1389,6 +1389,10 @@ export const fabricFixtures: FabricDataset = {
       status: 'in-progress',
       ownerUserId: 'user-amy-wilkinson',
       dueDate: '2026-09-17T17:00:00Z',
+      clientSummary:
+        'Agree the minimum digital handover fields with operators and supervisors before the pilot starts.',
+      visibility: 'approved-client-facing',
+      reviewStatus: 'approved',
     },
     {
       id: 'action-validate-ncr-routing',
@@ -1564,15 +1568,40 @@ export const fabricFixtures: FabricDataset = {
       status: 'draft',
       visibility: 'internal',
       version: '0.1',
+      templateVersion: '2026.1',
       createdByUserId: 'user-amy-wilkinson',
       sourceReferences: [
         'assessment-northbank-processes',
         'finding-northbank-information-latency',
         'opportunity-digitise-handover',
       ],
+      sectionOverrides: [
+        {
+          sectionId: 'next-steps',
+          narrative:
+            'Confirm the practical handover record with operations and quality leaders before scaling the pilot.',
+        },
+      ],
       contentReference:
         'Executive summary draft generated from the structured diagnostic record.',
       internalNotes: 'Hold for diagnostic completion and review.',
+    },
+    {
+      id: 'output-northbank-maturity-scorecard-v01',
+      createdAt: '2026-09-08T12:00:00Z',
+      updatedAt: '2026-09-09T10:00:00Z',
+      engagementId: 'engagement-northbank-diagnostic',
+      outputType: 'maturity-scorecard',
+      title: 'Northbank digital and operational maturity scorecard',
+      status: 'archived',
+      visibility: 'archived',
+      version: '0.1',
+      templateVersion: '2026.1',
+      createdByUserId: 'user-amy-wilkinson',
+      sourceReferences: ['assessment-northbank-processes'],
+      sectionOverrides: [],
+      contentReference:
+        'Initial maturity scorecard draft retained as the predecessor to the reviewed report version.',
     },
     {
       id: 'output-northbank-maturity-scorecard',
@@ -1584,8 +1613,17 @@ export const fabricFixtures: FabricDataset = {
       status: 'internal-review',
       visibility: 'draft-client-facing',
       version: '0.2',
+      templateVersion: '2026.1',
       createdByUserId: 'user-amy-wilkinson',
       sourceReferences: ['assessment-northbank-processes'],
+      sectionOverrides: [
+        {
+          sectionId: 'scorecard-direction',
+          narrative:
+            'Use the approved scorecard to agree one practical handover standard before extending technology scope.',
+        },
+      ],
+      supersedesOutputId: 'output-northbank-maturity-scorecard-v01',
       contentReference:
         'Maturity scorecard projection from the assessment record.',
     },
@@ -1599,12 +1637,14 @@ export const fabricFixtures: FabricDataset = {
       status: 'internal-review',
       visibility: 'draft-client-facing',
       version: '0.1',
+      templateVersion: '2026.1',
       createdByUserId: 'user-james-carter',
       sourceReferences: [
         'landscape-process-shift-handover',
         'landscape-system-epicor',
         'relationship-handover-epicor',
       ],
+      sectionOverrides: [],
       contentReference:
         'Landscape map projection from structured entities and relationships.',
     },
@@ -1618,6 +1658,7 @@ export const fabricFixtures: FabricDataset = {
       status: 'internal-review',
       visibility: 'draft-client-facing',
       version: '0.2',
+      templateVersion: '2026.1',
       createdByUserId: 'user-amy-wilkinson',
       sourceReferences: [
         'finding-northbank-information-latency',
@@ -1625,6 +1666,7 @@ export const fabricFixtures: FabricDataset = {
         'opportunity-unify-ncr-routing',
         'action-map-handover-fields',
       ],
+      sectionOverrides: [],
       contentReference:
         'Opportunity and action register projection from findings and evidence-led recommendations.',
     },
@@ -1638,6 +1680,7 @@ export const fabricFixtures: FabricDataset = {
       status: 'published',
       visibility: 'approved-client-facing',
       version: '1.0',
+      templateVersion: '2026.1',
       createdByUserId: 'user-amy-wilkinson',
       approvedByUserId: 'user-nadia-khan',
       approvedAt: '2026-09-12T15:30:00Z',
@@ -1646,6 +1689,13 @@ export const fabricFixtures: FabricDataset = {
         'roadmap-northbank-2026',
         'initiative-handover-foundation',
         'opportunity-digitise-handover',
+      ],
+      sectionOverrides: [
+        {
+          sectionId: 'roadmap-next-steps',
+          narrative:
+            'Confirm pilot sponsorship, nominate the operational owner, and agree the handover field set before the Simplify phase starts.',
+        },
       ],
       contentReference:
         'Controlled client roadmap shared after internal approval.',
@@ -1660,12 +1710,20 @@ export const fabricFixtures: FabricDataset = {
       status: 'draft',
       visibility: 'internal',
       version: '0.1',
+      templateVersion: '2026.1',
       createdByUserId: 'user-james-carter',
       sourceReferences: [
         'observation-paper-handover',
         'observation-ncr-double-entry',
         'evidence-handover-photo',
         'evidence-ncr-export',
+      ],
+      sectionOverrides: [
+        {
+          sectionId: 'next-steps',
+          narrative:
+            'Review the fieldwork summary with the site team before preparing any client-facing observation narrative.',
+        },
       ],
       contentReference:
         'Site-walk summary draft with raw fieldwork retained in the internal workspace.',
@@ -1680,13 +1738,58 @@ export const fabricFixtures: FabricDataset = {
       status: 'draft',
       visibility: 'internal',
       version: '0.1',
+      templateVersion: '2026.1',
       createdByUserId: 'user-james-carter',
       sourceReferences: [
         'opportunity-standardise-receipts',
         'evidence-receipts-interview',
       ],
+      sectionOverrides: [
+        {
+          sectionId: 'current-state',
+          narrative:
+            'Complete the planned intake observation before turning this early discovery material into a controlled client output.',
+        },
+      ],
       contentReference:
         'Early discovery brief retained internally until conclusions are reviewed.',
+    },
+  ],
+  outputReviewComments: [
+    {
+      id: 'output-review-scorecard-direction',
+      createdAt: '2026-09-09T14:45:00Z',
+      updatedAt: '2026-09-09T15:15:00Z',
+      outputId: 'output-northbank-maturity-scorecard',
+      body: 'Clarify that the scorecard supports a practical handover improvement before it supports a broader technology decision.',
+      authorUserId: 'user-nadia-khan',
+      status: 'resolved',
+      resolvedByUserId: 'user-amy-wilkinson',
+      resolvedAt: '2026-09-09T15:15:00Z',
+    },
+    {
+      id: 'output-review-landscape-scope',
+      createdAt: '2026-09-11T12:45:00Z',
+      updatedAt: '2026-09-11T12:45:00Z',
+      outputId: 'output-northbank-landscape-map',
+      body: 'Confirm whether the next client version should add the approved production-supervisor role to the landscape scope.',
+      authorUserId: 'user-nadia-khan',
+      status: 'open',
+    },
+  ],
+  outputExports: [
+    {
+      id: 'output-export-northbank-roadmap-markdown',
+      createdAt: '2026-09-12T16:05:00Z',
+      updatedAt: '2026-09-12T16:05:00Z',
+      outputId: 'output-northbank-transformation-roadmap',
+      format: 'markdown',
+      audience: 'client-facing',
+      fileName: 'northbank-transformation-roadmap-v1-0.md',
+      outputVersion: '1.0',
+      sourceFingerprint: 'pending-report-snapshot',
+      exportedByUserId: 'user-amy-wilkinson',
+      exportedAt: '2026-09-12T16:05:00Z',
     },
   ],
   frictionItems: [
@@ -1707,6 +1810,11 @@ export const fabricFixtures: FabricDataset = {
       evidenceReference: 'evidence-handover-photo',
       assumptions: 'Based on two observed handovers and stated shift pattern.',
       notes: 'Treat as a working estimate, not a confirmed saving.',
+      clientSummary:
+        'Paper-first shift handover creates a recurring delay before current production information is visible to the next shift.',
+      approvalState: 'approved',
+      visibility: 'approved-client-facing',
+      reviewStatus: 'approved',
     },
   ],
   diagnosticDimensions,
@@ -1783,7 +1891,7 @@ export const fabricFixtures: FabricDataset = {
       ],
       relatedOpportunityIds: ['opportunity-digitise-handover'],
       confidence: 'high',
-      reviewStatus: 'reviewed',
+      reviewStatus: 'approved',
       clientSummary:
         'Important production and quality information is not reaching the right people quickly or consistently.',
     },
@@ -2055,4 +2163,30 @@ export const fabricFixtures: FabricDataset = {
       metadata: { visibility: 'approved-client-facing', version: '1.0' },
     },
   ],
+};
+
+const outputsWithReports = fixtureDataset.outputs.map((output) => ({
+  ...output,
+  reportSnapshot: createOutputReportSnapshot(
+    fixtureDataset,
+    output,
+    output.updatedAt,
+  ),
+}));
+
+export const fabricFixtures: FabricDataset = {
+  ...fixtureDataset,
+  outputs: outputsWithReports,
+  outputExports: fixtureDataset.outputExports.map((exportReference) => {
+    const output = outputsWithReports.find(
+      (item) => item.id === exportReference.outputId,
+    );
+
+    return output?.reportSnapshot
+      ? {
+          ...exportReference,
+          sourceFingerprint: output.reportSnapshot.sourceFingerprint,
+        }
+      : exportReference;
+  }),
 };
