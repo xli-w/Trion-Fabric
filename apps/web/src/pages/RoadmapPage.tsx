@@ -78,7 +78,7 @@ export function RoadmapPage() {
         return (
           <>
             <PageHeader
-              eyebrow="Delivery"
+              eyebrow="Transformation"
               title="Transformation roadmap"
               description="Sequence approved opportunities into owned initiatives, milestones, measurable benefits, and governed delivery."
               metadata={[
@@ -338,7 +338,7 @@ export function InitiativeDetailPage() {
           return (
             <>
               <PageHeader
-                eyebrow="Delivery"
+                eyebrow="Transformation"
                 title="Initiative not found"
                 description="The requested initiative is not available."
               />

@@ -12,7 +12,6 @@ import {
 import { OutputDetailPage, OutputsPage } from '@app/pages/OutputsPage';
 import { PlannedPage } from '@app/pages/PlannedPage';
 import { SiteWalksPage, SiteWalkWorkspacePage } from '@app/pages/SiteWalksPage';
-import { WorkspacePage } from '@app/pages/WorkspacePage';
 import { SiteDetailPage, SitesPage } from '@app/pages/SitesPage';
 import { DiagnosisPage } from '@app/pages/DiagnosisPage';
 import { LandscapePage } from '@app/pages/LandscapePage';
@@ -23,7 +22,7 @@ export function AppRouter() {
     <BrowserRouter>
       <Routes>
         <Route element={<AppShell />} path="/">
-          <Route element={<WorkspacePage />} index />
+          <Route element={<Navigate replace to="engagements" />} index />
           <Route element={<ClientsPage />} path="clients" />
           <Route element={<ClientDetailPage />} path="clients/:clientId" />
           <Route element={<SitesPage />} path="sites" />
@@ -67,7 +66,7 @@ export function AppRouter() {
             path="settings"
           />
         </Route>
-        <Route element={<Navigate replace to="/" />} path="*" />
+        <Route element={<Navigate replace to="/engagements" />} path="*" />
       </Routes>
     </BrowserRouter>
   );

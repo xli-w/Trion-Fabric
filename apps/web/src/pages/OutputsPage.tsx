@@ -101,7 +101,7 @@ export function OutputsPage() {
         return (
           <>
             <PageHeader
-              eyebrow="Outputs"
+              eyebrow="Diagnosis & outputs"
               title="Controlled delivery outputs"
               description="Outputs are governed projections of structured engagement information, not a separate document store."
               metadata={[
@@ -231,7 +231,7 @@ export function OutputDetailPage() {
           return (
             <>
               <PageHeader
-                eyebrow="Outputs"
+                eyebrow="Diagnosis & outputs"
                 title="Output not found"
                 description="The requested controlled output is not available."
               />

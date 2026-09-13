@@ -568,11 +568,11 @@ export function OpportunitiesPage() {
         return (
           <>
             <PageHeader
-              eyebrow="Opportunities"
+              eyebrow="Transformation"
               title="Problem-led opportunity register"
-              description="Move from observation to current situation, issue, improvement, benefits, priority, and next step without losing the evidence chain."
+              description="Move from operational landscape and evidence to a current situation, issue, improvement, benefits, priority, and a sequenced next step."
               metadata={[
-                'Evidence-linked',
+                'Landscape-informed',
                 'Impact / effort',
                 'Approval-aware',
               ]}
@@ -758,7 +758,7 @@ export function OpportunityDetailPage() {
         if (!opportunity) {
           return (
             <PageHeader
-              eyebrow="Opportunities"
+              eyebrow="Transformation"
               title="Opportunity not found"
               description="The requested opportunity is not available."
             />
