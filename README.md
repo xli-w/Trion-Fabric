@@ -60,7 +60,7 @@ tests/
 
 ## Run The Project
 
-1. Install dependencies with `npm install`.
+1. Install the exact dependencies from the committed lockfile with `npm ci`. Use `npm install` only when intentionally changing dependencies.
 2. Start the development server with `npm run dev`.
 3. Run lint checks with `npm run lint`.
 4. Run tests with `npm run test`.
