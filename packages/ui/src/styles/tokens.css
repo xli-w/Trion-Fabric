@@ -27,6 +27,15 @@
   --fabric-danger-soft: rgba(186, 77, 77, 0.12);
 
   --fabric-shadow: 0 22px 60px rgba(11, 17, 24, 0.12);
+  --fabric-shadow-sm: 0 2px 8px rgba(11, 17, 24, 0.06);
+  --fabric-shadow-md: 0 8px 24px rgba(11, 17, 24, 0.09);
+  --fabric-shadow-lg: 0 20px 48px rgba(11, 17, 24, 0.16);
+  --fabric-shadow-drawer: -8px 0 32px rgba(11, 17, 24, 0.2);
+
+  --fabric-z-dropdown: 50;
+  --fabric-z-drawer: 100;
+  --fabric-z-modal: 200;
+  --fabric-z-toast: 300;
   --fabric-radius-lg: 20px;
   --fabric-radius-md: 14px;
   --fabric-radius-sm: 10px;
