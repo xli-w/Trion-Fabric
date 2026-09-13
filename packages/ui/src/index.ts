@@ -13,3 +13,4 @@ export * from './components/Sheet';
 export * from './components/StatCard';
 export * from './components/Tabs';
 export * from './components/Toolbar';
+export * from './theme/ThemeContext';

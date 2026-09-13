@@ -10,8 +10,10 @@ import {
   Legend,
 } from 'recharts';
 import { Badge } from './Badge';
+import { useTheme } from '../theme/ThemeContext';
 
 export interface MaturityDimensionScore {
+
   id: string;
   name: string;
   shortName?: string;
@@ -41,6 +43,16 @@ export function MaturityRadar({
   height = 380,
   showTargetBenchmark = true,
 }: MaturityRadarProps) {
+  let isDark = true;
+  try {
+    const themeContext = useTheme();
+    isDark = themeContext.resolvedTheme === 'dark';
+  } catch {
+    if (typeof document !== 'undefined') {
+      isDark = document.documentElement.getAttribute('data-theme') === 'dark';
+    }
+  }
+
   const chartData = useMemo(() => {
     return dimensions.map((d) => {
       // Shorten name if very long for radar axis
@@ -94,6 +106,13 @@ export function MaturityRadar({
     return null;
   };
 
+  const gridColor = isDark ? 'rgba(255, 255, 255, 0.15)' : 'rgba(16, 22, 29, 0.12)';
+  const labelColor = isDark ? '#e2e8f0' : '#334155';
+  const radiusStroke = isDark ? 'rgba(255, 255, 255, 0.25)' : '#94a3b8';
+  const radiusTick = isDark ? '#94a3b8' : '#64748b';
+  const accentColor = isDark ? '#8b5cf6' : '#1d7f73';
+  const accentHover = isDark ? '#a78bfa' : '#16695f';
+
   return (
     <div className="fabric-radar-wrapper">
       <div className="fabric-radar-container" style={{ height }}>
@@ -108,17 +127,17 @@ export function MaturityRadar({
               }
             }}
           >
-            <PolarGrid stroke="#e2e8f0" strokeDasharray="3 3" />
+            <PolarGrid stroke={gridColor} strokeDasharray="3 3" />
             <PolarAngleAxis
               dataKey="dimension"
-              tick={{ fill: '#334155', fontSize: 11, fontWeight: 600 }}
+              tick={{ fill: labelColor, fontSize: 11, fontWeight: 600 }}
             />
             <PolarRadiusAxis
               angle={90}
               domain={[0, 5]}
               tickCount={6}
-              stroke="#94a3b8"
-              tick={{ fill: '#64748b', fontSize: 10 }}
+              stroke={radiusStroke}
+              tick={{ fill: radiusTick, fontSize: 10 }}
             />
             <Tooltip content={<CustomTooltip />} />
             <Legend
@@ -130,7 +149,7 @@ export function MaturityRadar({
                 dataKey="targetScore"
                 stroke="#94a3b8"
                 fill="#94a3b8"
-                fillOpacity={0.15}
+                fillOpacity={isDark ? 0.2 : 0.15}
                 strokeDasharray="4 4"
                 strokeWidth={1.5}
               />
@@ -138,12 +157,12 @@ export function MaturityRadar({
             <Radar
               name="Assessed Maturity"
               dataKey="currentScore"
-              stroke="#1b7a6e"
-              fill="#1b7a6e"
-              fillOpacity={0.45}
+              stroke={accentColor}
+              fill={accentColor}
+              fillOpacity={0.4}
               strokeWidth={2.5}
-              dot={{ r: 4, fill: '#1b7a6e', stroke: '#ffffff', strokeWidth: 2 }}
-              activeDot={{ r: 6, fill: '#0f766e', stroke: '#ffffff', strokeWidth: 2 }}
+              dot={{ r: 4, fill: accentColor, stroke: isDark ? '#000000' : '#ffffff', strokeWidth: 2 }}
+              activeDot={{ r: 6, fill: accentHover, stroke: isDark ? '#000000' : '#ffffff', strokeWidth: 2 }}
             />
           </RadarChart>
         </ResponsiveContainer>

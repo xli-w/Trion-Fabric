@@ -16,6 +16,7 @@ import { SiteDetailPage, SitesPage } from '@app/pages/SitesPage';
 import { DiagnosisPage } from '@app/pages/DiagnosisPage';
 import { LandscapePage } from '@app/pages/LandscapePage';
 import { InitiativeDetailPage, RoadmapPage } from '@app/pages/RoadmapPage';
+import { SettingsPage } from '@app/pages/SettingsPage';
 
 export function AppRouter() {
   return (
@@ -51,20 +52,7 @@ export function AppRouter() {
           />
           <Route element={<OutputsPage />} path="outputs" />
           <Route element={<OutputDetailPage />} path="outputs/:outputId" />
-          <Route
-            element={
-              <PlannedPage
-                title="Settings"
-                description="Configuration seams for taxonomies, roles, repository sources, and future environment controls will live here."
-                plannedCapabilities={[
-                  'engagement types, workflow taxonomies, and approval defaults',
-                  'future role and permission configuration surfaces',
-                  'environment-level data source and integration settings',
-                ]}
-              />
-            }
-            path="settings"
-          />
+          <Route element={<SettingsPage />} path="settings" />
         </Route>
         <Route element={<Navigate replace to="/engagements" />} path="*" />
       </Routes>

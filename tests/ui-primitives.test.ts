@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 
 import { cx } from '../packages/ui/src/utils/cx';
+import { fabricNavigation, findNavigationItem } from '../packages/config/src/navigation';
 
 describe('UI utilities', () => {
   it('cx helper joins class names cleanly omitting falsy values', () => {
@@ -17,4 +18,12 @@ describe('UI utilities', () => {
       'btn btn--primary',
     );
   });
+
+  it('navigation includes settings route and resolves accurately', () => {
+    const settingsNav = findNavigationItem('/settings');
+    expect(settingsNav).toBeDefined();
+    expect(settingsNav?.key).toBe('settings');
+    expect(settingsNav?.label).toBe('Settings');
+  });
 });
+

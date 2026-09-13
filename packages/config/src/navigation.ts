@@ -64,10 +64,23 @@ export const fabricNavigation: NavigationItem[] = [
   },
 ];
 
+export const utilityNavigation: NavigationItem[] = [
+  {
+    key: 'settings',
+    label: 'Settings',
+    path: '/settings',
+    description:
+      'Platform appearance, Pure Black / Trion Purple theme, and workspace controls.',
+    routePrefixes: ['/settings'],
+    sections: [{ label: 'General & Appearance', path: '/settings' }],
+  },
+];
+
 export function findNavigationItem(
   pathname: string,
 ): NavigationItem | undefined {
-  return fabricNavigation.find((item) =>
+  const allItems = [...fabricNavigation, ...utilityNavigation];
+  return allItems.find((item) =>
     item.routePrefixes.some(
       (routePrefix) =>
         pathname === routePrefix || pathname.startsWith(`${routePrefix}/`),

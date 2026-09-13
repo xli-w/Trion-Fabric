@@ -1,7 +1,8 @@
 import { NavLink, Outlet, useLocation } from 'react-router-dom';
+import { Sun, Moon, Settings } from 'lucide-react';
 
 import { fabricNavigation, findNavigationItem, productInfo } from '@config';
-import { Badge, Button } from '@ui';
+import { Badge, Button, useTheme } from '@ui';
 
 import { useFabricData } from '@app/features/fabric-data/FabricDataContext';
 
@@ -9,6 +10,7 @@ export function AppShell() {
   const location = useLocation();
   const currentPage = findNavigationItem(location.pathname);
   const { isLoading, refresh, repositorySource } = useFabricData();
+  const { resolvedTheme, toggleTheme } = useTheme();
 
   return (
     <div className="app-shell">
@@ -43,6 +45,29 @@ export function AppShell() {
             </NavLink>
           ))}
         </nav>
+
+        <div className="sidebar-footer">
+          <NavLink
+            to="/settings"
+            className={({ isActive }) =>
+              [
+                'sidebar-nav__link',
+                isActive ? 'sidebar-nav__link--active' : '',
+              ]
+                .filter(Boolean)
+                .join(' ')
+            }
+          >
+            <span style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+              <Settings size={16} />
+              Settings & Theme
+            </span>
+            <Badge tone="accent">
+              {resolvedTheme === 'dark' ? 'Dark' : 'Light'}
+            </Badge>
+          </NavLink>
+          <div className="sidebar-footer__version">Fabric Engine v0.1.0 • Trion Transformation</div>
+        </div>
       </aside>
 
       <div className="app-main">
@@ -60,6 +85,19 @@ export function AppShell() {
           </div>
 
           <div className="topbar-actions">
+            <button
+              type="button"
+              className="theme-quick-toggle"
+              onClick={toggleTheme}
+              title={`Switch to ${resolvedTheme === 'dark' ? 'Light' : 'Pure Black Dark'} mode`}
+              aria-label="Toggle theme mode"
+            >
+              {resolvedTheme === 'dark' ? (
+                <Sun size={18} color="#fbbf24" />
+              ) : (
+                <Moon size={18} color="#8b5cf6" />
+              )}
+            </button>
             <Badge tone="neutral">{repositorySource.label}</Badge>
             <Button
               disabled={isLoading}
