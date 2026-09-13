@@ -1,7 +1,21 @@
 import { useState } from 'react';
-import { Link, useParams } from 'react-router-dom';
+import { Link, useNavigate, useParams } from 'react-router-dom';
 
-import { Badge, Button, Card, PageHeader, StatCard } from '@ui';
+import {
+  Badge,
+  Button,
+  Card,
+  PageHeader,
+  RoadmapTimeline,
+  Sheet,
+  StatCard,
+  Tabs,
+  TabsContent,
+  TabsList,
+  TabsTrigger,
+  Toolbar,
+  ViewToggle,
+} from '@ui';
 import {
   BenefitMeasurementForm,
   DeliveryActionForm,
@@ -12,6 +26,18 @@ import {
 } from '@app/features/roadmap/DeliveryForms';
 import { FabricDataView } from '@app/features/fabric-data/FabricDataView';
 import { buildRoadmapViewModel } from '@app/features/fabric-data/selectors';
+import {
+  Calendar,
+  CheckCircle2,
+  Clock,
+  ExternalLink,
+  Flag,
+  Kanban,
+  Layers,
+  Plus,
+  TrendingUp,
+  User,
+} from 'lucide-react';
 
 function statusTone(status: string) {
   if (status === 'complete' || status === 'approved') {
@@ -43,8 +69,11 @@ function formatDate(value?: string) {
 }
 
 export function RoadmapPage() {
+  const navigate = useNavigate();
+  const [viewMode, setViewMode] = useState<'timeline' | 'register'>('timeline');
   const [showRoadmapForm, setShowRoadmapForm] = useState(false);
   const [editingRoadmapId, setEditingRoadmapId] = useState<string | null>(null);
+  const [selectedInitiativeId, setSelectedInitiativeId] = useState<string | null>(null);
 
   function closeRoadmapForm() {
     setShowRoadmapForm(false);
@@ -73,6 +102,61 @@ export function RoadmapPage() {
             !dataset.initiatives.some(
               (initiative) => initiative.opportunityId === opportunity.id,
             ),
+        );
+
+        // Map initiatives for timeline
+        const timelineInitiatives = dataset.initiatives.map((init) => {
+          const owner = dataset.users.find((u) => u.id === init.ownerUserId);
+          const initMilestones = dataset.milestones.filter(
+            (m) => m.initiativeId === init.id,
+          );
+          const initBenefits = dataset.benefitMeasurements.filter(
+            (b) => b.initiativeId === init.id,
+          );
+
+          const completedMilestones = initMilestones.filter(
+            (m) => m.status === 'complete',
+          ).length;
+          const completionPct =
+            initMilestones.length > 0
+              ? Math.round((completedMilestones / initMilestones.length) * 100)
+              : init.status === 'approved'
+              ? 100
+              : init.status === 'in-progress'
+              ? 50
+              : 10;
+
+          return {
+            id: init.id,
+            title: init.title,
+            description: init.description || init.objective,
+            phase: init.phase || 'Simplify',
+            priority: init.priority,
+            status: init.status,
+            owner: owner?.displayName,
+            targetDate: init.targetEndDate ? formatDate(init.targetEndDate) : undefined,
+            startDate: init.startDate ? formatDate(init.startDate) : undefined,
+            completionPercentage: completionPct,
+            milestones: initMilestones.map((m) => ({
+              id: m.id,
+              title: m.title,
+              status: m.status,
+              dueDate: m.dueDate ? formatDate(m.dueDate) : undefined,
+            })),
+            benefits: initBenefits.map((b) => ({
+              id: b.id,
+              description: b.measure,
+              targetValue: b.target,
+              unit: b.unit,
+            })),
+          };
+        });
+
+        const selectedTimelineInitiative = timelineInitiatives.find(
+          (i) => i.id === selectedInitiativeId,
+        );
+        const selectedRawInitiative = dataset.initiatives.find(
+          (i) => i.id === selectedInitiativeId,
         );
 
         return (
@@ -118,6 +202,28 @@ export function RoadmapPage() {
               />
             </section>
 
+            {/* View Mode Toolbar */}
+            <Toolbar>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                <ViewToggle
+                  value={viewMode}
+                  onChange={(v: string) => setViewMode(v as 'timeline' | 'register')}
+                  options={[
+                    {
+                      id: 'timeline',
+                      label: 'Phased Delivery Timeline',
+                      icon: <Clock size={14} />,
+                    },
+                    {
+                      id: 'register',
+                      label: 'Roadmaps & Phases',
+                      icon: <Kanban size={14} />,
+                    },
+                  ]}
+                />
+              </div>
+            </Toolbar>
+
             {showRoadmapForm ? (
               <Card
                 title={editingRoadmap ? 'Edit roadmap' : 'Create roadmap'}
@@ -161,115 +267,306 @@ export function RoadmapPage() {
               </Card>
             ) : null}
 
-            {viewModel.roadmaps.length === 0 ? (
+            {/* Timeline View */}
+            {viewMode === 'timeline' && (
               <Card
-                title="No roadmap recorded"
-                description="Create a roadmap only when approved opportunities are ready to be sequenced."
+                title="Delivery Swimlanes & Phase Progression"
+                description="Initiatives sequenced across delivery phases with accountable owners, milestone completion, and measurable benefit targets."
               >
-                <p className="body-copy">
-                  Unsequenced initiatives remain visible below until they are
-                  assigned to a roadmap.
-                </p>
+                <RoadmapTimeline
+                  initiatives={timelineInitiatives}
+                  phases={['Simplify', 'Connect', 'Optimise', 'Scale']}
+                  selectedInitiativeId={selectedInitiativeId}
+                  onSelectInitiative={(init) => setSelectedInitiativeId(init.id)}
+                />
               </Card>
-            ) : null}
+            )}
 
-            {viewModel.roadmaps.map((roadmap) => (
-              <section className="roadmap-section" key={roadmap.id}>
-                <Card
-                  title={roadmap.title}
-                  description={roadmap.description}
-                  actions={
-                    <Button
-                      onClick={() => openRoadmapForm(roadmap.id)}
-                      variant="ghost"
+            {/* Register / Phase Cards View */}
+            {viewMode === 'register' && (
+              <>
+                {viewModel.roadmaps.length === 0 ? (
+                  <Card
+                    title="No roadmap recorded"
+                    description="Create a roadmap only when approved opportunities are ready to be sequenced."
+                  >
+                    <p className="body-copy">
+                      Unsequenced initiatives remain visible below until they are
+                      assigned to a roadmap.
+                    </p>
+                  </Card>
+                ) : null}
+
+                {viewModel.roadmaps.map((roadmap) => (
+                  <section className="roadmap-section" key={roadmap.id}>
+                    <Card
+                      title={roadmap.title}
+                      description={roadmap.description}
+                      actions={
+                        <Button
+                          onClick={() => openRoadmapForm(roadmap.id)}
+                          variant="ghost"
+                        >
+                          Edit roadmap
+                        </Button>
+                      }
                     >
-                      Edit roadmap
-                    </Button>
-                  }
-                >
-                  <div className="record-stack">
-                    <div className="split-heading">
-                      <Badge tone={roadmap.statusTone}>{roadmap.status}</Badge>
-                      <Badge
-                        tone={
-                          roadmap.reviewStatus === 'Approved'
-                            ? 'success'
-                            : 'warning'
-                        }
-                      >
-                        {roadmap.reviewStatus}
-                      </Badge>
-                    </div>
-                    <p className="body-copy">{roadmap.sequencingRationale}</p>
-                    <p className="body-copy body-copy--small">
-                      Assumptions: {roadmap.assumptions}
-                    </p>
-                    <p className="body-copy body-copy--small">
-                      Dependencies: {roadmap.dependencies}
-                    </p>
-                  </div>
-                </Card>
-                <div className="roadmap-phase-grid">
-                  {roadmap.phases.map(({ phase, window, initiatives }) => (
-                    <Card key={phase} title={phase} description={window}>
                       <div className="record-stack">
-                        {initiatives.length === 0 ? (
-                          <p className="body-copy">No initiatives assigned.</p>
-                        ) : null}
-                        {initiatives.map((initiative) => (
-                          <article className="record-item" key={initiative.id}>
-                            <div className="split-heading">
-                              <strong>{initiative.title}</strong>
-                              <Badge tone={initiative.statusTone}>
-                                {initiative.status}
-                              </Badge>
-                            </div>
+                        <div className="split-heading">
+                          <Badge tone={roadmap.statusTone}>{roadmap.status}</Badge>
+                          <Badge
+                            tone={
+                              roadmap.reviewStatus === 'Approved'
+                                ? 'success'
+                                : 'warning'
+                            }
+                          >
+                            {roadmap.reviewStatus}
+                          </Badge>
+                        </div>
+                        <p className="body-copy">{roadmap.sequencingRationale}</p>
+                        <p className="body-copy body-copy--small">
+                          Assumptions: {roadmap.assumptions}
+                        </p>
+                        <p className="body-copy body-copy--small">
+                          Dependencies: {roadmap.dependencies}
+                        </p>
+                      </div>
+                    </Card>
+                    <div className="roadmap-phase-grid">
+                      {roadmap.phases.map(({ phase, window, initiatives }) => (
+                        <Card key={phase} title={phase} description={window}>
+                          <div className="record-stack">
+                            {initiatives.length === 0 ? (
+                              <p className="body-copy">No initiatives assigned.</p>
+                            ) : null}
+                            {initiatives.map((initiative) => (
+                              <article className="record-item" key={initiative.id}>
+                                <div className="split-heading">
+                                  <strong>{initiative.title}</strong>
+                                  <Badge tone={initiative.statusTone}>
+                                    {initiative.status}
+                                  </Badge>
+                                </div>
+                                <p className="body-copy body-copy--small">
+                                  {initiative.objective}
+                                </p>
+                                <p className="body-copy body-copy--small">
+                                  Owner: {initiative.ownerName}
+                                </p>
+                                <Link
+                                  className="text-link"
+                                  to={`/roadmap/${initiative.id}`}
+                                >
+                                  Open initiative
+                                </Link>
+                              </article>
+                            ))}
+                          </div>
+                        </Card>
+                      ))}
+                    </div>
+                  </section>
+                ))}
+
+                {viewModel.unsequencedInitiatives.length > 0 ? (
+                  <Card
+                    title="Delivery initiatives not yet sequenced"
+                    description="These initiatives retain their delivery context but have not been added to a roadmap."
+                  >
+                    <div className="record-stack">
+                      {viewModel.unsequencedInitiatives.map((initiative) => (
+                        <article className="record-item" key={initiative.id}>
+                          <div>
+                            <strong>{initiative.title}</strong>
                             <p className="body-copy body-copy--small">
                               {initiative.objective}
                             </p>
-                            <p className="body-copy body-copy--small">
-                              Owner: {initiative.ownerName}
-                            </p>
-                            <Link
-                              className="text-link"
-                              to={`/roadmap/${initiative.id}`}
-                            >
-                              Open initiative
-                            </Link>
-                          </article>
-                        ))}
-                      </div>
-                    </Card>
-                  ))}
-                </div>
-              </section>
-            ))}
+                          </div>
+                          <Link
+                            className="text-link"
+                            to={`/roadmap/${initiative.id}`}
+                          >
+                            Open initiative
+                          </Link>
+                        </article>
+                      ))}
+                    </div>
+                  </Card>
+                ) : null}
+              </>
+            )}
 
-            {viewModel.unsequencedInitiatives.length > 0 ? (
-              <Card
-                title="Delivery initiatives not yet sequenced"
-                description="These initiatives retain their delivery context but have not been added to a roadmap."
-              >
-                <div className="record-stack">
-                  {viewModel.unsequencedInitiatives.map((initiative) => (
-                    <article className="record-item" key={initiative.id}>
-                      <div>
-                        <strong>{initiative.title}</strong>
-                        <p className="body-copy body-copy--small">
-                          {initiative.objective}
-                        </p>
-                      </div>
-                      <Link
-                        className="text-link"
-                        to={`/roadmap/${initiative.id}`}
+            {/* Side Inspector Sheet for Selected Initiative */}
+            <Sheet
+              open={Boolean(selectedTimelineInitiative)}
+              onOpenChange={(open) => {
+                if (!open) setSelectedInitiativeId(null);
+              }}
+              title={selectedTimelineInitiative?.title || 'Initiative Inspector'}
+              description={
+                selectedTimelineInitiative?.phase
+                  ? `Phase: ${selectedTimelineInitiative.phase}`
+                  : undefined
+              }
+              size="lg"
+            >
+              {selectedTimelineInitiative && (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                    <Badge tone={statusTone(selectedTimelineInitiative.status)}>
+                      {selectedTimelineInitiative.status}
+                    </Badge>
+                    <Badge tone="accent">
+                      {selectedTimelineInitiative.priority} priority
+                    </Badge>
+                  </div>
+
+                  <Tabs defaultValue="overview" variant="underline">
+                    <TabsList>
+                      <TabsTrigger value="overview">Overview</TabsTrigger>
+                      <TabsTrigger
+                        value="milestones"
+                        badge={String(selectedTimelineInitiative.milestones?.length ?? 0)}
                       >
-                        Open initiative
-                      </Link>
-                    </article>
-                  ))}
+                        Milestones
+                      </TabsTrigger>
+                      <TabsTrigger
+                        value="benefits"
+                        badge={String(selectedTimelineInitiative.benefits?.length ?? 0)}
+                      >
+                        Benefits
+                      </TabsTrigger>
+                    </TabsList>
+
+                    <TabsContent value="overview">
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
+                        <div>
+                          <span className="body-copy body-copy--small" style={{ fontWeight: 700 }}>
+                            Objective & Scope:
+                          </span>
+                          <p className="body-copy" style={{ marginTop: '4px' }}>
+                            {selectedTimelineInitiative.description}
+                          </p>
+                        </div>
+
+                        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
+                          <div style={{ padding: '12px', background: 'var(--fabric-surface-alt)', borderRadius: '6px' }}>
+                            <span className="body-copy body-copy--small" style={{ fontWeight: 700 }}>
+                              Owner:
+                            </span>
+                            <div style={{ marginTop: '4px', fontWeight: 600 }}>
+                              {selectedTimelineInitiative.owner || 'Unassigned'}
+                            </div>
+                          </div>
+
+                          <div style={{ padding: '12px', background: 'var(--fabric-surface-alt)', borderRadius: '6px' }}>
+                            <span className="body-copy body-copy--small" style={{ fontWeight: 700 }}>
+                              Target Date:
+                            </span>
+                            <div style={{ marginTop: '4px', fontWeight: 600 }}>
+                              {selectedTimelineInitiative.targetDate || 'Not scheduled'}
+                            </div>
+                          </div>
+                        </div>
+
+                        {selectedRawInitiative?.risks && (
+                          <div style={{ padding: '12px', background: '#fffbeb', border: '1px solid #fef3c7', borderRadius: '6px' }}>
+                            <strong style={{ fontSize: '12px', color: '#b45309' }}>
+                              Risks & Prerequisites:
+                            </strong>
+                            <p className="body-copy body-copy--small" style={{ marginTop: '4px', color: '#78350f' }}>
+                              {selectedRawInitiative.risks}
+                            </p>
+                          </div>
+                        )}
+                      </div>
+                    </TabsContent>
+
+                    <TabsContent value="milestones">
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                        {(!selectedTimelineInitiative.milestones ||
+                          selectedTimelineInitiative.milestones.length === 0) ? (
+                          <p className="body-copy" style={{ fontStyle: 'italic' }}>
+                            No milestones defined yet.
+                          </p>
+                        ) : (
+                          selectedTimelineInitiative.milestones.map((m) => (
+                            <div
+                              key={m.id}
+                              style={{
+                                padding: '10px 12px',
+                                borderRadius: '6px',
+                                border: '1px solid var(--fabric-border)',
+                                background: 'var(--fabric-surface-alt)',
+                                display: 'flex',
+                                alignItems: 'center',
+                                justifyContent: 'space-between',
+                              }}
+                            >
+                              <div>
+                                <strong>{m.title}</strong>
+                                {m.dueDate && (
+                                  <div className="body-copy body-copy--small">
+                                    Due: {m.dueDate}
+                                  </div>
+                                )}
+                              </div>
+                              <Badge tone={statusTone(m.status)}>{m.status}</Badge>
+                            </div>
+                          ))
+                        )}
+                      </div>
+                    </TabsContent>
+
+                    <TabsContent value="benefits">
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                        {(!selectedTimelineInitiative.benefits ||
+                          selectedTimelineInitiative.benefits.length === 0) ? (
+                          <p className="body-copy" style={{ fontStyle: 'italic' }}>
+                            No benefit measures linked yet.
+                          </p>
+                        ) : (
+                          selectedTimelineInitiative.benefits.map((b) => (
+                            <div
+                              key={b.id}
+                              style={{
+                                padding: '10px 12px',
+                                borderRadius: '6px',
+                                border: '1px solid var(--fabric-border)',
+                                background: 'var(--fabric-surface-alt)',
+                              }}
+                            >
+                              <strong>{b.description}</strong>
+                              {b.targetValue && (
+                                <div className="body-copy body-copy--small" style={{ marginTop: '2px', color: '#059669', fontWeight: 600 }}>
+                                  Target: {b.targetValue} {b.unit || ''}
+                                </div>
+                              )}
+                            </div>
+                          ))
+                        )}
+                      </div>
+                    </TabsContent>
+                  </Tabs>
+
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '16px' }}>
+                    <Button
+                      variant="primary"
+                      onClick={() => {
+                        navigate(`/roadmap/${selectedTimelineInitiative.id}`);
+                        setSelectedInitiativeId(null);
+                      }}
+                    >
+                      Open Full Initiative Workspace →
+                    </Button>
+                    <Button variant="secondary" onClick={() => setSelectedInitiativeId(null)}>
+                      Close
+                    </Button>
+                  </div>
                 </div>
-              </Card>
-            ) : null}
+              )}
+            </Sheet>
           </>
         );
       }}

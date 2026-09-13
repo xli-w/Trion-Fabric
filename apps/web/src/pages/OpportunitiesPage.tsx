@@ -23,6 +23,7 @@ import {
   Card,
   DataTable,
   FilterSelect,
+  OpportunityMatrix,
   PageHeader,
   SearchInput,
   Sheet,
@@ -827,55 +828,25 @@ export function OpportunitiesPage() {
 
             {viewMode === 'matrix' && (
               <Card
-                title="Impact versus effort matrix"
-                description="High impact / low effort indicates a Quick Win; high impact / high effort indicates a Strategic Project. Click any item to inspect."
+                title="Interactive 2x2 Impact vs Effort Matrix"
+                description="High impact / low effort indicates a Quick Win; high impact / high effort indicates a Strategic Project. Filter by quadrant or click any opportunity to inspect."
               >
-                <div className="opportunity-matrix">
-                  {matrixCells.map(({ label, impacts, effort }) => {
-                    const items = dataset.opportunities.filter(
-                      (item) =>
-                        impacts.includes(item.businessImpact ?? item.priority) &&
-                        (item.implementationEffort ?? item.estimatedEffort) ===
-                          effort,
-                    );
-                    return (
-                      <div className="matrix-cell" key={label}>
-                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                          <strong>{label}</strong>
-                          <Badge tone="neutral">{items.length}</Badge>
-                        </div>
-                        <div style={{ display: 'flex', flexDirection: 'column', gap: 6, marginTop: 6 }}>
-                          {items.map((item) => (
-                            <button
-                              key={item.id}
-                              type="button"
-                              onClick={() => setSelectedOpportunityId(item.id)}
-                              style={{
-                                textAlign: 'left',
-                                padding: '8px 10px',
-                                borderRadius: 8,
-                                border: '1px solid var(--fabric-border)',
-                                background: 'var(--fabric-surface)',
-                                cursor: 'pointer',
-                                fontSize: 13,
-                              }}
-                            >
-                              <div style={{ fontWeight: 600, color: 'var(--fabric-text)' }}>
-                                {item.title}
-                              </div>
-                              <div style={{ fontSize: 11, color: 'var(--fabric-text-soft)' }}>
-                                {item.priority} · {item.type}
-                              </div>
-                            </button>
-                          ))}
-                        </div>
-                      </div>
-                    );
-                  })}
-                </div>
-                <div className="prompt-list" style={{ marginTop: 16 }}>
-                  <span>Categories: {categories.join(' · ')}</span>
-                </div>
+                <OpportunityMatrix
+                  opportunities={dataset.opportunities.map((op) => ({
+                    id: op.id,
+                    title: op.title,
+                    type: op.type,
+                    businessImpact: op.businessImpact ?? op.priority,
+                    implementationEffort: op.implementationEffort ?? op.estimatedEffort,
+                    priorityCategory: op.priorityCategory,
+                    priorityScore: op.priority === 'critical' ? 95 : op.priority === 'high' ? 80 : op.priority === 'medium' ? 60 : 40,
+                    approvalStatus: op.approvalState,
+                    estimatedSaving: op.potentialBenefits ? op.potentialBenefits.slice(0, 30) : undefined,
+                    rationale: op.whyItMatters || op.description,
+                  }))}
+                  selectedOpportunityId={selectedOpportunityId}
+                  onSelectOpportunity={(op) => setSelectedOpportunityId(op.id)}
+                />
               </Card>
             )}
 
