@@ -18,9 +18,12 @@ export const fabricNavigation: NavigationItem[] = [
     label: 'Workspace',
     path: '/workspace',
     description:
-      'Your active transformation work, review queue, upcoming fieldwork, and next useful action.',
-    routePrefixes: ['/workspace'],
-    sections: [{ label: 'Work queue', path: '/workspace' }],
+      'Your active transformation work, review queue, reusable internal knowledge, and next useful action.',
+    routePrefixes: ['/workspace', '/knowledge'],
+    sections: [
+      { label: 'Work queue', path: '/workspace' },
+      { label: 'Reusable knowledge', path: '/knowledge' },
+    ],
   },
   {
     key: 'clients',
@@ -40,11 +43,12 @@ export const fabricNavigation: NavigationItem[] = [
     label: 'Diagnosis',
     path: '/diagnosis',
     description:
-      'Operational maturity assessment, factory site walks, digital landscape mapping, and diagnostic findings.',
-    routePrefixes: ['/diagnosis', '/site-walks', '/landscape'],
+      'Operational maturity assessment, factory site walks, traceable evidence, digital landscape mapping, and diagnostic findings.',
+    routePrefixes: ['/diagnosis', '/site-walks', '/landscape', '/evidence'],
     sections: [
       { label: 'Diagnosis', path: '/diagnosis' },
       { label: 'Site walks', path: '/site-walks' },
+      { label: 'Evidence library', path: '/evidence' },
       { label: 'Landscape', path: '/landscape' },
     ],
   },

@@ -24,12 +24,14 @@ describe('workstream navigation', () => {
     ['/site-walks', 'diagnosis'],
     ['/site-walks/walk-northbank-machine-shop-01', 'diagnosis'],
     ['/landscape', 'diagnosis'],
+    ['/evidence', 'diagnosis'],
     ['/opportunities', 'transformation'],
     ['/opportunities/opp-handover-standardisation', 'transformation'],
     ['/roadmap', 'transformation'],
     ['/roadmap/initiative-handover-foundation', 'transformation'],
     ['/outputs', 'transformation'],
     ['/outputs/output-northbank-transformation-roadmap', 'transformation'],
+    ['/knowledge', 'workspace'],
   ])('maps %s to the %s workstream', (pathname, workstreamKey) => {
     expect(findNavigationItem(pathname)?.key).toBe(workstreamKey);
   });

@@ -49,9 +49,10 @@ export function SiteWalksPage() {
         const viewModel = buildSiteWalksViewModel(dataset);
 
         let filteredRows = viewModel.rows.filter((row) => {
-          const matchesQuery = `${row.title} ${row.engagementName} ${row.siteName} ${row.areaName} ${row.consultantName}`
-            .toLowerCase()
-            .includes(query.toLowerCase());
+          const matchesQuery =
+            `${row.title} ${row.engagementName} ${row.siteName} ${row.areaName} ${row.consultantName}`
+              .toLowerCase()
+              .includes(query.toLowerCase());
           const matchesStatus = !statusFilter || row.status === statusFilter;
           return matchesQuery && matchesStatus;
         });
@@ -181,7 +182,12 @@ export function SiteWalksPage() {
                     sortable: true,
                     render: (row) => (
                       <div>
-                        <div style={{ fontWeight: 700, color: 'var(--fabric-text)' }}>
+                        <div
+                          style={{
+                            fontWeight: 700,
+                            color: 'var(--fabric-text)',
+                          }}
+                        >
                           {row.title}
                         </div>
                         <div className="body-copy body-copy--small">
@@ -229,7 +235,11 @@ export function SiteWalksPage() {
                         to={`/site-walks/${row.id}`}
                         onClick={(e) => e.stopPropagation()}
                         className="table-link"
-                        style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}
+                        style={{
+                          display: 'inline-flex',
+                          alignItems: 'center',
+                          gap: 4,
+                        }}
                       >
                         <span>Workspace</span> <ChevronRight size={14} />
                       </Link>
@@ -275,14 +285,17 @@ export function SiteWalksPage() {
                         navigate(`/site-walks/${selectedWalk.id}`);
                       }}
                     >
-                      Open full workspace <ExternalLink size={14} style={{ marginLeft: 6 }} />
+                      Open full workspace{' '}
+                      <ExternalLink size={14} style={{ marginLeft: 6 }} />
                     </Button>
                   </div>
                 )
               }
             >
               {selectedWalk && (
-                <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
+                <div
+                  style={{ display: 'flex', flexDirection: 'column', gap: 20 }}
+                >
                   <div className="detail-badges">
                     <Badge tone="accent">{selectedWalk.walkType}</Badge>
                     <Badge
@@ -300,7 +313,9 @@ export function SiteWalksPage() {
 
                   <Tabs defaultValue="overview" variant="underline">
                     <TabsList>
-                      <TabsTrigger value="overview">Briefing & focus</TabsTrigger>
+                      <TabsTrigger value="overview">
+                        Briefing & focus
+                      </TabsTrigger>
                       <TabsTrigger
                         value="observations"
                         badge={selectedObservations.length}
@@ -315,13 +330,21 @@ export function SiteWalksPage() {
                         <dt>Objectives</dt>
                         <dd>{selectedWalk.objectives || 'Not recorded'}</dd>
                         <dt>Business context</dt>
-                        <dd>{selectedWalk.businessContext || 'Not recorded'}</dd>
+                        <dd>
+                          {selectedWalk.businessContext || 'Not recorded'}
+                        </dd>
                         <dt>Participants</dt>
                         <dd>{selectedWalk.participants || 'Not recorded'}</dd>
                         <dt>Focus areas</dt>
-                        <dd>{selectedWalk.focusAreas?.join(', ') || 'General walk'}</dd>
+                        <dd>
+                          {selectedWalk.focusAreas?.join(', ') ||
+                            'General walk'}
+                        </dd>
                         <dt>Candidate bottleneck</dt>
-                        <dd>{selectedWalk.candidateBottleneck || 'None identified'}</dd>
+                        <dd>
+                          {selectedWalk.candidateBottleneck ||
+                            'None identified'}
+                        </dd>
                       </dl>
                     </TabsContent>
 
@@ -363,7 +386,9 @@ export function SiteWalksPage() {
                     <TabsContent value="recap">
                       <dl className="detail-list" style={{ marginTop: 12 }}>
                         <dt>Process summary</dt>
-                        <dd>{selectedWalk.overallProcessSummary || 'Not recorded'}</dd>
+                        <dd>
+                          {selectedWalk.overallProcessSummary || 'Not recorded'}
+                        </dd>
                         <dt>Confirmed bottleneck</dt>
                         <dd>{selectedWalk.confirmedBottleneck || 'None'}</dd>
                         <dt>Agreed next step</dt>
@@ -402,9 +427,8 @@ export function SiteWalkWorkspacePage() {
   async function promote(siteWalkIdToPromote: string) {
     setPromotionError(null);
     try {
-      const promotedEngagement = await promotePreliminarySiteWalk(
-        siteWalkIdToPromote,
-      );
+      const promotedEngagement =
+        await promotePreliminarySiteWalk(siteWalkIdToPromote);
       navigate(`/engagements/${promotedEngagement.id}`);
     } catch (caughtError) {
       setPromotionError(
@@ -470,7 +494,10 @@ export function SiteWalkWorkspacePage() {
                   <Button onClick={() => setCapture('observation')}>
                     + Capture observation
                   </Button>
-                  <Button variant="secondary" onClick={() => setCapture('evidence')}>
+                  <Button
+                    variant="secondary"
+                    onClick={() => setCapture('evidence')}
+                  >
                     + Attach evidence
                   </Button>
                   {canPromote ? (
@@ -506,7 +533,11 @@ export function SiteWalkWorkspacePage() {
               </p>
             ) : null}
 
-            <Tabs defaultValue="findings" variant="pills" style={{ marginTop: 16 }}>
+            <Tabs
+              defaultValue="findings"
+              variant="pills"
+              style={{ marginTop: 16 }}
+            >
               <TabsList>
                 <TabsTrigger value="findings" badge={observations.length}>
                   Observations & findings
@@ -543,6 +574,7 @@ export function SiteWalkWorkspacePage() {
                       observations.map((observation) => (
                         <article
                           className="record-item record-item--note"
+                          id={`observation-${observation.id}`}
                           key={observation.id}
                         >
                           <div>
@@ -579,7 +611,10 @@ export function SiteWalkWorkspacePage() {
                 <Card
                   title={`Attached evidence (${evidence.length})`}
                   actions={
-                    <Button variant="ghost" onClick={() => setCapture('evidence')}>
+                    <Button
+                      variant="ghost"
+                      onClick={() => setCapture('evidence')}
+                    >
                       + Add evidence
                     </Button>
                   }
@@ -618,7 +653,8 @@ export function SiteWalkWorkspacePage() {
                       },
                       {
                         header: 'Reference',
-                        render: (row) => row.fileReference ?? 'No file reference',
+                        render: (row) =>
+                          row.fileReference ?? 'No file reference',
                       },
                     ]}
                   />
@@ -631,7 +667,10 @@ export function SiteWalkWorkspacePage() {
                   title={`Friction & loss-aversion (${friction.length})`}
                   description="All time, hours, and cost values are indicative until assumptions are validated."
                   actions={
-                    <Button variant="ghost" onClick={() => setCapture('friction')}>
+                    <Button
+                      variant="ghost"
+                      onClick={() => setCapture('friction')}
+                    >
                       + Add friction
                     </Button>
                   }
@@ -645,7 +684,10 @@ export function SiteWalkWorkspacePage() {
                         header: 'Station / Line',
                         render: (row) => row.stationOrLine,
                       },
-                      { header: 'Friction point', render: (row) => row.frictionPoint },
+                      {
+                        header: 'Friction point',
+                        render: (row) => row.frictionPoint,
+                      },
                       {
                         header: 'Indicative impact',
                         render: (row) =>

@@ -16,17 +16,23 @@ import type {
   RoadmapPhase,
   SiteWalkStatus,
   TransformationStage,
+  User,
   VisibilityScope,
   WorkspacePermission,
 } from '@domain';
 import {
+  buildEvidenceTrace,
   buildApprovedLandscapeA3Projection,
   buildEngagementContext,
   buildLandscapeQualityIndicators,
   canUserPerform,
+  getAccessibleEngagementIds,
+  getEvidenceEngagementId,
+  getSearchRelevance,
   isClientSafeLandscapeEntity,
   isClientSafeLandscapeRelationship,
   landscapeRelationshipDefinitions,
+  retrieveRelevantFabricKnowledge,
 } from '@domain';
 
 export type DisplayTone =
@@ -856,54 +862,6 @@ export interface GlobalSearchResult {
   type: string;
 }
 
-function getEvidenceEngagementId(
-  dataset: FabricDataset,
-  evidenceItem: FabricDataset['evidence'][number],
-) {
-  if (evidenceItem.siteWalkId) {
-    return dataset.siteWalks.find((item) => item.id === evidenceItem.siteWalkId)
-      ?.engagementId;
-  }
-
-  if (evidenceItem.observationId) {
-    const siteWalkId = dataset.observations.find(
-      (item) => item.id === evidenceItem.observationId,
-    )?.siteWalkId;
-    return siteWalkId
-      ? dataset.siteWalks.find((item) => item.id === siteWalkId)?.engagementId
-      : undefined;
-  }
-
-  if (evidenceItem.relatedEntityType === 'engagement') {
-    return evidenceItem.relatedEntityId;
-  }
-
-  if (evidenceItem.relatedEntityType === 'site-walk') {
-    return dataset.siteWalks.find(
-      (item) => item.id === evidenceItem.relatedEntityId,
-    )?.engagementId;
-  }
-
-  if (evidenceItem.relatedEntityType === 'observation') {
-    const siteWalkId = dataset.observations.find(
-      (item) => item.id === evidenceItem.relatedEntityId,
-    )?.siteWalkId;
-    return siteWalkId
-      ? dataset.siteWalks.find((item) => item.id === siteWalkId)?.engagementId
-      : undefined;
-  }
-
-  if (evidenceItem.relatedEntityType === 'opportunity') {
-    return dataset.opportunities.find(
-      (item) => item.id === evidenceItem.relatedEntityId,
-    )?.engagementId;
-  }
-
-  return dataset.outputs.find(
-    (item) => item.id === evidenceItem.relatedEntityId,
-  )?.engagementId;
-}
-
 function engagementBreadcrumbs(
   dataset: FabricDataset,
   engagementId: EntityId,
@@ -1589,88 +1547,670 @@ export function buildLandscapeWorkbench(
   };
 }
 
-export function buildGlobalSearchResults(
+export interface EvidenceLibraryFilters {
+  query?: string;
+  clientId?: EntityId;
+  siteId?: EntityId;
+  engagementId?: EntityId;
+  areaId?: EntityId;
+  processId?: EntityId;
+  systemId?: EntityId;
+  evidenceType?: string;
+  source?: string;
+  reviewStatus?: string;
+  visibility?: VisibilityScope;
+  capturedDate?: string;
+  recordedByUserId?: EntityId;
+}
+
+export interface EvidenceTraceLink {
+  id: EntityId;
+  type:
+    | 'Observation'
+    | 'Site walk'
+    | 'Finding'
+    | 'Opportunity'
+    | 'Roadmap initiative'
+    | 'Output';
+  label: string;
+  path: string;
+}
+
+export interface EvidenceLibraryRow {
+  id: EntityId;
+  title: string;
+  summary: string;
+  description?: string;
+  fileReference?: string;
+  clientId: EntityId;
+  clientName: string;
+  siteIds: EntityId[];
+  siteNames: string[];
+  engagementId: EntityId;
+  engagementName: string;
+  areaIds: EntityId[];
+  areaNames: string[];
+  processIds: EntityId[];
+  processNames: string[];
+  systemIds: EntityId[];
+  systemNames: string[];
+  evidenceType: string;
+  source: string;
+  reviewStatus: string;
+  visibility: VisibilityScope;
+  capturedAt: string;
+  capturedDate: string;
+  recordedByUserIds: EntityId[];
+  recordedByNames: string[];
+  links: EvidenceTraceLink[];
+  searchText: string;
+}
+
+export interface EvidenceLibraryFilterOptions {
+  clients: Array<{ value: string; label: string }>;
+  sites: Array<{ value: string; label: string }>;
+  engagements: Array<{ value: string; label: string }>;
+  areas: Array<{ value: string; label: string }>;
+  processes: Array<{ value: string; label: string }>;
+  systems: Array<{ value: string; label: string }>;
+  evidenceTypes: Array<{ value: string; label: string }>;
+  sources: Array<{ value: string; label: string }>;
+  reviewStatuses: Array<{ value: string; label: string }>;
+  visibilities: Array<{ value: string; label: string }>;
+  recordedBy: Array<{ value: string; label: string }>;
+}
+
+export interface EvidenceLibraryViewModel {
+  rows: EvidenceLibraryRow[];
+  allAccessibleRows: EvidenceLibraryRow[];
+  filterOptions: EvidenceLibraryFilterOptions;
+  metrics: {
+    total: number;
+    visible: number;
+    needsReview: number;
+    verified: number;
+    linkedRecords: number;
+  };
+}
+
+function filterOptions(
+  values: Array<{ value: string; label: string }>,
+): Array<{ value: string; label: string }> {
+  return [...new Map(values.map((item) => [item.value, item])).values()].sort(
+    (left, right) => left.label.localeCompare(right.label),
+  );
+}
+
+function evidenceLinks(
   dataset: FabricDataset,
-  query: string,
-): GlobalSearchResult[] {
-  const normalisedQuery = query.trim().toLocaleLowerCase();
-  if (!normalisedQuery) {
+  evidenceId: EntityId,
+): EvidenceTraceLink[] {
+  const evidence = dataset.evidence.find((item) => item.id === evidenceId);
+  if (!evidence) {
     return [];
   }
 
-  const engagementName = (engagementId: EntityId) =>
-    dataset.engagements.find((item) => item.id === engagementId)?.name ??
-    'Unknown engagement';
-  const searchEntries: GlobalSearchResult[] = [
-    ...dataset.clients.map((client) => ({
-      id: client.id,
-      label: client.name,
-      context: client.industry,
-      path: `/clients/${client.id}`,
-      type: 'Client',
-    })),
-    ...dataset.sites.map((site) => ({
-      id: site.id,
-      label: site.name,
-      context:
-        dataset.clients.find((client) => client.id === site.clientId)?.name ??
-        site.location,
-      path: `/sites/${site.id}`,
-      type: 'Site',
-    })),
-    ...dataset.engagements.map((engagement) => ({
-      id: engagement.id,
-      label: engagement.name,
-      context:
-        dataset.clients.find((client) => client.id === engagement.clientId)
-          ?.name ?? 'Unknown client',
-      path: `/engagements/${engagement.id}`,
-      type: 'Engagement',
-    })),
-    ...dataset.siteWalks.map((siteWalk) => ({
-      id: siteWalk.id,
-      label: siteWalk.title,
-      context: engagementName(siteWalk.engagementId),
-      path: `/site-walks/${siteWalk.id}`,
-      type: 'Site walk',
-    })),
-    ...dataset.opportunities.map((opportunity) => ({
-      id: opportunity.id,
-      label: opportunity.title,
-      context: engagementName(opportunity.engagementId),
-      path: `/opportunities/${opportunity.id}`,
-      type: 'Opportunity',
-    })),
-    ...dataset.initiatives.map((initiative) => ({
-      id: initiative.id,
-      label: initiative.title,
-      context: engagementName(initiative.engagementId),
-      path: `/roadmap/${initiative.id}`,
-      type: 'Roadmap initiative',
-    })),
-    ...dataset.outputs.map((output) => ({
-      id: output.id,
-      label: output.title,
-      context: engagementName(output.engagementId),
-      path: `/outputs/${output.id}`,
-      type: 'Output',
-    })),
-    ...dataset.landscapeEntities.map((entity) => ({
-      id: entity.id,
-      label: entity.name,
-      context: engagementName(entity.engagementId),
-      path: '/landscape',
-      type: 'Landscape item',
-    })),
-  ];
+  const trace = buildEvidenceTrace(dataset, evidence);
+  const links: EvidenceTraceLink[] = [];
+  trace.observationIds.forEach((observationId) => {
+    const observation = dataset.observations.find(
+      (item) => item.id === observationId,
+    );
+    if (!observation) {
+      return;
+    }
+    links.push({
+      id: observation.id,
+      type: 'Observation',
+      label: observation.title ?? observation.summary,
+      path: `/site-walks/${observation.siteWalkId}#observation-${observation.id}`,
+    });
+  });
+  trace.siteWalkIds.forEach((siteWalkId) => {
+    const siteWalk = dataset.siteWalks.find((item) => item.id === siteWalkId);
+    if (siteWalk) {
+      links.push({
+        id: siteWalk.id,
+        type: 'Site walk',
+        label: siteWalk.title,
+        path: `/site-walks/${siteWalk.id}`,
+      });
+    }
+  });
+  trace.findingIds.forEach((findingId) => {
+    const finding = dataset.findings.find((item) => item.id === findingId);
+    if (finding) {
+      links.push({
+        id: finding.id,
+        type: 'Finding',
+        label: finding.title,
+        path: `/diagnosis?finding=${finding.id}`,
+      });
+    }
+  });
+  trace.opportunityIds.forEach((opportunityId) => {
+    const opportunity = dataset.opportunities.find(
+      (item) => item.id === opportunityId,
+    );
+    if (opportunity) {
+      links.push({
+        id: opportunity.id,
+        type: 'Opportunity',
+        label: opportunity.title,
+        path: `/opportunities/${opportunity.id}`,
+      });
+    }
+  });
+  trace.initiativeIds.forEach((initiativeId) => {
+    const initiative = dataset.initiatives.find(
+      (item) => item.id === initiativeId,
+    );
+    if (initiative) {
+      links.push({
+        id: initiative.id,
+        type: 'Roadmap initiative',
+        label: initiative.title,
+        path: `/roadmap/${initiative.id}`,
+      });
+    }
+  });
+  trace.outputIds.forEach((outputId) => {
+    const output = dataset.outputs.find((item) => item.id === outputId);
+    if (output) {
+      links.push({
+        id: output.id,
+        type: 'Output',
+        label: output.title,
+        path: `/outputs/${output.id}`,
+      });
+    }
+  });
 
-  return searchEntries
-    .filter((entry) =>
-      `${entry.label} ${entry.context} ${entry.type}`
-        .toLocaleLowerCase()
-        .includes(normalisedQuery),
-    )
-    .slice(0, 8);
+  return [
+    ...new Map(links.map((link) => [`${link.type}:${link.id}`, link])).values(),
+  ];
+}
+
+export function buildEvidenceLibrary(
+  dataset: FabricDataset,
+  actor: Pick<User, 'id' | 'role'>,
+  filters: EvidenceLibraryFilters = {},
+): EvidenceLibraryViewModel {
+  const accessibleEngagementIds = getAccessibleEngagementIds(dataset, actor);
+  const clientById = new Map(dataset.clients.map((item) => [item.id, item]));
+  const siteById = new Map(dataset.sites.map((item) => [item.id, item]));
+  const areaById = new Map(dataset.areas.map((item) => [item.id, item]));
+  const processById = new Map(dataset.processes.map((item) => [item.id, item]));
+  const systemById = new Map(dataset.systems.map((item) => [item.id, item]));
+  const engagementById = new Map(
+    dataset.engagements.map((item) => [item.id, item]),
+  );
+  const userById = new Map(dataset.users.map((item) => [item.id, item]));
+  const allAccessibleRows: EvidenceLibraryRow[] = [];
+
+  dataset.evidence.forEach((evidenceItem) => {
+    const trace = buildEvidenceTrace(dataset, evidenceItem);
+    const engagement = trace.engagementId
+      ? engagementById.get(trace.engagementId)
+      : undefined;
+    if (!engagement || !accessibleEngagementIds.has(engagement.id)) {
+      return;
+    }
+    const client = clientById.get(engagement.clientId);
+    const siteNames = trace.siteIds.map(
+      (siteId) => siteById.get(siteId)?.name ?? siteId,
+    );
+    const areaNames = trace.areaIds.map(
+      (areaId) => areaById.get(areaId)?.name ?? areaId,
+    );
+    const processNames = trace.processIds.map(
+      (processId) => processById.get(processId)?.name ?? processId,
+    );
+    const systemNames = trace.systemIds.map(
+      (systemId) => systemById.get(systemId)?.name ?? systemId,
+    );
+    const recordedByNames = trace.recordedByUserIds.map(
+      (userId) => userById.get(userId)?.displayName ?? userId,
+    );
+    const evidenceType =
+      evidenceItem.evidenceType ?? labelise(evidenceItem.kind);
+    const source = evidenceItem.source ?? labelise(evidenceItem.origin);
+    const reviewStatus =
+      evidenceItem.reviewStatus ?? labelise(evidenceItem.approvalState);
+    const summary = evidenceItem.description ?? evidenceItem.summary;
+    const searchText = [
+      evidenceItem.title,
+      summary,
+      engagement.name,
+      client?.name ?? '',
+      ...siteNames,
+      ...areaNames,
+      ...processNames,
+      ...systemNames,
+      evidenceType,
+      source,
+      reviewStatus,
+      evidenceItem.visibility,
+      ...recordedByNames,
+    ].join(' ');
+
+    allAccessibleRows.push({
+      id: evidenceItem.id,
+      title: evidenceItem.title,
+      summary: evidenceItem.summary,
+      description: evidenceItem.description,
+      fileReference: evidenceItem.fileReference,
+      clientId: engagement.clientId,
+      clientName: client?.name ?? 'Unknown client',
+      siteIds: trace.siteIds,
+      siteNames,
+      engagementId: engagement.id,
+      engagementName: engagement.name,
+      areaIds: trace.areaIds,
+      areaNames,
+      processIds: trace.processIds,
+      processNames,
+      systemIds: trace.systemIds,
+      systemNames,
+      evidenceType,
+      source,
+      reviewStatus,
+      visibility: evidenceItem.visibility,
+      capturedAt: evidenceItem.capturedAt,
+      capturedDate: evidenceItem.capturedAt.slice(0, 10),
+      recordedByUserIds: trace.recordedByUserIds,
+      recordedByNames,
+      links: evidenceLinks(dataset, evidenceItem.id),
+      searchText,
+    });
+  });
+
+  const rows = allAccessibleRows
+    .filter((row) => {
+      if (
+        filters.query &&
+        getSearchRelevance(filters.query, row.searchText) === 0
+      ) {
+        return false;
+      }
+      if (filters.clientId && row.clientId !== filters.clientId) {
+        return false;
+      }
+      if (filters.siteId && !row.siteIds.includes(filters.siteId)) {
+        return false;
+      }
+      if (filters.engagementId && row.engagementId !== filters.engagementId) {
+        return false;
+      }
+      if (filters.areaId && !row.areaIds.includes(filters.areaId)) {
+        return false;
+      }
+      if (filters.processId && !row.processIds.includes(filters.processId)) {
+        return false;
+      }
+      if (filters.systemId && !row.systemIds.includes(filters.systemId)) {
+        return false;
+      }
+      if (filters.evidenceType && row.evidenceType !== filters.evidenceType) {
+        return false;
+      }
+      if (filters.source && row.source !== filters.source) {
+        return false;
+      }
+      if (filters.reviewStatus && row.reviewStatus !== filters.reviewStatus) {
+        return false;
+      }
+      if (filters.visibility && row.visibility !== filters.visibility) {
+        return false;
+      }
+      if (filters.capturedDate && row.capturedDate !== filters.capturedDate) {
+        return false;
+      }
+      if (
+        filters.recordedByUserId &&
+        !row.recordedByUserIds.includes(filters.recordedByUserId)
+      ) {
+        return false;
+      }
+      return true;
+    })
+    .sort((left, right) => right.capturedAt.localeCompare(left.capturedAt));
+
+  return {
+    rows,
+    allAccessibleRows,
+    filterOptions: {
+      clients: filterOptions(
+        allAccessibleRows.map((row) => ({
+          value: row.clientId,
+          label: row.clientName,
+        })),
+      ),
+      sites: filterOptions(
+        allAccessibleRows.flatMap((row) =>
+          row.siteIds.map((value, index) => ({
+            value,
+            label: row.siteNames[index] ?? value,
+          })),
+        ),
+      ),
+      engagements: filterOptions(
+        allAccessibleRows.map((row) => ({
+          value: row.engagementId,
+          label: row.engagementName,
+        })),
+      ),
+      areas: filterOptions(
+        allAccessibleRows.flatMap((row) =>
+          row.areaIds.map((value, index) => ({
+            value,
+            label: row.areaNames[index] ?? value,
+          })),
+        ),
+      ),
+      processes: filterOptions(
+        allAccessibleRows.flatMap((row) =>
+          row.processIds.map((value, index) => ({
+            value,
+            label: row.processNames[index] ?? value,
+          })),
+        ),
+      ),
+      systems: filterOptions(
+        allAccessibleRows.flatMap((row) =>
+          row.systemIds.map((value, index) => ({
+            value,
+            label: row.systemNames[index] ?? value,
+          })),
+        ),
+      ),
+      evidenceTypes: filterOptions(
+        allAccessibleRows.map((row) => ({
+          value: row.evidenceType,
+          label: row.evidenceType,
+        })),
+      ),
+      sources: filterOptions(
+        allAccessibleRows.map((row) => ({
+          value: row.source,
+          label: row.source,
+        })),
+      ),
+      reviewStatuses: filterOptions(
+        allAccessibleRows.map((row) => ({
+          value: row.reviewStatus,
+          label: labelise(row.reviewStatus),
+        })),
+      ),
+      visibilities: filterOptions(
+        allAccessibleRows.map((row) => ({
+          value: row.visibility,
+          label: visibilityLabels[row.visibility],
+        })),
+      ),
+      recordedBy: filterOptions(
+        allAccessibleRows.flatMap((row) =>
+          row.recordedByUserIds.map((value, index) => ({
+            value,
+            label: row.recordedByNames[index] ?? value,
+          })),
+        ),
+      ),
+    },
+    metrics: {
+      total: allAccessibleRows.length,
+      visible: rows.length,
+      needsReview: allAccessibleRows.filter(
+        (row) =>
+          row.reviewStatus === 'draft' || row.reviewStatus === 'needs-review',
+      ).length,
+      verified: allAccessibleRows.filter(
+        (row) => row.reviewStatus === 'verified',
+      ).length,
+      linkedRecords: rows.reduce((count, row) => count + row.links.length, 0),
+    },
+  };
+}
+
+export interface KnowledgeLibraryFilters {
+  query?: string;
+  type?: string;
+  status?: string;
+  area?: FabricDataset['knowledgeEntries'][number]['tags']['areas'][number];
+  process?: FabricDataset['knowledgeEntries'][number]['tags']['processes'][number];
+  system?: FabricDataset['knowledgeEntries'][number]['tags']['systems'][number];
+  industry?: FabricDataset['knowledgeEntries'][number]['tags']['industries'][number];
+  opportunityType?: FabricDataset['knowledgeEntries'][number]['tags']['opportunityTypes'][number];
+}
+
+export interface KnowledgeLibraryRow {
+  id: EntityId;
+  title: string;
+  summary: string;
+  content: string;
+  type: string;
+  source: string;
+  status: string;
+  statusTone: DisplayTone;
+  methodologyStage?: TransformationStage;
+  tags: string[];
+  entry: FabricDataset['knowledgeEntries'][number];
+}
+
+export interface KnowledgeLibraryViewModel {
+  rows: KnowledgeLibraryRow[];
+  canManage: boolean;
+  metrics: {
+    total: number;
+    approved: number;
+    inReview: number;
+  };
+}
+
+function knowledgeStatusTone(status: string): DisplayTone {
+  if (status === 'approved') {
+    return 'success';
+  }
+  if (status === 'internal-review') {
+    return 'warning';
+  }
+  if (status === 'retired') {
+    return 'neutral';
+  }
+  return 'accent';
+}
+
+export function buildKnowledgeLibrary(
+  dataset: FabricDataset,
+  actor: Pick<User, 'id' | 'role'>,
+  filters: KnowledgeLibraryFilters = {},
+): KnowledgeLibraryViewModel {
+  const isWorkspaceUser = dataset.users.some(
+    (user) => user.id === actor.id && user.role === actor.role,
+  );
+  const canManage =
+    isWorkspaceUser &&
+    (canUserPerform(actor, 'knowledge:write') ||
+      canUserPerform(actor, 'knowledge:approve'));
+  const visibleEntries = isWorkspaceUser
+    ? dataset.knowledgeEntries.filter(
+        (entry) => canManage || entry.status === 'approved',
+      )
+    : [];
+  const rows = visibleEntries
+    .map((entry) => {
+      const tags = [
+        ...entry.tags.areas,
+        ...entry.tags.processes,
+        ...entry.tags.systems,
+        ...entry.tags.issueCategories,
+        ...entry.tags.evidenceTypes,
+        ...entry.tags.opportunityTypes,
+        ...entry.tags.industries,
+        entry.tags.confidence ?? '',
+        ...entry.tags.reviewStatuses,
+      ].filter(Boolean);
+      return {
+        id: entry.id,
+        title: entry.title,
+        summary: entry.summary,
+        content: entry.content,
+        type: entry.type,
+        source: entry.source,
+        status: entry.status,
+        statusTone: knowledgeStatusTone(entry.status),
+        methodologyStage: entry.methodologyStage,
+        tags,
+        entry,
+      };
+    })
+    .filter((entry) => {
+      if (
+        filters.query &&
+        getSearchRelevance(
+          filters.query,
+          `${entry.title} ${entry.summary} ${entry.content} ${entry.tags.join(
+            ' ',
+          )}`,
+        ) === 0
+      ) {
+        return false;
+      }
+      if (filters.type && entry.type !== filters.type) {
+        return false;
+      }
+      if (filters.status && entry.status !== filters.status) {
+        return false;
+      }
+      if (filters.area && !entry.entry.tags.areas.includes(filters.area)) {
+        return false;
+      }
+      if (
+        filters.process &&
+        !entry.entry.tags.processes.includes(filters.process)
+      ) {
+        return false;
+      }
+      if (
+        filters.system &&
+        !entry.entry.tags.systems.includes(filters.system)
+      ) {
+        return false;
+      }
+      if (
+        filters.industry &&
+        !entry.entry.tags.industries.includes(filters.industry)
+      ) {
+        return false;
+      }
+      if (
+        filters.opportunityType &&
+        !entry.entry.tags.opportunityTypes.includes(filters.opportunityType)
+      ) {
+        return false;
+      }
+      return true;
+    })
+    .sort(
+      (left, right) =>
+        Number(right.status === 'approved') -
+          Number(left.status === 'approved') ||
+        left.title.localeCompare(right.title),
+    );
+
+  return {
+    rows,
+    canManage,
+    metrics: {
+      total: visibleEntries.length,
+      approved: visibleEntries.filter((entry) => entry.status === 'approved')
+        .length,
+      inReview: visibleEntries.filter(
+        (entry) => entry.status === 'internal-review',
+      ).length,
+    },
+  };
+}
+
+function globalSearchPath(
+  dataset: FabricDataset,
+  sourceType: ReturnType<
+    typeof retrieveRelevantFabricKnowledge
+  >[number]['sourceType'],
+  sourceId: EntityId,
+) {
+  switch (sourceType) {
+    case 'client':
+      return `/clients/${sourceId}`;
+    case 'site':
+      return `/sites/${sourceId}`;
+    case 'engagement':
+      return `/engagements/${sourceId}`;
+    case 'site-walk':
+      return `/site-walks/${sourceId}`;
+    case 'observation': {
+      const siteWalkId = dataset.observations.find(
+        (observation) => observation.id === sourceId,
+      )?.siteWalkId;
+      return siteWalkId
+        ? `/site-walks/${siteWalkId}#observation-${sourceId}`
+        : '/site-walks';
+    }
+    case 'evidence':
+      return `/evidence?evidence=${sourceId}`;
+    case 'finding':
+      return `/diagnosis?finding=${sourceId}`;
+    case 'opportunity':
+      return `/opportunities/${sourceId}`;
+    case 'initiative':
+      return `/roadmap/${sourceId}`;
+    case 'output':
+      return `/outputs/${sourceId}`;
+    case 'landscape-entity':
+      return `/landscape?entity=${sourceId}`;
+    case 'knowledge':
+      return `/knowledge?knowledge=${sourceId}`;
+  }
+}
+
+const globalSearchTypeLabels: Record<
+  ReturnType<typeof retrieveRelevantFabricKnowledge>[number]['sourceType'],
+  string
+> = {
+  client: 'Client',
+  site: 'Site',
+  engagement: 'Engagement',
+  'site-walk': 'Site walk',
+  observation: 'Observation',
+  evidence: 'Evidence',
+  finding: 'Finding',
+  opportunity: 'Opportunity',
+  initiative: 'Roadmap initiative',
+  output: 'Output',
+  'landscape-entity': 'Landscape item',
+  knowledge: 'Reusable knowledge',
+};
+
+export function buildGlobalSearchResults(
+  dataset: FabricDataset,
+  query: string,
+  actor: Pick<User, 'id' | 'role'>,
+): GlobalSearchResult[] {
+  if (!query.trim()) {
+    return [];
+  }
+
+  return retrieveRelevantFabricKnowledge(dataset, {
+    actor,
+    query,
+    limit: 16,
+  }).map((result) => ({
+    id: result.sourceId,
+    label: result.title,
+    context: result.context,
+    path: globalSearchPath(dataset, result.sourceType, result.sourceId),
+    type: globalSearchTypeLabels[result.sourceType],
+  }));
 }
 
 export function buildBreadcrumbs(
@@ -1721,6 +2261,14 @@ export function buildBreadcrumbs(
           { label: 'Site walk' },
         ]
       : root;
+  }
+
+  if (area === 'evidence') {
+    return [...root, { label: 'Evidence library' }];
+  }
+
+  if (area === 'knowledge') {
+    return [...root, { label: 'Reusable knowledge' }];
   }
 
   if (area === 'opportunities' && recordId) {

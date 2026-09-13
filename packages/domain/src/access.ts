@@ -1,6 +1,7 @@
 import type {
   Engagement,
   EntityId,
+  KnowledgeEntry,
   Opportunity,
   Output,
   User,
@@ -22,6 +23,8 @@ export const workspacePermissions = [
   'visibility:prepare-client-facing',
   'visibility:approve-client-facing',
   'visibility:archive',
+  'knowledge:write',
+  'knowledge:approve',
 ] as const;
 
 export type WorkspacePermission = (typeof workspacePermissions)[number];
@@ -113,6 +116,27 @@ const opportunityContentFields: Array<keyof Opportunity> = [
   'benefitMeasures',
 ];
 
+const knowledgeContentFields: Array<
+  keyof Pick<
+    KnowledgeEntry,
+    | 'type'
+    | 'title'
+    | 'summary'
+    | 'content'
+    | 'source'
+    | 'tags'
+    | 'methodologyStage'
+  >
+> = [
+  'type',
+  'title',
+  'summary',
+  'content',
+  'source',
+  'tags',
+  'methodologyStage',
+];
+
 function outputContentChanged(existing: Output, candidate: Output) {
   return outputContentFields.some(
     (field) =>
@@ -132,6 +156,16 @@ function opportunityContentChanged(
   candidate: Opportunity,
 ) {
   return opportunityContentFields.some(
+    (field) =>
+      JSON.stringify(existing[field]) !== JSON.stringify(candidate[field]),
+  );
+}
+
+function knowledgeContentChanged(
+  existing: KnowledgeEntry,
+  candidate: KnowledgeEntry,
+) {
+  return knowledgeContentFields.some(
     (field) =>
       JSON.stringify(existing[field]) !== JSON.stringify(candidate[field]),
   );
@@ -164,9 +198,23 @@ function isAssignedToEngagement(
   engagement: Pick<Engagement, 'leadUserId' | 'teamUserIds'>,
 ) {
   return (
-    engagement.leadUserId === userId ||
-    engagement.teamUserIds.includes(userId)
+    engagement.leadUserId === userId || engagement.teamUserIds.includes(userId)
   );
+}
+
+export function canUserAccessEngagement(
+  user: Pick<User, 'id' | 'role'>,
+  engagement: Pick<Engagement, 'leadUserId' | 'teamUserIds'>,
+) {
+  if (
+    user.role === 'administrator' ||
+    user.role === 'analyst' ||
+    user.role === 'reviewer'
+  ) {
+    return true;
+  }
+
+  return isAssignedToEngagement(user.id, engagement);
 }
 
 export function canUserPerform(
@@ -179,9 +227,14 @@ export function canUserPerform(
   }
 
   if (user.role === 'engagement-lead') {
+    if (permission === 'knowledge:write') {
+      return true;
+    }
+
     if (
       permission === 'output:approve' ||
-      permission === 'visibility:approve-client-facing'
+      permission === 'visibility:approve-client-facing' ||
+      permission === 'knowledge:approve'
     ) {
       return false;
     }
@@ -206,18 +259,117 @@ export function canUserPerform(
       permission === 'opportunity:write' ||
       permission === 'output:write' ||
       permission === 'output:submit-for-review' ||
-      permission === 'visibility:prepare-client-facing'
+      permission === 'visibility:prepare-client-facing' ||
+      permission === 'knowledge:write'
     );
   }
 
   if (user.role === 'reviewer') {
     return (
       permission === 'output:approve' ||
-      permission === 'visibility:approve-client-facing'
+      permission === 'visibility:approve-client-facing' ||
+      permission === 'knowledge:approve'
     );
   }
 
   return false;
+}
+
+export function prepareKnowledgeEntryUpdate(
+  existing: KnowledgeEntry,
+  candidate: KnowledgeEntry,
+  actorUserId: EntityId,
+  occurredAt: string,
+): KnowledgeEntry {
+  if (
+    existing.id !== candidate.id ||
+    existing.createdAt !== candidate.createdAt
+  ) {
+    throw new Error(
+      'A knowledge entry cannot change its identity or creation timestamp.',
+    );
+  }
+  if (existing.createdByUserId !== candidate.createdByUserId) {
+    throw new Error('A knowledge entry cannot change its recorded author.');
+  }
+
+  if (candidate.visibility !== 'internal') {
+    throw new Error('Reusable knowledge must remain internal to Trion.');
+  }
+
+  const contentChanged = knowledgeContentChanged(existing, candidate);
+
+  if (existing.status === 'retired' && candidate.status !== 'draft') {
+    throw new Error(
+      'Retired knowledge must be restored to a draft before it can be revised.',
+    );
+  }
+
+  if (
+    existing.status === 'internal-review' &&
+    contentChanged &&
+    candidate.status !== 'draft'
+  ) {
+    throw new Error(
+      'Return knowledge to draft before revising material under internal review.',
+    );
+  }
+
+  if (candidate.status === 'approved' && existing.status !== 'approved') {
+    if (existing.status !== 'internal-review') {
+      throw new Error(
+        'Only knowledge in internal review can be approved for reuse.',
+      );
+    }
+    if (contentChanged) {
+      throw new Error(
+        'Approval can only confirm the version of knowledge that was reviewed.',
+      );
+    }
+
+    return {
+      ...existing,
+      status: 'approved',
+      visibility: 'internal',
+      reviewedByUserId: actorUserId,
+      reviewedAt: occurredAt,
+    };
+  }
+
+  if (existing.status === 'approved' && contentChanged) {
+    return {
+      ...candidate,
+      status: 'draft',
+      visibility: 'internal',
+      reviewedByUserId: undefined,
+      reviewedAt: undefined,
+    };
+  }
+
+  if (candidate.status === 'draft' || candidate.status === 'internal-review') {
+    return {
+      ...candidate,
+      visibility: 'internal',
+      reviewedByUserId: undefined,
+      reviewedAt: undefined,
+    };
+  }
+
+  if (candidate.status === 'retired') {
+    return {
+      ...candidate,
+      visibility: 'internal',
+      reviewedByUserId: existing.reviewedByUserId,
+      reviewedAt: existing.reviewedAt,
+    };
+  }
+
+  return {
+    ...candidate,
+    visibility: 'internal',
+    reviewedByUserId: existing.reviewedByUserId,
+    reviewedAt: existing.reviewedAt,
+  };
 }
 
 export function assertUserCanPerform(
@@ -236,8 +388,7 @@ export function assertUserCanPerformAcrossEngagements(
   user: Pick<User, 'id' | 'role'>,
   permission: WorkspacePermission,
   engagements: Array<
-    | Pick<Engagement, 'id' | 'leadUserId' | 'teamUserIds'>
-    | undefined
+    Pick<Engagement, 'id' | 'leadUserId' | 'teamUserIds'> | undefined
   >,
 ) {
   const visitedEngagementIds = new Set<EntityId>();
@@ -283,7 +434,11 @@ export function prepareControlledOutputUpdate(
   actorUserId: EntityId,
   occurredAt: string,
 ): Output {
-  if (!controlledOutputStatusTransitions[existing.status].includes(candidate.status)) {
+  if (
+    !controlledOutputStatusTransitions[existing.status].includes(
+      candidate.status,
+    )
+  ) {
     throw new Error(
       `Cannot move an output from ${existing.status} to ${candidate.status}.`,
     );
@@ -357,7 +512,9 @@ export function prepareControlledOutputUpdate(
 
   if (candidate.status === 'archived' && existing.status !== 'archived') {
     if (contentChanged) {
-      throw new Error('Archive an output without changing its controlled content.');
+      throw new Error(
+        'Archive an output without changing its controlled content.',
+      );
     }
     return {
       ...existing,
@@ -394,7 +551,10 @@ export function prepareControlledOpportunityUpdate(
   existing: Opportunity,
   candidate: Opportunity,
 ): Opportunity {
-  if (existing.id !== candidate.id || existing.createdAt !== candidate.createdAt) {
+  if (
+    existing.id !== candidate.id ||
+    existing.createdAt !== candidate.createdAt
+  ) {
     throw new Error(
       'An opportunity cannot change its identity or creation timestamp.',
     );
@@ -451,10 +611,7 @@ export function prepareControlledOpportunityUpdate(
     };
   }
 
-  if (
-    hasApprovedOpportunityContent(existing) &&
-    contentChanged
-  ) {
+  if (hasApprovedOpportunityContent(existing) && contentChanged) {
     return {
       ...candidate,
       status: 'triaged',

@@ -305,6 +305,84 @@ export type EffortLevel = (typeof effortLevels)[number];
 export const confidenceLevels = ['low', 'medium', 'high'] as const;
 export type ConfidenceLevel = (typeof confidenceLevels)[number];
 
+export const knowledgeEntryTypes = [
+  'diagnostic-prompt',
+  'manufacturing-pattern',
+  'opportunity-pattern',
+  'implementation-consideration',
+  'methodology-guidance',
+  'checklist',
+  'anonymised-example',
+  'lesson-learned',
+] as const;
+export type KnowledgeEntryType = (typeof knowledgeEntryTypes)[number];
+
+export const knowledgeEntryStatuses = [
+  'draft',
+  'internal-review',
+  'approved',
+  'retired',
+] as const;
+export type KnowledgeEntryStatus = (typeof knowledgeEntryStatuses)[number];
+
+export const knowledgeSources = [
+  'trion-methodology',
+  'curated-practice',
+  'anonymised-client-learning',
+  'delivery-learning',
+] as const;
+export type KnowledgeSource = (typeof knowledgeSources)[number];
+
+export const knowledgeAreaTags = [
+  'production',
+  'quality',
+  'planning',
+  'engineering',
+  'maintenance',
+  'logistics',
+  'warehouse',
+  'commercial',
+  'cross-functional',
+] as const;
+export type KnowledgeAreaTag = (typeof knowledgeAreaTags)[number];
+
+export const knowledgeProcessTags = [
+  'material-receipt',
+  'production-control',
+  'shift-handover',
+  'quality-management',
+  'maintenance-management',
+  'planning-and-scheduling',
+  'inventory-and-dispatch',
+  'continuous-improvement',
+] as const;
+export type KnowledgeProcessTag = (typeof knowledgeProcessTags)[number];
+
+export const knowledgeSystemTags = [
+  'erp',
+  'mes',
+  'qms',
+  'cmms',
+  'spreadsheet',
+  'shopfloor-data-capture',
+  'reporting-and-bi',
+  'document-management',
+  'integration',
+] as const;
+export type KnowledgeSystemTag = (typeof knowledgeSystemTags)[number];
+
+export const knowledgeIndustryTags = [
+  'aerospace-and-defence',
+  'automotive',
+  'food-and-beverage',
+  'industrial-manufacturing',
+  'machining-and-fabrication',
+  'pharmaceutical-and-life-sciences',
+  'consumer-products',
+  'cross-industry',
+] as const;
+export type KnowledgeIndustryTag = (typeof knowledgeIndustryTags)[number];
+
 export const roadmapPhases = [
   'Simplify',
   'Connect',
@@ -480,6 +558,7 @@ export const activityEntityTypes = [
   'delivery-action',
   'benefit-measurement',
   'output',
+  'knowledge-entry',
   'methodology-run',
   'methodology-activity',
 ] as const;
@@ -985,6 +1064,33 @@ export interface Output extends BaseEntity {
   internalNotes?: string;
 }
 
+export interface KnowledgeTags {
+  areas: KnowledgeAreaTag[];
+  processes: KnowledgeProcessTag[];
+  systems: KnowledgeSystemTag[];
+  issueCategories: FrictionCategory[];
+  evidenceTypes: EvidenceType[];
+  opportunityTypes: OpportunityType[];
+  industries: KnowledgeIndustryTag[];
+  confidence?: ConfidenceLevel;
+  reviewStatuses: ReviewStatus[];
+}
+
+export interface KnowledgeEntry extends BaseEntity {
+  type: KnowledgeEntryType;
+  title: string;
+  summary: string;
+  content: string;
+  source: KnowledgeSource;
+  status: KnowledgeEntryStatus;
+  visibility: 'internal';
+  tags: KnowledgeTags;
+  methodologyStage?: TransformationStage;
+  createdByUserId: EntityId;
+  reviewedByUserId?: EntityId;
+  reviewedAt?: IsoDateTimeString;
+}
+
 export interface MethodologyInformationRequirement {
   id: string;
   label: string;
@@ -1106,6 +1212,7 @@ export interface FabricDataset {
   deliveryActions: DeliveryAction[];
   benefitMeasurements: BenefitMeasurement[];
   outputs: Output[];
+  knowledgeEntries: KnowledgeEntry[];
   methodologyTemplates: MethodologyTemplate[];
   methodologyStages: MethodologyStage[];
   methodologyActivities: MethodologyActivity[];

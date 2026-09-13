@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useSearchParams } from 'react-router-dom';
 import type {
   ConfidenceLevel,
   MaturityAssessment,
@@ -52,9 +52,14 @@ function levelFor(score?: number): MaturityLevel | undefined {
 
 export function DiagnosisPage() {
   const { saveMaturityAssessment } = useFabricData();
+  const [searchParams] = useSearchParams();
   const [diagnosticId, setDiagnosticId] = useState('');
-  const [viewMode, setViewMode] = useState<'visual' | 'table' | 'findings'>('visual');
-  const [selectedDimensionId, setSelectedDimensionId] = useState<string | null>(null);
+  const [viewMode, setViewMode] = useState<'visual' | 'table' | 'findings'>(
+    searchParams.has('finding') ? 'findings' : 'visual',
+  );
+  const [selectedDimensionId, setSelectedDimensionId] = useState<string | null>(
+    null,
+  );
   const [message, setMessage] = useState<string | null>(null);
 
   return (
@@ -64,8 +69,15 @@ export function DiagnosisPage() {
       loadingTitle="Loading diagnostics"
     >
       {(dataset) => {
+        const highlightedFindingId = searchParams.get('finding');
+        const findingDiagnosticId = highlightedFindingId
+          ? dataset.findings.find((item) => item.id === highlightedFindingId)
+              ?.diagnosticId
+          : undefined;
         const diagnostic = dataset.diagnostics.find(
-          (item) => item.id === (diagnosticId || dataset.diagnostics[0]?.id),
+          (item) =>
+            item.id ===
+            (diagnosticId || findingDiagnosticId || dataset.diagnostics[0]?.id),
         );
         if (!diagnostic)
           return (
@@ -77,7 +89,8 @@ export function DiagnosisPage() {
               />
               <Card title="No diagnostic yet">
                 <p className="body-copy">
-                  Create a Digital Diagnostic engagement first, then begin the assessment.
+                  Create a Digital Diagnostic engagement first, then begin the
+                  assessment.
                 </p>
               </Card>
             </>
@@ -140,7 +153,7 @@ export function DiagnosisPage() {
           (d) => d.id === selectedDimensionId,
         );
         const selectedAssessment = selectedDimData
-          ? assessments.find((a) => a.dimensionId === selectedDimData.id) ?? {
+          ? (assessments.find((a) => a.dimensionId === selectedDimData.id) ?? {
               id: `assessment-${diagnostic.id}-${selectedDimData.id}`,
               createdAt: new Date().toISOString(),
               updatedAt: new Date().toISOString(),
@@ -151,7 +164,7 @@ export function DiagnosisPage() {
               relatedOpportunityIds: [],
               confidence: 'medium' as const,
               reviewStatus: 'draft' as const,
-            }
+            })
           : null;
 
         const diagnosticFindings = dataset.findings.filter(
@@ -223,7 +236,9 @@ export function DiagnosisPage() {
 
             {/* View Mode Toolbar */}
             <Toolbar>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+              <div
+                style={{ display: 'flex', alignItems: 'center', gap: '12px' }}
+              >
                 <ViewToggle
                   value={viewMode}
                   onChange={(v: string) =>
@@ -252,8 +267,20 @@ export function DiagnosisPage() {
 
             {/* Visual Radar & Heatmap Mode */}
             {viewMode === 'visual' && (
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
-                <div style={{ display: 'grid', gridTemplateColumns: 'minmax(340px, 460px) 1fr', gap: '24px' }}>
+              <div
+                style={{
+                  display: 'flex',
+                  flexDirection: 'column',
+                  gap: '24px',
+                }}
+              >
+                <div
+                  style={{
+                    display: 'grid',
+                    gridTemplateColumns: 'minmax(340px, 460px) 1fr',
+                    gap: '24px',
+                  }}
+                >
                   <Card
                     title="Maturity spider / radar"
                     description="Visual comparison of assessed baseline maturity against target transformation benchmark across all 10 dimensions."
@@ -261,7 +288,9 @@ export function DiagnosisPage() {
                     <MaturityRadar
                       dimensions={enrichedDimensions}
                       selectedDimensionId={selectedDimensionId}
-                      onSelectDimension={(dim) => setSelectedDimensionId(dim.id)}
+                      onSelectDimension={(dim) =>
+                        setSelectedDimensionId(dim.id)
+                      }
                       height={400}
                     />
                   </Card>
@@ -273,7 +302,9 @@ export function DiagnosisPage() {
                     <MaturityScorecardVisualizer
                       dimensions={enrichedDimensions}
                       selectedDimensionId={selectedDimensionId}
-                      onSelectDimension={(dim) => setSelectedDimensionId(dim.id)}
+                      onSelectDimension={(dim) =>
+                        setSelectedDimensionId(dim.id)
+                      }
                     />
                   </Card>
                 </div>
@@ -457,14 +488,28 @@ export function DiagnosisPage() {
                 >
                   <div className="record-stack">
                     {diagnosticFindings.map((finding) => (
-                      <article className="record-item" key={finding.id}>
+                      <article
+                        className={`record-item${
+                          finding.id === highlightedFindingId
+                            ? ' record-item--highlighted'
+                            : ''
+                        }`}
+                        id={`finding-${finding.id}`}
+                        key={finding.id}
+                      >
                         <div>
                           <strong>{finding.title}</strong>
                           <p className="body-copy">
                             {finding.currentSituation}
                           </p>
                           {finding.whyItMatters && (
-                            <div className="body-copy body-copy--small" style={{ marginTop: '4px', color: 'var(--fabric-text-soft)' }}>
+                            <div
+                              className="body-copy body-copy--small"
+                              style={{
+                                marginTop: '4px',
+                                color: 'var(--fabric-text-soft)',
+                              }}
+                            >
                               Why it matters: {finding.whyItMatters}
                             </div>
                           )}
@@ -482,8 +527,8 @@ export function DiagnosisPage() {
                     ))}
                     {diagnosticFindings.length === 0 ? (
                       <p className="body-copy">
-                        No findings recorded yet. Findings should remain linked to
-                        observations and evidence.
+                        No findings recorded yet. Findings should remain linked
+                        to observations and evidence.
                       </p>
                     ) : null}
                   </div>
@@ -493,7 +538,13 @@ export function DiagnosisPage() {
                   title="Downstream opportunities & actions"
                   description="Diagnostic findings feed prioritized transformation opportunities."
                 >
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+                  <div
+                    style={{
+                      display: 'flex',
+                      flexDirection: 'column',
+                      gap: '16px',
+                    }}
+                  >
                     <div className="prompt-list">
                       <span>
                         Understand → Simplify → Standardise → Automate → Measure
@@ -502,7 +553,8 @@ export function DiagnosisPage() {
                         Missing rationale and weak evidence remain visible.
                       </span>
                       <span>
-                        Overall score stays pending until all dimensions are scored.
+                        Overall score stays pending until all dimensions are
+                        scored.
                       </span>
                     </div>
 
@@ -521,22 +573,58 @@ export function DiagnosisPage() {
                 if (!open) setSelectedDimensionId(null);
               }}
               title={selectedDimData?.name || 'Dimension assessment'}
-              description={selectedDimData?.level ? `Maturity level: ${selectedDimData.level}` : 'Assessment details'}
+              description={
+                selectedDimData?.level
+                  ? `Maturity level: ${selectedDimData.level}`
+                  : 'Assessment details'
+              }
               size="lg"
             >
               {selectedDimData && selectedAssessment && (
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
-                  <div style={{ padding: '16px', background: 'var(--fabric-surface-alt)', borderRadius: '8px' }}>
-                    <label style={{ fontSize: '13px', fontWeight: 700, display: 'block', marginBottom: '8px' }}>
+                <div
+                  style={{
+                    display: 'flex',
+                    flexDirection: 'column',
+                    gap: '20px',
+                  }}
+                >
+                  <div
+                    style={{
+                      padding: '16px',
+                      background: 'var(--fabric-surface-alt)',
+                      borderRadius: '8px',
+                    }}
+                  >
+                    <label
+                      style={{
+                        fontSize: '13px',
+                        fontWeight: 700,
+                        display: 'block',
+                        marginBottom: '8px',
+                      }}
+                    >
                       Assessed maturity score (1–5):
                     </label>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                    <div
+                      style={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '12px',
+                      }}
+                    >
                       <select
-                        style={{ padding: '8px 12px', borderRadius: '6px', border: '1px solid var(--fabric-border)', minWidth: '200px' }}
+                        style={{
+                          padding: '8px 12px',
+                          borderRadius: '6px',
+                          border: '1px solid var(--fabric-border)',
+                          minWidth: '200px',
+                        }}
                         value={selectedAssessment.score ?? ''}
                         onChange={(e) =>
                           update(selectedAssessment, {
-                            score: e.target.value ? Number(e.target.value) : undefined,
+                            score: e.target.value
+                              ? Number(e.target.value)
+                              : undefined,
                           })
                         }
                       >
@@ -553,13 +641,37 @@ export function DiagnosisPage() {
                     </div>
                   </div>
 
-                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
-                    <div style={{ padding: '12px', background: 'var(--fabric-surface-alt)', borderRadius: '6px' }}>
-                      <label style={{ fontSize: '12px', fontWeight: 700, display: 'block', marginBottom: '6px' }}>
+                  <div
+                    style={{
+                      display: 'grid',
+                      gridTemplateColumns: '1fr 1fr',
+                      gap: '12px',
+                    }}
+                  >
+                    <div
+                      style={{
+                        padding: '12px',
+                        background: 'var(--fabric-surface-alt)',
+                        borderRadius: '6px',
+                      }}
+                    >
+                      <label
+                        style={{
+                          fontSize: '12px',
+                          fontWeight: 700,
+                          display: 'block',
+                          marginBottom: '6px',
+                        }}
+                      >
                         Confidence level:
                       </label>
                       <select
-                        style={{ width: '100%', padding: '6px 10px', borderRadius: '4px', border: '1px solid var(--fabric-border)' }}
+                        style={{
+                          width: '100%',
+                          padding: '6px 10px',
+                          borderRadius: '4px',
+                          border: '1px solid var(--fabric-border)',
+                        }}
                         value={selectedAssessment.confidence ?? 'medium'}
                         onChange={(e) =>
                           update(selectedAssessment, {
@@ -573,12 +685,30 @@ export function DiagnosisPage() {
                       </select>
                     </div>
 
-                    <div style={{ padding: '12px', background: 'var(--fabric-surface-alt)', borderRadius: '6px' }}>
-                      <label style={{ fontSize: '12px', fontWeight: 700, display: 'block', marginBottom: '6px' }}>
+                    <div
+                      style={{
+                        padding: '12px',
+                        background: 'var(--fabric-surface-alt)',
+                        borderRadius: '6px',
+                      }}
+                    >
+                      <label
+                        style={{
+                          fontSize: '12px',
+                          fontWeight: 700,
+                          display: 'block',
+                          marginBottom: '6px',
+                        }}
+                      >
                         Review status:
                       </label>
                       <select
-                        style={{ width: '100%', padding: '6px 10px', borderRadius: '4px', border: '1px solid var(--fabric-border)' }}
+                        style={{
+                          width: '100%',
+                          padding: '6px 10px',
+                          borderRadius: '4px',
+                          border: '1px solid var(--fabric-border)',
+                        }}
                         value={selectedAssessment.reviewStatus ?? 'draft'}
                         onChange={(e) =>
                           update(selectedAssessment, {
@@ -594,7 +724,14 @@ export function DiagnosisPage() {
                   </div>
 
                   <div>
-                    <label style={{ fontSize: '12px', fontWeight: 700, display: 'block', marginBottom: '6px' }}>
+                    <label
+                      style={{
+                        fontSize: '12px',
+                        fontWeight: 700,
+                        display: 'block',
+                        marginBottom: '6px',
+                      }}
+                    >
                       Evidence rationale & observation notes:
                     </label>
                     <textarea
@@ -617,8 +754,18 @@ export function DiagnosisPage() {
                     />
                   </div>
 
-                  <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '8px', marginTop: '12px' }}>
-                    <Button variant="secondary" onClick={() => setSelectedDimensionId(null)}>
+                  <div
+                    style={{
+                      display: 'flex',
+                      justifyContent: 'flex-end',
+                      gap: '8px',
+                      marginTop: '12px',
+                    }}
+                  >
+                    <Button
+                      variant="secondary"
+                      onClick={() => setSelectedDimensionId(null)}
+                    >
                       Close inspector
                     </Button>
                   </div>
@@ -631,4 +778,3 @@ export function DiagnosisPage() {
     </FabricDataView>
   );
 }
-

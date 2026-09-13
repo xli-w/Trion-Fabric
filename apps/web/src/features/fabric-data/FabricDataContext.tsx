@@ -31,6 +31,7 @@ import type {
   BenefitMeasurement,
   DeliveryAction,
   Initiative,
+  KnowledgeEntry,
   LandscapeEntity,
   LandscapeRelationship,
   LandscapeVersion,
@@ -57,6 +58,7 @@ import {
   preparePreliminarySiteWalkPromotion,
   prepareControlledOutputUpdate,
   prepareControlledOpportunityUpdate,
+  prepareKnowledgeEntryUpdate,
   synchroniseMethodologyRun,
 } from '@domain';
 import {
@@ -152,6 +154,10 @@ interface FabricDataContextValue {
     input: Omit<Output, 'id' | 'createdAt' | 'updatedAt'>,
   ) => Promise<Output>;
   updateOutput: (output: Output) => Promise<void>;
+  createKnowledgeEntry: (
+    input: CreateKnowledgeEntryInput,
+  ) => Promise<KnowledgeEntry>;
+  updateKnowledgeEntry: (entry: KnowledgeEntry) => Promise<KnowledgeEntry>;
   createLandscapeEntity: (
     input: CreateLandscapeEntityInput,
   ) => Promise<LandscapeEntity>;
@@ -211,6 +217,18 @@ export interface CaptureLandscapeVersionInput {
   notes?: string;
 }
 
+export type CreateKnowledgeEntryInput = Omit<
+  KnowledgeEntry,
+  | 'id'
+  | 'createdAt'
+  | 'updatedAt'
+  | 'status'
+  | 'visibility'
+  | 'createdByUserId'
+  | 'reviewedByUserId'
+  | 'reviewedAt'
+>;
+
 type ActivityCollection =
   | 'clients'
   | 'sites'
@@ -233,6 +251,7 @@ type ActivityCollection =
   | 'deliveryActions'
   | 'benefitMeasurements'
   | 'outputs'
+  | 'knowledgeEntries'
   | 'engagementMethodologyRuns'
   | 'engagementMethodologyActivities';
 
@@ -288,6 +307,7 @@ const activityCollections: ActivityCollection[] = [
   'deliveryActions',
   'benefitMeasurements',
   'outputs',
+  'knowledgeEntries',
   'engagementMethodologyRuns',
   'engagementMethodologyActivities',
 ];
@@ -317,6 +337,7 @@ const activityEntityTypesByCollection: Record<
   deliveryActions: 'delivery-action',
   benefitMeasurements: 'benefit-measurement',
   outputs: 'output',
+  knowledgeEntries: 'knowledge-entry',
   engagementMethodologyRuns: 'methodology-run',
   engagementMethodologyActivities: 'methodology-activity',
 };
@@ -368,6 +389,8 @@ function recordsFor(
       return dataset.benefitMeasurements;
     case 'outputs':
       return dataset.outputs;
+    case 'knowledgeEntries':
+      return dataset.knowledgeEntries;
     case 'engagementMethodologyRuns':
       return dataset.engagementMethodologyRuns;
     case 'engagementMethodologyActivities':
@@ -577,6 +600,8 @@ function getEngagementIdForChange(
     case 'outputs':
       return dataset.outputs.find((item) => item.id === record.id)
         ?.engagementId;
+    case 'knowledgeEntries':
+      return undefined;
     case 'engagementMethodologyRuns':
       return dataset.engagementMethodologyRuns.find(
         (item) => item.id === record.id,
@@ -614,6 +639,16 @@ function permissionForChange(change: DatasetChange): WorkspacePermission {
       return 'output:archive';
     }
     return 'output:write';
+  }
+
+  if (change.collection === 'knowledgeEntries') {
+    if (
+      change.previous?.status !== change.next?.status &&
+      change.next?.status === 'approved'
+    ) {
+      return 'knowledge:approve';
+    }
+    return 'knowledge:write';
   }
 
   if (
@@ -750,6 +785,18 @@ function activityActionForChange(change: DatasetChange): ActivityAction {
         return 'published';
       }
       if (next.status === 'archived') {
+        return 'archived';
+      }
+    }
+
+    if (change.collection === 'knowledgeEntries') {
+      if (next.status === 'internal-review') {
+        return 'submitted-for-review';
+      }
+      if (next.status === 'approved') {
+        return 'approved';
+      }
+      if (next.status === 'retired') {
         return 'archived';
       }
     }
@@ -2779,6 +2826,72 @@ export function FabricDataProvider({
     [actingUser, dataset, persist],
   );
 
+  const createKnowledgeEntry = useCallback(
+    async (input: CreateKnowledgeEntryInput) => {
+      if (!dataset) {
+        throw new Error('The repository dataset is not loaded.');
+      }
+      if (!actingUser) {
+        throw new Error(
+          'Select an internal user before creating reusable knowledge.',
+        );
+      }
+
+      const created: KnowledgeEntry = {
+        ...input,
+        id: createId('knowledge'),
+        createdAt: now(),
+        updatedAt: now(),
+        status: 'draft',
+        visibility: 'internal',
+        createdByUserId: actingUser.id,
+      };
+      await persist({
+        ...dataset,
+        knowledgeEntries: [...dataset.knowledgeEntries, created],
+      });
+      return created;
+    },
+    [actingUser, dataset, persist],
+  );
+
+  const updateKnowledgeEntry = useCallback(
+    async (entry: KnowledgeEntry) => {
+      if (!dataset) {
+        throw new Error('The repository dataset is not loaded.');
+      }
+      if (!actingUser) {
+        throw new Error(
+          'Select an internal user before changing reusable knowledge.',
+        );
+      }
+      const existing = dataset.knowledgeEntries.find(
+        (item) => item.id === entry.id,
+      );
+      if (!existing) {
+        throw new Error('The reusable knowledge entry no longer exists.');
+      }
+
+      const nextEntry = prepareKnowledgeEntryUpdate(
+        existing,
+        entry,
+        actingUser.id,
+        now(),
+      );
+      await persist({
+        ...dataset,
+        knowledgeEntries: replaceExistingRecord(
+          dataset.knowledgeEntries,
+          nextEntry,
+          now(),
+          'reusable knowledge entry',
+        ),
+      });
+      return nextEntry;
+    },
+    [actingUser, dataset, persist],
+  );
+
   useEffect(() => {
     void loadDataset();
   }, [loadDataset]);
@@ -2831,6 +2944,8 @@ export function FabricDataProvider({
         updateRoadmap,
         createOutput,
         updateOutput,
+        createKnowledgeEntry,
+        updateKnowledgeEntry,
         createLandscapeEntity,
         updateLandscapeEntity,
         createLandscapeRelationship,

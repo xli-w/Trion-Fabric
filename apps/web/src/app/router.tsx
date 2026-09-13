@@ -13,6 +13,8 @@ import { OutputDetailPage, OutputsPage } from '@app/pages/OutputsPage';
 import { SiteWalksPage, SiteWalkWorkspacePage } from '@app/pages/SiteWalksPage';
 import { SiteDetailPage, SitesPage } from '@app/pages/SitesPage';
 import { DiagnosisPage } from '@app/pages/DiagnosisPage';
+import { EvidenceLibraryPage } from '@app/pages/EvidenceLibraryPage';
+import { KnowledgePage } from '@app/pages/KnowledgePage';
 import { LandscapePage } from '@app/pages/LandscapePage';
 import { InitiativeDetailPage, RoadmapPage } from '@app/pages/RoadmapPage';
 import { SettingsPage } from '@app/pages/SettingsPage';
@@ -40,6 +42,7 @@ export function AppRouter() {
             path="site-walks/:siteWalkId"
           />
           <Route element={<LandscapePage />} path="landscape" />
+          <Route element={<EvidenceLibraryPage />} path="evidence" />
           <Route element={<DiagnosisPage />} path="diagnosis" />
           <Route element={<OpportunitiesPage />} path="opportunities" />
           <Route
@@ -54,6 +57,7 @@ export function AppRouter() {
           <Route element={<OutputsPage />} path="outputs" />
           <Route element={<OutputDetailPage />} path="outputs/:outputId" />
           <Route element={<SettingsPage />} path="settings" />
+          <Route element={<KnowledgePage />} path="knowledge" />
         </Route>
         <Route element={<Navigate replace to="/workspace" />} path="*" />
       </Routes>

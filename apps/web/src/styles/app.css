@@ -1498,6 +1498,184 @@
   margin-top: 12px;
 }
 
+.evidence-library__toolbar,
+.knowledge-library__toolbar {
+  align-items: flex-start;
+}
+
+.evidence-library__advanced-filters {
+  min-width: 220px;
+  padding: 10px 12px;
+  border: 1px solid var(--fabric-border);
+  border-radius: var(--fabric-radius-sm);
+  background: var(--fabric-surface-alt);
+}
+
+.evidence-library__advanced-filters summary {
+  cursor: pointer;
+  color: var(--fabric-text);
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.evidence-library__advanced-filter-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(190px, 1fr));
+  gap: 10px;
+  margin-top: 12px;
+}
+
+.evidence-library__date-filter {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  color: var(--fabric-text-soft);
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.evidence-library__date-filter input {
+  min-height: 34px;
+  padding: 6px 8px;
+  border: 1px solid var(--fabric-border);
+  border-radius: var(--fabric-radius-sm);
+  background: var(--fabric-surface);
+  color: var(--fabric-text);
+}
+
+.evidence-library__context {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  color: var(--fabric-text-soft);
+  font-size: 12px;
+  line-height: 1.4;
+}
+
+.evidence-library__context strong {
+  color: var(--fabric-text);
+  font-size: 13px;
+}
+
+.evidence-inspector,
+.knowledge-inspector {
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+}
+
+.evidence-inspector h3,
+.knowledge-inspector h3 {
+  margin-bottom: 8px;
+  color: var(--fabric-text);
+  font-size: 15px;
+}
+
+.evidence-trace-list {
+  display: grid;
+  gap: 8px;
+  margin-top: 12px;
+}
+
+.evidence-trace-link {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 10px 12px;
+  border: 1px solid var(--fabric-border);
+  border-radius: var(--fabric-radius-sm);
+  background: var(--fabric-surface-alt);
+  color: var(--fabric-text);
+  text-decoration: none;
+}
+
+.evidence-trace-link:hover,
+.evidence-trace-link:focus-visible {
+  border-color: var(--fabric-accent-border);
+  background: var(--fabric-accent-soft);
+}
+
+.evidence-trace-link span {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.evidence-trace-link small {
+  color: var(--fabric-text-soft);
+  font-size: 12px;
+}
+
+.knowledge-library__tag-summary {
+  color: var(--fabric-text-soft);
+  font-size: 12px;
+  line-height: 1.45;
+}
+
+.knowledge-inspector__governance {
+  padding: 16px;
+  border: 1px solid var(--fabric-accent-border);
+  border-radius: var(--fabric-radius-md);
+  background: var(--fabric-accent-soft);
+}
+
+.knowledge-inspector__actions,
+.knowledge-form__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.knowledge-tag-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 7px;
+}
+
+.knowledge-tag-list span {
+  padding: 5px 8px;
+  border: 1px solid var(--fabric-border);
+  border-radius: var(--fabric-radius-pill);
+  background: var(--fabric-surface-alt);
+  color: var(--fabric-text-soft);
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.knowledge-form {
+  gap: 18px;
+}
+
+.knowledge-form__taxonomy {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 14px;
+  padding: 16px;
+  border: 1px solid var(--fabric-border);
+  border-radius: var(--fabric-radius-md);
+  background: var(--fabric-surface-alt);
+}
+
+.knowledge-form__multi-select {
+  min-height: 116px;
+  padding: 8px;
+  border: 1px solid var(--fabric-border);
+  border-radius: var(--fabric-radius-sm);
+  background: var(--fabric-surface);
+  color: var(--fabric-text);
+}
+
+.knowledge-form__multi-select option {
+  padding: 4px;
+}
+
+.record-item--highlighted {
+  border-color: var(--fabric-accent-border);
+  box-shadow: inset 3px 0 0 var(--fabric-accent);
+}
+
 @media (max-width: 960px) {
   .global-search {
     min-width: 280px;
@@ -1540,5 +1718,10 @@
 
   .methodology-activity__actions {
     justify-content: flex-start;
+  }
+
+  .evidence-library__advanced-filter-grid,
+  .knowledge-form__taxonomy {
+    grid-template-columns: 1fr;
   }
 }

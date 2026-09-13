@@ -17,6 +17,13 @@ import {
   benefitStatuses,
   deliveryStatuses,
   investmentBands,
+  knowledgeAreaTags,
+  knowledgeEntryStatuses,
+  knowledgeEntryTypes,
+  knowledgeIndustryTags,
+  knowledgeProcessTags,
+  knowledgeSources,
+  knowledgeSystemTags,
   landscapeEntityTypes,
   landscapeRelationshipTypes,
   landscapeTransferModes,
@@ -813,6 +820,77 @@ export const outputSchema = baseEntitySchema
     }
   });
 
+export const knowledgeTagsSchema = z.object({
+  areas: z.array(z.enum(knowledgeAreaTags)),
+  processes: z.array(z.enum(knowledgeProcessTags)),
+  systems: z.array(z.enum(knowledgeSystemTags)),
+  issueCategories: z.array(z.enum(frictionCategories)),
+  evidenceTypes: z.array(z.enum(evidenceTypes)),
+  opportunityTypes: z.array(z.enum(opportunityTypes)),
+  industries: z.array(z.enum(knowledgeIndustryTags)),
+  confidence: z.enum(confidenceLevels).optional(),
+  reviewStatuses: z.array(z.enum(reviewStatuses)),
+});
+
+export const knowledgeEntrySchema = baseEntitySchema
+  .extend({
+    type: z.enum(knowledgeEntryTypes),
+    title: z.string().min(1),
+    summary: z.string().min(1),
+    content: z.string().min(1),
+    source: z.enum(knowledgeSources),
+    status: z.enum(knowledgeEntryStatuses),
+    visibility: z.literal('internal'),
+    tags: knowledgeTagsSchema,
+    methodologyStage: z.enum(transformationStages).optional(),
+    createdByUserId: z.string().min(1),
+    reviewedByUserId: z.string().min(1).optional(),
+    reviewedAt: isoDateTimeSchema.optional(),
+  })
+  .superRefine((entry, context) => {
+    const tagCount =
+      entry.tags.areas.length +
+      entry.tags.processes.length +
+      entry.tags.systems.length +
+      entry.tags.issueCategories.length +
+      entry.tags.evidenceTypes.length +
+      entry.tags.opportunityTypes.length +
+      entry.tags.industries.length +
+      entry.tags.reviewStatuses.length;
+    if (tagCount === 0) {
+      context.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ['tags'],
+        message:
+          'Reusable knowledge requires at least one controlled classification tag.',
+      });
+    }
+
+    if (
+      (entry.reviewedByUserId && !entry.reviewedAt) ||
+      (!entry.reviewedByUserId && entry.reviewedAt)
+    ) {
+      context.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ['reviewedAt'],
+        message:
+          'Knowledge review metadata requires both a reviewer and timestamp.',
+      });
+    }
+
+    if (
+      entry.status === 'approved' &&
+      (!entry.reviewedByUserId || !entry.reviewedAt)
+    ) {
+      context.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ['reviewedAt'],
+        message:
+          'Approved reusable knowledge requires a reviewer and timestamp.',
+      });
+    }
+  });
+
 export const methodologyInformationRequirementSchema = z.object({
   id: z.string().min(1),
   label: z.string().min(1),
@@ -1008,6 +1086,7 @@ const fabricDatasetShape = z.object({
   deliveryActions: z.array(deliveryActionSchema).default([]),
   benefitMeasurements: z.array(benefitMeasurementSchema).default([]),
   outputs: z.array(outputSchema),
+  knowledgeEntries: z.array(knowledgeEntrySchema).default([]),
   methodologyTemplates: z.array(methodologyTemplateSchema).default([]),
   methodologyStages: z.array(methodologyStageSchema).default([]),
   methodologyActivities: z.array(methodologyActivitySchema).default([]),
@@ -1116,6 +1195,9 @@ export const fabricDatasetSchema = fabricDatasetShape.superRefine(
     const actionItems = new Set(dataset.actionItems.map((item) => item.id));
     const initiatives = new Set(dataset.initiatives.map((item) => item.id));
     const outputs = new Set(dataset.outputs.map((item) => item.id));
+    const knowledgeEntries = new Set(
+      dataset.knowledgeEntries.map((item) => item.id),
+    );
     const methodologyTemplates = new Set(
       dataset.methodologyTemplates.map((item) => item.id),
     );
@@ -1162,6 +1244,7 @@ export const fabricDatasetSchema = fabricDatasetShape.superRefine(
         dataset.benefitMeasurements.map((item) => item.id),
       ),
       output: outputs,
+      'knowledge-entry': knowledgeEntries,
       'methodology-run': methodologyRuns,
       'methodology-activity': methodologyActivityStates,
     };
@@ -1193,6 +1276,7 @@ export const fabricDatasetSchema = fabricDatasetShape.superRefine(
       ['deliveryActions', dataset.deliveryActions],
       ['benefitMeasurements', dataset.benefitMeasurements],
       ['outputs', dataset.outputs],
+      ['knowledgeEntries', dataset.knowledgeEntries],
       ['methodologyTemplates', dataset.methodologyTemplates],
       ['methodologyStages', dataset.methodologyStages],
       ['methodologyActivities', dataset.methodologyActivities],
@@ -1968,6 +2052,85 @@ export const fabricDatasetSchema = fabricDatasetShape.superRefine(
           evidenceItem.capturedByUserId,
           users,
           'capturing user',
+        );
+      }
+    });
+
+    dataset.knowledgeEntries.forEach((entry, index) => {
+      ensureReference(
+        context,
+        ['knowledgeEntries', index, 'createdByUserId'],
+        entry.createdByUserId,
+        users,
+        'knowledge author',
+      );
+      if (entry.reviewedByUserId) {
+        ensureReference(
+          context,
+          ['knowledgeEntries', index, 'reviewedByUserId'],
+          entry.reviewedByUserId,
+          users,
+          'knowledge reviewer',
+        );
+      }
+
+      ensureDistinctValues(
+        context,
+        ['knowledgeEntries', index, 'tags', 'areas'],
+        entry.tags.areas,
+        'knowledge area tags',
+      );
+      ensureDistinctValues(
+        context,
+        ['knowledgeEntries', index, 'tags', 'processes'],
+        entry.tags.processes,
+        'knowledge process tags',
+      );
+      ensureDistinctValues(
+        context,
+        ['knowledgeEntries', index, 'tags', 'systems'],
+        entry.tags.systems,
+        'knowledge system tags',
+      );
+      ensureDistinctValues(
+        context,
+        ['knowledgeEntries', index, 'tags', 'issueCategories'],
+        entry.tags.issueCategories,
+        'knowledge issue category tags',
+      );
+      ensureDistinctValues(
+        context,
+        ['knowledgeEntries', index, 'tags', 'evidenceTypes'],
+        entry.tags.evidenceTypes,
+        'knowledge evidence type tags',
+      );
+      ensureDistinctValues(
+        context,
+        ['knowledgeEntries', index, 'tags', 'opportunityTypes'],
+        entry.tags.opportunityTypes,
+        'knowledge opportunity type tags',
+      );
+      ensureDistinctValues(
+        context,
+        ['knowledgeEntries', index, 'tags', 'industries'],
+        entry.tags.industries,
+        'knowledge industry tags',
+      );
+      ensureDistinctValues(
+        context,
+        ['knowledgeEntries', index, 'tags', 'reviewStatuses'],
+        entry.tags.reviewStatuses,
+        'knowledge review status tags',
+      );
+
+      if (
+        entry.type === 'anonymised-example' &&
+        entry.source !== 'anonymised-client-learning'
+      ) {
+        addIssue(
+          context,
+          ['knowledgeEntries', index, 'source'],
+          'An anonymised example must be marked as anonymised client learning.',
         );
       }
     });

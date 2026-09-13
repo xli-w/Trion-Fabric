@@ -33,7 +33,9 @@ export function AppShell() {
       )
     : [{ label: 'Fabric' }];
   const searchResults = dataset
-    ? buildGlobalSearchResults(dataset, searchQuery)
+    ? currentUser
+      ? buildGlobalSearchResults(dataset, searchQuery, currentUser)
+      : []
     : [];
   const reviewCount = dataset
     ? buildWorkspaceSnapshot(dataset, currentUser?.id).reviewCount
@@ -77,10 +79,7 @@ export function AppShell() {
           <NavLink
             to="/settings"
             className={({ isActive }) =>
-              [
-                'sidebar-nav__link',
-                isActive ? 'sidebar-nav__link--active' : '',
-              ]
+              ['sidebar-nav__link', isActive ? 'sidebar-nav__link--active' : '']
                 .filter(Boolean)
                 .join(' ')
             }
@@ -104,12 +103,19 @@ export function AppShell() {
           <div className="topbar-context">
             <nav className="breadcrumbs" aria-label="Breadcrumb">
               {breadcrumbs.map((crumb, index) => (
-                <span className="breadcrumbs__item" key={`${crumb.label}-${index}`}>
+                <span
+                  className="breadcrumbs__item"
+                  key={`${crumb.label}-${index}`}
+                >
                   {index > 0 ? <span aria-hidden="true">/</span> : null}
                   {crumb.path && index < breadcrumbs.length - 1 ? (
                     <Link to={crumb.path}>{crumb.label}</Link>
                   ) : (
-                    <span aria-current={index === breadcrumbs.length - 1 ? 'page' : undefined}>
+                    <span
+                      aria-current={
+                        index === breadcrumbs.length - 1 ? 'page' : undefined
+                      }
+                    >
                       {crumb.label}
                     </span>
                   )}
@@ -132,7 +138,7 @@ export function AppShell() {
                 autoComplete="off"
                 id="global-search"
                 onChange={(event) => setSearchQuery(event.target.value)}
-                placeholder="Search clients, work, outputs..."
+                placeholder="Search evidence, work, and knowledge..."
                 type="search"
                 value={searchQuery}
               />

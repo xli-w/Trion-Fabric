@@ -32,7 +32,9 @@ describe('workspace selectors', () => {
     );
 
     expect(snapshot.myEngagements).toHaveLength(1);
-    expect(snapshot.myEngagements[0]?.name).toBe('Northbank digital diagnostic');
+    expect(snapshot.myEngagements[0]?.name).toBe(
+      'Northbank digital diagnostic',
+    );
     expect(snapshot.observationsNeedingReview).toHaveLength(1);
     expect(snapshot.outputsAwaitingApproval).toHaveLength(3);
     expect(snapshot.nextAction.title).toContain('Review');
@@ -91,7 +93,7 @@ describe('workspace selectors', () => {
 
     expect(commandCentre?.client?.name).toBe('Northbank Precision');
     expect(commandCentre?.sites).toHaveLength(1);
-    expect(commandCentre?.evidence.total).toBe(2);
+    expect(commandCentre?.evidence.total).toBe(4);
     expect(commandCentre?.findings).toHaveLength(1);
     expect(commandCentre?.initiatives[0]?.title).toBe(
       'Digital handover foundation',
@@ -100,7 +102,17 @@ describe('workspace selectors', () => {
   });
 
   it('builds searchable internal record links and contextual breadcrumbs', () => {
-    const results = buildGlobalSearchResults(fabricFixtures, 'handover');
+    const searchActor = fabricFixtures.users.find(
+      (user) => user.id === 'user-amy-wilkinson',
+    );
+    if (!searchActor) {
+      throw new Error('Expected the Northbank engagement lead.');
+    }
+    const results = buildGlobalSearchResults(
+      fabricFixtures,
+      'handover',
+      searchActor,
+    );
     const breadcrumbs = buildBreadcrumbs(
       fabricFixtures,
       '/outputs/output-northbank-transformation-roadmap',
@@ -108,9 +120,9 @@ describe('workspace selectors', () => {
     );
 
     expect(results.some((result) => result.type === 'Opportunity')).toBe(true);
-    expect(results.some((result) => result.path.startsWith('/site-walks/'))).toBe(
-      true,
-    );
+    expect(
+      results.some((result) => result.path.startsWith('/site-walks/')),
+    ).toBe(true);
     expect(breadcrumbs.map((breadcrumb) => breadcrumb.label)).toEqual([
       'Fabric',
       'Northbank Precision',
