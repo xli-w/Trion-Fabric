@@ -211,12 +211,12 @@ export function RoadmapPage() {
                   options={[
                     {
                       id: 'timeline',
-                      label: 'Phased Delivery Timeline',
+                      label: 'Phased delivery timeline',
                       icon: <Clock size={14} />,
                     },
                     {
                       id: 'register',
-                      label: 'Roadmaps & Phases',
+                      label: 'Roadmaps & phases',
                       icon: <Kanban size={14} />,
                     },
                   ]}
@@ -270,7 +270,7 @@ export function RoadmapPage() {
             {/* Timeline View */}
             {viewMode === 'timeline' && (
               <Card
-                title="Delivery Swimlanes & Phase Progression"
+                title="Delivery swimlanes & phase progression"
                 description="Initiatives sequenced across delivery phases with accountable owners, milestone completion, and measurable benefit targets."
               >
                 <RoadmapTimeline
@@ -403,7 +403,7 @@ export function RoadmapPage() {
               onOpenChange={(open) => {
                 if (!open) setSelectedInitiativeId(null);
               }}
-              title={selectedTimelineInitiative?.title || 'Initiative Inspector'}
+              title={selectedTimelineInitiative?.title || 'Initiative inspector'}
               description={
                 selectedTimelineInitiative?.phase
                   ? `Phase: ${selectedTimelineInitiative.phase}`
@@ -443,7 +443,7 @@ export function RoadmapPage() {
                       <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
                         <div>
                           <span className="body-copy body-copy--small" style={{ fontWeight: 700 }}>
-                            Objective & Scope:
+                            Objective & scope:
                           </span>
                           <p className="body-copy" style={{ marginTop: '4px' }}>
                             {selectedTimelineInitiative.description}
@@ -462,7 +462,7 @@ export function RoadmapPage() {
 
                           <div style={{ padding: '12px', background: 'var(--fabric-surface-alt)', borderRadius: '6px' }}>
                             <span className="body-copy body-copy--small" style={{ fontWeight: 700 }}>
-                              Target Date:
+                              Target date:
                             </span>
                             <div style={{ marginTop: '4px', fontWeight: 600 }}>
                               {selectedTimelineInitiative.targetDate || 'Not scheduled'}
@@ -473,7 +473,7 @@ export function RoadmapPage() {
                         {selectedRawInitiative?.risks && (
                           <div style={{ padding: '12px', background: '#fffbeb', border: '1px solid #fef3c7', borderRadius: '6px' }}>
                             <strong style={{ fontSize: '12px', color: '#b45309' }}>
-                              Risks & Prerequisites:
+                              Risks & prerequisites:
                             </strong>
                             <p className="body-copy body-copy--small" style={{ marginTop: '4px', color: '#78350f' }}>
                               {selectedRawInitiative.risks}
@@ -558,7 +558,7 @@ export function RoadmapPage() {
                         setSelectedInitiativeId(null);
                       }}
                     >
-                      Open Full Initiative Workspace →
+                      Open full initiative workspace →
                     </Button>
                     <Button variant="secondary" onClick={() => setSelectedInitiativeId(null)}>
                       Close

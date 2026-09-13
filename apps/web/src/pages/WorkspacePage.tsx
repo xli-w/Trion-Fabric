@@ -16,7 +16,12 @@ export function WorkspacePage() {
     >
       {(dataset) => {
         const snapshot = buildWorkspaceSnapshot(dataset, currentUser?.id);
-        const userRole = currentUser?.role.replace(/-/g, ' ') ?? 'internal user';
+        const userRole = currentUser?.role
+          ? currentUser.role
+              .split('-')
+              .map((w) => w.charAt(0).toUpperCase() + w.slice(1))
+              .join(' ')
+          : 'Internal user';
 
         return (
           <>

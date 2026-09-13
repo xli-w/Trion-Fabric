@@ -41,7 +41,7 @@ export function SettingsPage() {
   }[] = [
     {
       id: 'dark',
-      label: 'Pure Black Dark Mode',
+      label: 'Pure black dark mode',
       description:
         'Pure black canvas (#000000) with dark Trion purple accent (#8b5cf6) and crisp white/grey typography.',
       icon: Moon,
@@ -49,7 +49,7 @@ export function SettingsPage() {
     },
     {
       id: 'light',
-      label: 'Light Precision',
+      label: 'Light precision',
       description:
         'High-clarity light canvas (#edf0f3) with Trion pine accent (#1d7f73) and subtle slate borders.',
       icon: Sun,
@@ -57,7 +57,7 @@ export function SettingsPage() {
     },
     {
       id: 'system',
-      label: 'System Preference',
+      label: 'System preference',
       description:
         'Automatically synchronises with your operating system color scheme.',
       icon: Laptop,
@@ -68,25 +68,25 @@ export function SettingsPage() {
   const paletteColors = useMemo(() => {
     if (resolvedTheme === 'dark') {
       return [
-        { name: 'Pure Canvas', hex: '#000000', role: 'Main Background' },
-        { name: 'Dark Surface', hex: '#0a0a0f', role: 'Card / Panel Surface' },
-        { name: 'Surface Alt', hex: '#12121a', role: 'Elevated Surface' },
-        { name: 'Trion Purple', hex: '#8b5cf6', role: 'Primary Brand Accent' },
-        { name: 'Purple Glow', hex: '#7c3aed', role: 'Hover Accent' },
-        { name: 'Emerald', hex: '#34d399', role: 'Success / Low Risk' },
-        { name: 'Amber', hex: '#fbbf24', role: 'Warning / Review' },
-        { name: 'Coral', hex: '#f87171', role: 'Danger / Critical' },
+        { name: 'Pure Canvas', hex: '#000000', role: 'Main background' },
+        { name: 'Dark Surface', hex: '#0a0a0f', role: 'Card / panel surface' },
+        { name: 'Surface Alt', hex: '#12121a', role: 'Elevated surface' },
+        { name: 'Trion Purple', hex: '#8b5cf6', role: 'Primary brand accent' },
+        { name: 'Purple Glow', hex: '#7c3aed', role: 'Hover accent' },
+        { name: 'Emerald', hex: '#34d399', role: 'Success / low risk' },
+        { name: 'Amber', hex: '#fbbf24', role: 'Warning / review' },
+        { name: 'Coral', hex: '#f87171', role: 'Danger / critical' },
       ];
     }
     return [
-      { name: 'Light Canvas', hex: '#edf0f3', role: 'Main Background' },
-      { name: 'Pure White', hex: '#ffffff', role: 'Card / Panel Surface' },
-      { name: 'Surface Alt', hex: '#f6f8fa', role: 'Elevated Surface' },
-      { name: 'Trion Pine', hex: '#1d7f73', role: 'Primary Brand Accent' },
-      { name: 'Pine Deep', hex: '#16695f', role: 'Hover Accent' },
-      { name: 'Forest Green', hex: '#218a57', role: 'Success / Low Risk' },
-      { name: 'Warm Ochre', hex: '#b17318', role: 'Warning / Review' },
-      { name: 'Crimson', hex: '#ba4d4d', role: 'Danger / Critical' },
+      { name: 'Light Canvas', hex: '#edf0f3', role: 'Main background' },
+      { name: 'Pure White', hex: '#ffffff', role: 'Card / panel surface' },
+      { name: 'Surface Alt', hex: '#f6f8fa', role: 'Elevated surface' },
+      { name: 'Trion Pine', hex: '#1d7f73', role: 'Primary brand accent' },
+      { name: 'Pine Deep', hex: '#16695f', role: 'Hover accent' },
+      { name: 'Forest Green', hex: '#218a57', role: 'Success / low risk' },
+      { name: 'Warm Ochre', hex: '#b17318', role: 'Warning / review' },
+      { name: 'Crimson', hex: '#ba4d4d', role: 'Danger / critical' },
     ];
   }, [resolvedTheme]);
 
@@ -99,8 +99,8 @@ export function SettingsPage() {
   return (
     <div className="settings-container">
       <PageHeader
-        eyebrow="System & Preferences"
-        title="Settings & Appearance"
+        eyebrow="System & preferences"
+        title="Settings & appearance"
         description="Customise the visual appearance, theme mode, design token palette, and local workspace data repositories."
         actions={
           <Badge tone="accent">
@@ -113,7 +113,7 @@ export function SettingsPage() {
       <section className="settings-card">
         <div className="settings-card-header">
           <div>
-            <h3 className="settings-card-title">Theme & Color Appearance</h3>
+            <h3 className="settings-card-title">Theme & color appearance</h3>
             <p className="settings-card-desc">
               Select your preferred visual theme. Dark mode provides a pure black canvas with Trion purple accents.
             </p>
@@ -163,7 +163,7 @@ export function SettingsPage() {
       <section className="settings-card">
         <div className="settings-card-header">
           <div>
-            <h3 className="settings-card-title">Live Design Tokens & Components</h3>
+            <h3 className="settings-card-title">Live design tokens & components</h3>
             <p className="settings-card-desc">
               Visual preview of active typography, interactive controls, badges, and card elevations in{' '}
               <strong>{resolvedTheme === 'dark' ? 'Pure Black Dark Mode' : 'Light Precision Mode'}</strong>.
@@ -173,7 +173,7 @@ export function SettingsPage() {
         </div>
 
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: 16 }}>
-          <Card title="Interactive Controls" description="Primary, secondary, and ghost button states">
+          <Card title="Interactive controls" description="Primary, secondary, and ghost button states">
             <div style={{ display: 'flex', flexWrap: 'wrap', gap: 10 }}>
               <Button variant="primary">Primary Action</Button>
               <Button variant="secondary">Secondary</Button>
@@ -190,11 +190,11 @@ export function SettingsPage() {
 
           <StatCard
             tone="accent"
-            label="Live Accent Stat"
+            label="Live accent stat"
             value="£2.4M"
             detail="Annualised recurring value under active tracking"
             footer={
-              <Badge tone="accent">Trion Purple Token Active</Badge>
+              <Badge tone="accent">Trion purple token active</Badge>
             }
           />
         </div>
@@ -204,7 +204,7 @@ export function SettingsPage() {
       <section className="settings-card">
         <div className="settings-card-header">
           <div>
-            <h3 className="settings-card-title">Active Palette Tokens</h3>
+            <h3 className="settings-card-title">Active palette tokens</h3>
             <p className="settings-card-desc">
               Design tokens currently bound to the CSS theme variables.
             </p>
@@ -232,7 +232,7 @@ export function SettingsPage() {
       <section className="settings-card">
         <div className="settings-card-header">
           <div>
-            <h3 className="settings-card-title">Data Source & Workspace Diagnostics</h3>
+            <h3 className="settings-card-title">Data source & workspace diagnostics</h3>
             <p className="settings-card-desc">
               Repository backend status, record counts, and fixture reload controls.
             </p>
@@ -243,15 +243,15 @@ export function SettingsPage() {
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: 16 }}>
           <div className="record-item--note">
             <span style={{ fontSize: 11, fontWeight: 700, textTransform: 'uppercase', color: 'var(--fabric-text-soft)' }}>
-              Repository Source
+              Repository source
             </span>
             <h4 style={{ margin: '4px 0', fontSize: 16 }}>{repositorySource.label}</h4>
-            <p className="body-copy--small">Kind: {repositorySource.kind} • Local In-Memory Storage</p>
+            <p className="body-copy--small">Kind: {repositorySource.kind} • Local in-memory storage</p>
           </div>
 
           <div className="record-item--note">
             <span style={{ fontSize: 11, fontWeight: 700, textTransform: 'uppercase', color: 'var(--fabric-text-soft)' }}>
-              Loaded Entities
+              Loaded entities
             </span>
             <h4 style={{ margin: '4px 0', fontSize: 16 }}>
               {oppsCount} Opps • {initiativesCount} Initiatives
@@ -278,7 +278,7 @@ export function SettingsPage() {
             onClick={handleReset}
           >
             <RefreshCw size={14} style={{ marginRight: 6 }} className={isLoading ? 'animate-spin' : ''} />
-            {isLoading ? 'Reloading...' : 'Reload Seed Fixtures'}
+            {isLoading ? 'Reloading...' : 'Reload seed fixtures'}
           </Button>
         </div>
       </section>
@@ -287,7 +287,7 @@ export function SettingsPage() {
       <section className="settings-card">
         <div className="settings-card-header">
           <div>
-            <h3 className="settings-card-title">Platform Architecture</h3>
+            <h3 className="settings-card-title">Platform architecture</h3>
             <p className="settings-card-desc">
               Technology stack specifications and active capabilities.
             </p>
@@ -297,19 +297,19 @@ export function SettingsPage() {
 
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: 12 }}>
           <div className="record-item--note">
-            <strong style={{ display: 'block', fontSize: 13 }}>UI Primitive Engine</strong>
+            <strong style={{ display: 'block', fontSize: 13 }}>UI primitive engine</strong>
             <span className="body-copy--small">Radix UI Primitives + Pure CSS Tokens</span>
           </div>
           <div className="record-item--note">
-            <strong style={{ display: 'block', fontSize: 13 }}>Visual Workbenches</strong>
+            <strong style={{ display: 'block', fontSize: 13 }}>Visual workbenches</strong>
             <span className="body-copy--small">React Flow v12 + Recharts 2.x</span>
           </div>
           <div className="record-item--note">
-            <strong style={{ display: 'block', fontSize: 13 }}>Table & Grid System</strong>
+            <strong style={{ display: 'block', fontSize: 13 }}>Table & grid system</strong>
             <span className="body-copy--small">TanStack Table v8</span>
           </div>
           <div className="record-item--note">
-            <strong style={{ display: 'block', fontSize: 13 }}>Theme Architecture</strong>
+            <strong style={{ display: 'block', fontSize: 13 }}>Theme architecture</strong>
             <span className="body-copy--small">Pure Black (#000000) + Trion Purple Accent</span>
           </div>
         </div>

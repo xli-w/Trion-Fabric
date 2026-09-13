@@ -25,7 +25,7 @@ export function ClientsPage() {
         return (
           <>
             <PageHeader
-              eyebrow="Client engagements"
+              eyebrow="Clients & sites"
               title="Client organisations and context"
               description="The organisation anchor for sites, engagements, and long-term transformation history."
               metadata={['Organisation model', 'Engagement context']}
@@ -151,7 +151,13 @@ export function ClientDetailPage() {
                 client.notes ??
                 'No description recorded yet.'
               }
-              metadata={[client.industry, client.status]}
+              metadata={[
+                client.industry,
+                client.status
+                  ? client.status.charAt(0).toUpperCase() +
+                    client.status.slice(1)
+                  : 'Prospect',
+              ]}
               actions={
                 <Button
                   variant="ghost"

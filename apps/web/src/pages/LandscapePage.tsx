@@ -134,11 +134,11 @@ export function LandscapePage() {
                   value={typeFilter}
                   onChange={setTypeFilter}
                   options={[
-                    { value: 'all', label: 'All Types' },
+                    { value: 'all', label: 'All types' },
                     { value: 'area', label: 'Areas' },
                     { value: 'process', label: 'Processes' },
                     { value: 'system', label: 'Systems' },
-                    { value: 'data-object', label: 'Data Objects' },
+                    { value: 'data-object', label: 'Data objects' },
                   ]}
                 />
               </div>
@@ -147,8 +147,8 @@ export function LandscapePage() {
                   value={viewMode}
                   onChange={(v: string) => setViewMode(v as 'canvas' | 'register')}
                   options={[
-                    { id: 'canvas', label: 'Visual Canvas', icon: <Workflow size={14} /> },
-                    { id: 'register', label: 'Register & Tables', icon: <Layers size={14} /> },
+                    { id: 'canvas', label: 'Visual canvas', icon: <Workflow size={14} /> },
+                    { id: 'register', label: 'Register & tables', icon: <Layers size={14} /> },
                   ]}
                 />
               </div>
@@ -157,7 +157,7 @@ export function LandscapePage() {
             {/* Main Content: Canvas or Register View */}
             {viewMode === 'canvas' ? (
               <Card
-                title="Interactive Systems & Process Flow Map"
+                title="Interactive systems & process flow map"
                 description="Visual graph of physical zones, operational processes, software systems, and data dependencies. Drag to pan, scroll to zoom, click any node to inspect relationships."
               >
                 <LandscapeCanvas
@@ -171,7 +171,7 @@ export function LandscapePage() {
             ) : (
               <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
                 <Card
-                  title="Landscape Entities"
+                  title="Landscape entities"
                   description="Structured catalog of enterprise entities. Click any row to inspect incoming/outgoing connections."
                 >
                   <DataTable
@@ -182,7 +182,7 @@ export function LandscapePage() {
                     columns={[
                       {
                         key: 'name',
-                        header: 'Entity Name',
+                        header: 'Entity name',
                         render: (row) => (
                           <div>
                             <strong>{row.name}</strong>
@@ -215,12 +215,12 @@ export function LandscapePage() {
                       },
                       {
                         key: 'owner',
-                        header: 'Owner Role',
+                        header: 'Owner role',
                         render: (row) => row.ownerRole || '—',
                       },
                       {
                         key: 'area',
-                        header: 'Area / Scope',
+                        header: 'Area / scope',
                         render: (row) => row.areaName || '—',
                       },
                     ]}
@@ -228,7 +228,7 @@ export function LandscapePage() {
                 </Card>
 
                 <Card
-                  title="Relationships & Information Flows"
+                  title="Relationships & information flows"
                   description="Explicit dependencies, data integrations, and operational handoffs between systems and processes."
                 >
                   <DataTable
@@ -236,7 +236,7 @@ export function LandscapePage() {
                     getRowKey={(row) => row.id}
                     columns={[
                       {
-                        header: 'Source (From)',
+                        header: 'Source (from)',
                         render: (row) => (
                           <strong>
                             {entities.find((e) => e.id === row.fromEntityId)?.name ||
@@ -245,11 +245,11 @@ export function LandscapePage() {
                         ),
                       },
                       {
-                        header: 'Relationship Type',
+                        header: 'Relationship type',
                         render: (row) => <Badge tone="accent">{row.type}</Badge>,
                       },
                       {
-                        header: 'Target (To)',
+                        header: 'Target (to)',
                         render: (row) => (
                           <strong>
                             {entities.find((e) => e.id === row.toEntityId)?.name ||
@@ -277,7 +277,7 @@ export function LandscapePage() {
               onOpenChange={(open) => {
                 if (!open) setSelectedEntityId(null);
               }}
-              title={selectedEntity?.name || 'Entity Inspector'}
+              title={selectedEntity?.name || 'Entity inspector'}
               description={selectedEntity?.type ? `Type: ${selectedEntity.type}` : undefined}
               size="lg"
             >
@@ -285,12 +285,12 @@ export function LandscapePage() {
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
                   <Tabs defaultValue="details" variant="underline">
                     <TabsList>
-                      <TabsTrigger value="details">Details & Scope</TabsTrigger>
+                      <TabsTrigger value="details">Details & scope</TabsTrigger>
                       <TabsTrigger
                         value="flows"
                         badge={String(incomingRelationships.length + outgoingRelationships.length)}
                       >
-                        Information Flows
+                        Information flows
                       </TabsTrigger>
                       <TabsTrigger value="relationships">Dependencies</TabsTrigger>
                     </TabsList>
@@ -318,7 +318,7 @@ export function LandscapePage() {
 
                           <div style={{ padding: '12px', background: 'var(--fabric-surface-alt)', borderRadius: '6px' }}>
                             <span className="body-copy body-copy--small" style={{ fontWeight: 700 }}>
-                              Owner Role:
+                              Owner role:
                             </span>
                             <div style={{ marginTop: '4px', fontWeight: 600 }}>
                               {selectedEntity.ownerRole || 'Not assigned'}
@@ -329,7 +329,7 @@ export function LandscapePage() {
                         {selectedEntity.areaName && (
                           <div style={{ padding: '12px', background: 'var(--fabric-surface-alt)', borderRadius: '6px' }}>
                             <span className="body-copy body-copy--small" style={{ fontWeight: 700 }}>
-                              Operational Area:
+                              Operational area:
                             </span>
                             <div style={{ marginTop: '4px', fontWeight: 600 }}>
                               {selectedEntity.areaName}
@@ -343,7 +343,7 @@ export function LandscapePage() {
                       <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
                         <div>
                           <strong style={{ fontSize: '13px', textTransform: 'uppercase', color: 'var(--fabric-text-soft)' }}>
-                            Outgoing Flows ({outgoingRelationships.length})
+                            Outgoing flows ({outgoingRelationships.length})
                           </strong>
                           {outgoingRelationships.length === 0 ? (
                             <p className="body-copy" style={{ marginTop: '6px', fontStyle: 'italic' }}>
@@ -380,7 +380,7 @@ export function LandscapePage() {
 
                         <div style={{ marginTop: '12px' }}>
                           <strong style={{ fontSize: '13px', textTransform: 'uppercase', color: 'var(--fabric-text-soft)' }}>
-                            Incoming Flows ({incomingRelationships.length})
+                            Incoming flows ({incomingRelationships.length})
                           </strong>
                           {incomingRelationships.length === 0 ? (
                             <p className="body-copy" style={{ marginTop: '6px', fontStyle: 'italic' }}>

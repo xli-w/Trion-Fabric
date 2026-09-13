@@ -100,7 +100,7 @@ export function SiteWalksPage() {
         return (
           <>
             <PageHeader
-              eyebrow="Sites & site walks"
+              eyebrow="Clients & sites"
               title="Structured fieldwork & investigation"
               description="A flexible investigation workspace for preliminary walks and deeper diagnostic visits. Capture context, findings, evidence, friction, and next steps without turning the checklist into the product."
               metadata={['Fast capture', 'Traceable evidence', 'Review-ready']}
@@ -151,10 +151,10 @@ export function SiteWalksPage() {
                   onChange={setStatusFilter}
                   allLabel="All statuses"
                   options={[
-                    { value: 'planned', label: 'planned' },
-                    { value: 'in-progress', label: 'in-progress' },
-                    { value: 'completed', label: 'completed' },
-                    { value: 'needs-follow-up', label: 'needs-follow-up' },
+                    { value: 'planned', label: 'Planned' },
+                    { value: 'in-progress', label: 'In progress' },
+                    { value: 'completed', label: 'Completed' },
+                    { value: 'needs-follow-up', label: 'Needs follow-up' },
                   ]}
                 />
               </ToolbarGroup>
@@ -299,14 +299,14 @@ export function SiteWalksPage() {
 
                   <Tabs defaultValue="overview" variant="underline">
                     <TabsList>
-                      <TabsTrigger value="overview">Briefing & Focus</TabsTrigger>
+                      <TabsTrigger value="overview">Briefing & focus</TabsTrigger>
                       <TabsTrigger
                         value="observations"
                         badge={selectedObservations.length}
                       >
                         Observations
                       </TabsTrigger>
-                      <TabsTrigger value="recap">Post-Tour Recap</TabsTrigger>
+                      <TabsTrigger value="recap">Post-tour recap</TabsTrigger>
                     </TabsList>
 
                     <TabsContent value="overview">
@@ -429,7 +429,7 @@ export function SiteWalkWorkspacePage() {
         return (
           <>
             <PageHeader
-              eyebrow="Fieldwork Investigation"
+              eyebrow="Fieldwork investigation"
               title={walk.title}
               description={`${site?.name ?? 'Unknown site'} · ${engagement?.name ?? 'Unknown engagement'}`}
               metadata={[walk.walkType, walk.status]}
@@ -469,16 +469,16 @@ export function SiteWalkWorkspacePage() {
             <Tabs defaultValue="findings" variant="pills" style={{ marginTop: 16 }}>
               <TabsList>
                 <TabsTrigger value="findings" badge={observations.length}>
-                  Observations & Findings
+                  Observations & findings
                 </TabsTrigger>
                 <TabsTrigger value="evidence" badge={evidence.length}>
-                  Evidence & Media
+                  Evidence & media
                 </TabsTrigger>
                 <TabsTrigger value="friction" badge={friction.length}>
-                  Friction & Loss Points
+                  Friction & loss points
                 </TabsTrigger>
-                <TabsTrigger value="briefing">Pre-Tour & Guidance</TabsTrigger>
-                <TabsTrigger value="recap">Post-Tour Recap</TabsTrigger>
+                <TabsTrigger value="briefing">Pre-tour & guidance</TabsTrigger>
+                <TabsTrigger value="recap">Post-tour recap</TabsTrigger>
               </TabsList>
 
               {/* Tab 1: Observations */}

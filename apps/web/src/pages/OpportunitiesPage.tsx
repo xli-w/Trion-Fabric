@@ -446,9 +446,9 @@ function OpportunityForm({
               setConfidence(event.target.value as 'low' | 'medium' | 'high')
             }
           >
-            <option>low</option>
-            <option>medium</option>
-            <option>high</option>
+            <option value="low">Low</option>
+            <option value="medium">Medium</option>
+            <option value="high">High</option>
           </select>
         </Field>
         <Field label="Status">
@@ -743,14 +743,23 @@ export function OpportunitiesPage() {
                   value={typeFilter}
                   onChange={setTypeFilter}
                   allLabel="All types"
-                  options={types.map((t) => ({ value: t, label: t }))}
+                  options={types.map((t) => ({
+                    value: t,
+                    label: t
+                      .split('-')
+                      .map((w) => w.charAt(0).toUpperCase() + w.slice(1))
+                      .join(' '),
+                  }))}
                 />
                 <FilterSelect
                   label="Priority"
                   value={priorityFilter}
                   onChange={setPriorityFilter}
                   allLabel="All priorities"
-                  options={priorities.map((p) => ({ value: p, label: p }))}
+                  options={priorities.map((p) => ({
+                    value: p,
+                    label: p.charAt(0).toUpperCase() + p.slice(1),
+                  }))}
                 />
               </ToolbarGroup>
               <ToolbarGroup align="right">
@@ -882,7 +891,7 @@ export function OpportunitiesPage() {
 
             {viewMode === 'matrix' && (
               <Card
-                title="Interactive 2x2 Impact vs Effort Matrix"
+                title="Interactive 2×2 impact vs effort matrix"
                 description="High impact / low effort indicates a Quick Win; high impact / high effort indicates a Strategic Project. Filter by quadrant or click any opportunity to inspect."
               >
                 <OpportunityMatrix
@@ -929,7 +938,7 @@ export function OpportunitiesPage() {
                 if (!open) setSelectedOpportunityId(null);
               }}
               size="lg"
-              eyebrow={selectedOpp?.priorityCategory ?? 'Opportunity Inspector'}
+              eyebrow={selectedOpp?.priorityCategory ?? 'Opportunity inspector'}
               title={selectedOpp?.title}
               description={selectedOpp?.description}
               footer={
@@ -980,7 +989,7 @@ export function OpportunitiesPage() {
                   <Tabs defaultValue="overview" variant="underline">
                     <TabsList>
                       <TabsTrigger value="overview">Overview</TabsTrigger>
-                      <TabsTrigger value="problem">Problem & Cause</TabsTrigger>
+                      <TabsTrigger value="problem">Problem & cause</TabsTrigger>
                       <TabsTrigger value="benefits">Benefits & ROI</TabsTrigger>
                       <TabsTrigger
                         value="evidence"
@@ -1142,7 +1151,7 @@ export function OpportunityDetailPage() {
         return (
           <>
             <PageHeader
-              eyebrow="Transformation Workbench"
+              eyebrow="Transformation"
               title={opportunity.title}
               description={opportunity.clientSummary ?? opportunity.description}
               metadata={[
@@ -1201,15 +1210,15 @@ export function OpportunityDetailPage() {
 
             <Tabs defaultValue="transformation" variant="pills" style={{ marginTop: 16 }}>
               <TabsList>
-                <TabsTrigger value="transformation">Problem & Transformation</TabsTrigger>
+                <TabsTrigger value="transformation">Problem & transformation</TabsTrigger>
                 <TabsTrigger value="evidence" badge={linkedEvidence.length + linkedObservations.length}>
-                  Evidence & Lineage
+                  Evidence & lineage
                 </TabsTrigger>
                 <TabsTrigger value="actions" badge={actions.length}>
-                  Action Items
+                  Action items
                 </TabsTrigger>
                 <TabsTrigger value="delivery" badge={initiatives.length}>
-                  Delivery & Roadmaps
+                  Delivery & roadmaps
                 </TabsTrigger>
               </TabsList>
 

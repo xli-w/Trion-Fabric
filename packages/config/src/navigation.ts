@@ -23,25 +23,15 @@ export const fabricNavigation: NavigationItem[] = [
     sections: [{ label: 'Work queue', path: '/workspace' }],
   },
   {
-    key: 'engagements',
-    label: 'Client engagements',
+    key: 'clients-sites',
+    label: 'Clients & sites',
     path: '/engagements',
     description:
-      'Client context, engagement scope, delivery teams, and transformation history.',
-    routePrefixes: ['/engagements', '/clients'],
+      'Client organisations, scoped transformation engagements, operating sites, and structured fieldwork.',
+    routePrefixes: ['/engagements', '/clients', '/sites', '/site-walks'],
     sections: [
       { label: 'Engagements', path: '/engagements' },
       { label: 'Clients', path: '/clients' },
-    ],
-  },
-  {
-    key: 'operations',
-    label: 'Sites & site walks',
-    path: '/sites',
-    description:
-      'Operational context, factory visits, observations, evidence, and follow-up.',
-    routePrefixes: ['/sites', '/site-walks'],
-    sections: [
       { label: 'Sites', path: '/sites' },
       { label: 'Site walks', path: '/site-walks' },
     ],
@@ -81,7 +71,7 @@ export const utilityNavigation: NavigationItem[] = [
     description:
       'Platform appearance, Pure Black / Trion Purple theme, and workspace controls.',
     routePrefixes: ['/settings'],
-    sections: [{ label: 'General & Appearance', path: '/settings' }],
+    sections: [{ label: 'General & appearance', path: '/settings' }],
   },
 ];
 

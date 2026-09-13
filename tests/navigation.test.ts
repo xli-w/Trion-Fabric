@@ -6,8 +6,7 @@ describe('workstream navigation', () => {
   it('exposes a workspace entry alongside coherent grouped workstreams', () => {
     expect(fabricNavigation.map((item) => item.label)).toEqual([
       'Workspace',
-      'Client engagements',
-      'Sites & site walks',
+      'Clients & sites',
       'Transformation',
       'Diagnosis & outputs',
     ]);
@@ -15,8 +14,10 @@ describe('workstream navigation', () => {
 
   it.each([
     ['/workspace', 'workspace'],
-    ['/clients/client-northbank-precision', 'engagements'],
-    ['/site-walks/walk-northbank-machine-shop-01', 'operations'],
+    ['/clients/client-northbank-precision', 'clients-sites'],
+    ['/engagements/eng-northbank-diag', 'clients-sites'],
+    ['/sites/site-northbank-main', 'clients-sites'],
+    ['/site-walks/walk-northbank-machine-shop-01', 'clients-sites'],
     ['/roadmap/initiative-handover-foundation', 'transformation'],
     ['/outputs/output-northbank-transformation-roadmap', 'diagnosis-outputs'],
   ])('maps %s to the %s workstream', (pathname, workstreamKey) => {

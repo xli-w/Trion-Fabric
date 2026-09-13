@@ -232,12 +232,12 @@ export function DiagnosisPage() {
                   options={[
                     {
                       id: 'visual',
-                      label: 'Radar & Heatmap',
+                      label: 'Radar & heatmap',
                       icon: <RadarIcon size={14} />,
                     },
                     {
                       id: 'table',
-                      label: 'Scoring Matrix',
+                      label: 'Scoring matrix',
                       icon: <BarChart2 size={14} />,
                     },
                     {
@@ -255,7 +255,7 @@ export function DiagnosisPage() {
               <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
                 <div style={{ display: 'grid', gridTemplateColumns: 'minmax(340px, 460px) 1fr', gap: '24px' }}>
                   <Card
-                    title="Maturity Spider / Radar"
+                    title="Maturity spider / radar"
                     description="Visual comparison of assessed baseline maturity against target transformation benchmark across all 10 dimensions."
                   >
                     <MaturityRadar
@@ -267,7 +267,7 @@ export function DiagnosisPage() {
                   </Card>
 
                   <Card
-                    title="Dimension Progression Tracks"
+                    title="Dimension progression tracks"
                     description="Progress across 5 maturity tiers: Reactive → Developing → Controlled → Integrated → Optimised. Click any dimension to inspect or edit."
                   >
                     <MaturityScorecardVisualizer
@@ -374,9 +374,9 @@ export function DiagnosisPage() {
                                 });
                             }}
                           >
-                            <option>low</option>
-                            <option>medium</option>
-                            <option>high</option>
+                            <option value="low">Low</option>
+                            <option value="medium">Medium</option>
+                            <option value="high">High</option>
                           </select>
                         );
                       },
@@ -399,9 +399,9 @@ export function DiagnosisPage() {
                                 });
                             }}
                           >
-                            <option>draft</option>
-                            <option>reviewed</option>
-                            <option>approved</option>
+                            <option value="draft">Draft</option>
+                            <option value="reviewed">Reviewed</option>
+                            <option value="approved">Approved</option>
                           </select>
                         );
                       },
@@ -452,7 +452,7 @@ export function DiagnosisPage() {
             {viewMode === 'findings' && (
               <section className="content-grid content-grid--two">
                 <Card
-                  title="Diagnostic Findings"
+                  title="Diagnostic findings"
                   description="Evidence-grounded observations synthesized into formal diagnostic conclusions."
                 >
                   <div className="record-stack">
@@ -490,7 +490,7 @@ export function DiagnosisPage() {
                 </Card>
 
                 <Card
-                  title="Downstream Opportunities & Actions"
+                  title="Downstream opportunities & actions"
                   description="Diagnostic findings feed prioritized transformation opportunities."
                 >
                   <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
@@ -507,7 +507,7 @@ export function DiagnosisPage() {
                     </div>
 
                     <Link className="table-link" to="/opportunities">
-                      Open Opportunity Register →
+                      Open opportunity register →
                     </Link>
                   </div>
                 </Card>
@@ -520,15 +520,15 @@ export function DiagnosisPage() {
               onOpenChange={(open) => {
                 if (!open) setSelectedDimensionId(null);
               }}
-              title={selectedDimData?.name || 'Dimension Assessment'}
-              description={selectedDimData?.level ? `Maturity Level: ${selectedDimData.level}` : 'Assessment Details'}
+              title={selectedDimData?.name || 'Dimension assessment'}
+              description={selectedDimData?.level ? `Maturity level: ${selectedDimData.level}` : 'Assessment details'}
               size="lg"
             >
               {selectedDimData && selectedAssessment && (
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
                   <div style={{ padding: '16px', background: 'var(--fabric-surface-alt)', borderRadius: '8px' }}>
                     <label style={{ fontSize: '13px', fontWeight: 700, display: 'block', marginBottom: '8px' }}>
-                      Assessed Maturity Score (1 - 5):
+                      Assessed maturity score (1–5):
                     </label>
                     <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
                       <select
@@ -556,7 +556,7 @@ export function DiagnosisPage() {
                   <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
                     <div style={{ padding: '12px', background: 'var(--fabric-surface-alt)', borderRadius: '6px' }}>
                       <label style={{ fontSize: '12px', fontWeight: 700, display: 'block', marginBottom: '6px' }}>
-                        Confidence Level:
+                        Confidence level:
                       </label>
                       <select
                         style={{ width: '100%', padding: '6px 10px', borderRadius: '4px', border: '1px solid var(--fabric-border)' }}
@@ -567,15 +567,15 @@ export function DiagnosisPage() {
                           })
                         }
                       >
-                        <option value="low">Low Confidence</option>
-                        <option value="medium">Medium Confidence</option>
-                        <option value="high">High Confidence</option>
+                        <option value="low">Low confidence</option>
+                        <option value="medium">Medium confidence</option>
+                        <option value="high">High confidence</option>
                       </select>
                     </div>
 
                     <div style={{ padding: '12px', background: 'var(--fabric-surface-alt)', borderRadius: '6px' }}>
                       <label style={{ fontSize: '12px', fontWeight: 700, display: 'block', marginBottom: '6px' }}>
-                        Review Status:
+                        Review status:
                       </label>
                       <select
                         style={{ width: '100%', padding: '6px 10px', borderRadius: '4px', border: '1px solid var(--fabric-border)' }}
@@ -595,7 +595,7 @@ export function DiagnosisPage() {
 
                   <div>
                     <label style={{ fontSize: '12px', fontWeight: 700, display: 'block', marginBottom: '6px' }}>
-                      Evidence Rationale & Observation Notes:
+                      Evidence rationale & observation notes:
                     </label>
                     <textarea
                       style={{
@@ -619,7 +619,7 @@ export function DiagnosisPage() {
 
                   <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '8px', marginTop: '12px' }}>
                     <Button variant="secondary" onClick={() => setSelectedDimensionId(null)}>
-                      Close Inspector
+                      Close inspector
                     </Button>
                   </div>
                 </div>

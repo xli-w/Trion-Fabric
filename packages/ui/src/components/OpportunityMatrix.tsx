@@ -133,21 +133,21 @@ export function OpportunityMatrix({
             className={`matrix-filter-pill ${selectedQuadrant === 'all' ? 'is-active' : ''}`}
             onClick={() => setSelectedQuadrant('all')}
           >
-            All Quadrants ({opportunities.length})
+            All quadrants ({opportunities.length})
           </button>
           <button
             type="button"
             className={`matrix-filter-pill ${selectedQuadrant === 'quick-wins' ? 'is-active' : ''}`}
             onClick={() => setSelectedQuadrant('quick-wins')}
           >
-            ⚡ Quick Wins ({categorized.quickWins.length})
+            ⚡ Quick wins ({categorized.quickWins.length})
           </button>
           <button
             type="button"
             className={`matrix-filter-pill ${selectedQuadrant === 'strategic' ? 'is-active' : ''}`}
             onClick={() => setSelectedQuadrant('strategic')}
           >
-            🎯 Strategic Projects ({categorized.strategicProjects.length})
+            🎯 Strategic projects ({categorized.strategicProjects.length})
           </button>
           <button
             type="button"
@@ -184,9 +184,9 @@ export function OpportunityMatrix({
                   <span className="quadrant-icon">
                     <Zap size={16} />
                   </span>
-                  <h4>Quick Wins</h4>
+                  <h4>Quick wins</h4>
                 </div>
-                <span className="quadrant-tag">High Impact · Low Effort</span>
+                <span className="quadrant-tag">High impact · low effort</span>
               </div>
               <div className="matrix-quadrant-items">
                 {categorized.quickWins.length === 0 ? (
@@ -206,9 +206,9 @@ export function OpportunityMatrix({
                   <span className="quadrant-icon">
                     <Target size={16} />
                   </span>
-                  <h4>Strategic Projects</h4>
+                  <h4>Strategic projects</h4>
                 </div>
-                <span className="quadrant-tag">High Impact · High Effort</span>
+                <span className="quadrant-tag">High impact · high effort</span>
               </div>
               <div className="matrix-quadrant-items">
                 {categorized.strategicProjects.length === 0 ? (
@@ -228,9 +228,9 @@ export function OpportunityMatrix({
                   <span className="quadrant-icon">
                     <Sliders size={16} />
                   </span>
-                  <h4>Incremental / Foundational</h4>
+                  <h4>Incremental / foundational</h4>
                 </div>
-                <span className="quadrant-tag">Low Impact · Low Effort</span>
+                <span className="quadrant-tag">Low impact · low effort</span>
               </div>
               <div className="matrix-quadrant-items">
                 {categorized.incrementalGains.length === 0 ? (
@@ -250,9 +250,9 @@ export function OpportunityMatrix({
                   <span className="quadrant-icon">
                     <AlertTriangle size={16} />
                   </span>
-                  <h4>Reconsider / Defer</h4>
+                  <h4>Reconsider / defer</h4>
                 </div>
-                <span className="quadrant-tag">Low Impact · High Effort</span>
+                <span className="quadrant-tag">Low impact · high effort</span>
               </div>
               <div className="matrix-quadrant-items">
                 {categorized.reconsider.length === 0 ? (

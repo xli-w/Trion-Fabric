@@ -94,7 +94,7 @@ export function AppShell() {
             </Badge>
           </NavLink>
           <div className="sidebar-footer__version">
-            Fabric Engine v0.1.0 - Trion Transformation
+            Fabric Engine v0.1.0 · Trion Transformation
           </div>
         </div>
       </aside>
@@ -179,7 +179,12 @@ export function AppShell() {
               <div>
                 <strong>{currentUser?.displayName ?? 'Loading user'}</strong>
                 <span>
-                  {currentUser?.role.replace(/-/g, ' ') ?? 'internal user'}
+                  {currentUser?.role
+                    ? currentUser.role
+                        .split('-')
+                        .map((w) => w.charAt(0).toUpperCase() + w.slice(1))
+                        .join(' ')
+                    : 'Internal user'}
                 </span>
               </div>
               <label className="sr-only" htmlFor="current-user">
@@ -193,7 +198,12 @@ export function AppShell() {
               >
                 {dataset?.users.map((user) => (
                   <option key={user.id} value={user.id}>
-                    {user.displayName} ({user.role.replace(/-/g, ' ')})
+                    {user.displayName} (
+                    {user.role
+                      .split('-')
+                      .map((w) => w.charAt(0).toUpperCase() + w.slice(1))
+                      .join(' ')}
+                    )
                   </option>
                 ))}
               </select>

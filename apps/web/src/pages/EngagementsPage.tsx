@@ -113,7 +113,7 @@ export function EngagementsPage() {
         return (
           <>
             <PageHeader
-              eyebrow="Client engagements"
+              eyebrow="Clients & sites"
               title="Client and engagement workspace"
               description="Start with the client context, then define scoped transformation assignments, delivery teams, and the work that follows."
               metadata={['Client context', 'Scoped engagements', 'Stage-aware']}
@@ -179,10 +179,10 @@ export function EngagementsPage() {
                   onChange={setStatusFilter}
                   allLabel="All statuses"
                   options={[
-                    { value: 'active', label: 'active' },
-                    { value: 'planning', label: 'planning' },
-                    { value: 'at-risk', label: 'at-risk' },
-                    { value: 'completed', label: 'completed' },
+                    { value: 'active', label: 'Active' },
+                    { value: 'planning', label: 'Planning' },
+                    { value: 'at-risk', label: 'At risk' },
+                    { value: 'completed', label: 'Completed' },
                   ]}
                 />
               </ToolbarGroup>
@@ -310,7 +310,7 @@ export function EngagementsPage() {
               open={showEngagementSheet}
               onOpenChange={setShowEngagementSheet}
               size="lg"
-              eyebrow="Transformation"
+              eyebrow="Engagement"
               title="Create engagement"
               description="A preliminary site walk can remain lightweight and later progress into a Digital Diagnostic."
             >
@@ -373,7 +373,7 @@ export function EngagementsPage() {
                     <dd>{selectedEng.objectives || 'Not specified'}</dd>
                     <dt>Scope</dt>
                     <dd>{selectedEng.scope || 'Not specified'}</dd>
-                    <dt>Linked Sites</dt>
+                    <dt>Linked sites</dt>
                     <dd>
                       {selectedEngSites.length === 0
                         ? 'No sites assigned'

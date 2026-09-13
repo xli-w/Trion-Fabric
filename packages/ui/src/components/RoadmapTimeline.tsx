@@ -127,7 +127,7 @@ export function RoadmapTimeline({
             className={`timeline-filter-btn ${selectedPhaseFilter === 'all' ? 'is-active' : ''}`}
             onClick={() => setSelectedPhaseFilter('all')}
           >
-            All Phases
+            All phases
           </button>
           {phases.map((p) => (
             <button
@@ -181,7 +181,7 @@ export function RoadmapTimeline({
                 </div>
                 <div className="timeline-lane-metrics">
                   <span className="timeline-lane-count">
-                    {completedCount} / {phaseItems.length} Complete
+                    {completedCount} / {phaseItems.length} complete
                   </span>
                 </div>
               </div>
