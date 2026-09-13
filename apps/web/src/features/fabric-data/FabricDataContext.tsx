@@ -3,12 +3,16 @@ import type { ReactNode } from 'react';
 
 import type {
   Client,
+  Diagnostic,
   Engagement,
   Evidence,
   FabricDataset,
   FabricRepository,
   FrictionItem,
   Observation,
+  MaturityAssessment,
+  ActionItem,
+  Opportunity,
   RepositorySource,
   Site,
   SiteWalk,
@@ -32,6 +36,13 @@ interface FabricDataContextValue {
   createEvidence: (input: Omit<Evidence, 'id' | 'createdAt' | 'updatedAt'>) => Promise<Evidence>;
   createFrictionItem: (input: Omit<FrictionItem, 'id' | 'createdAt' | 'updatedAt'>) => Promise<FrictionItem>;
   updateFrictionItem: (item: FrictionItem) => Promise<void>;
+  createDiagnostic: (input: Omit<Diagnostic, 'id' | 'createdAt' | 'updatedAt'>) => Promise<Diagnostic>;
+  updateDiagnostic: (diagnostic: Diagnostic) => Promise<void>;
+  saveMaturityAssessment: (assessment: MaturityAssessment) => Promise<void>;
+  createOpportunity: (input: Omit<Opportunity, 'id' | 'createdAt' | 'updatedAt'>) => Promise<Opportunity>;
+  updateOpportunity: (opportunity: Opportunity) => Promise<void>;
+  createAction: (input: Omit<ActionItem, 'id' | 'createdAt' | 'updatedAt'>) => Promise<ActionItem>;
+  updateAction: (action: ActionItem) => Promise<void>;
   repositorySource: RepositorySource;
 }
 
@@ -159,6 +170,51 @@ export function FabricDataProvider({ children, repository }: FabricDataProviderP
     await persist({ ...dataset, frictionItems: dataset.frictionItems.map((existing) => existing.id === item.id ? { ...item, updatedAt: now() } : existing) });
   }, [dataset, persist]);
 
+  const createDiagnostic = useCallback(async (input: Omit<Diagnostic, 'id' | 'createdAt' | 'updatedAt'>) => {
+    if (!dataset || !dataset.engagements.some((item) => item.id === input.engagementId)) throw new Error('Select a valid engagement for this diagnostic.');
+    const created = { ...input, id: createId('diagnostic'), createdAt: now(), updatedAt: now() };
+    await persist({ ...dataset, diagnostics: [...dataset.diagnostics, created] });
+    return created;
+  }, [dataset, persist]);
+
+  const updateDiagnostic = useCallback(async (diagnostic: Diagnostic) => {
+    if (!dataset || !dataset.engagements.some((item) => item.id === diagnostic.engagementId)) throw new Error('Select a valid engagement for this diagnostic.');
+    await persist({ ...dataset, diagnostics: dataset.diagnostics.map((item) => item.id === diagnostic.id ? { ...diagnostic, updatedAt: now() } : item) });
+  }, [dataset, persist]);
+
+  const saveMaturityAssessment = useCallback(async (assessment: MaturityAssessment) => {
+    if (!dataset || !dataset.diagnostics.some((item) => item.id === assessment.diagnosticId) || !dataset.diagnosticDimensions.some((item) => item.id === assessment.dimensionId)) {
+      throw new Error('Select a valid diagnostic and scorecard dimension.');
+    }
+    const exists = dataset.maturityAssessments.some((item) => item.id === assessment.id);
+    const next = { ...assessment, updatedAt: now() };
+    await persist({ ...dataset, maturityAssessments: exists ? dataset.maturityAssessments.map((item) => item.id === assessment.id ? next : item) : [...dataset.maturityAssessments, next] });
+  }, [dataset, persist]);
+
+  const createOpportunity = useCallback(async (input: Omit<Opportunity, 'id' | 'createdAt' | 'updatedAt'>) => {
+    if (!dataset || !dataset.engagements.some((item) => item.id === input.engagementId)) throw new Error('Select a valid engagement for this opportunity.');
+    const created = { ...input, id: createId('opportunity'), createdAt: now(), updatedAt: now() };
+    await persist({ ...dataset, opportunities: [...dataset.opportunities, created] });
+    return created;
+  }, [dataset, persist]);
+
+  const updateOpportunity = useCallback(async (opportunity: Opportunity) => {
+    if (!dataset || !dataset.engagements.some((item) => item.id === opportunity.engagementId)) throw new Error('Select a valid engagement for this opportunity.');
+    await persist({ ...dataset, opportunities: dataset.opportunities.map((item) => item.id === opportunity.id ? { ...opportunity, updatedAt: now() } : item) });
+  }, [dataset, persist]);
+
+  const createAction = useCallback(async (input: Omit<ActionItem, 'id' | 'createdAt' | 'updatedAt'>) => {
+    if (!dataset || (input.opportunityId && !dataset.opportunities.some((item) => item.id === input.opportunityId))) throw new Error('Select a valid opportunity for this action.');
+    const created = { ...input, id: createId('action'), createdAt: now(), updatedAt: now() };
+    await persist({ ...dataset, actionItems: [...dataset.actionItems, created] });
+    return created;
+  }, [dataset, persist]);
+
+  const updateAction = useCallback(async (action: ActionItem) => {
+    if (!dataset || (action.opportunityId && !dataset.opportunities.some((item) => item.id === action.opportunityId))) throw new Error('Select a valid opportunity for this action.');
+    await persist({ ...dataset, actionItems: dataset.actionItems.map((item) => item.id === action.id ? { ...action, updatedAt: now() } : item) });
+  }, [dataset, persist]);
+
   useEffect(() => {
     void loadDataset();
   }, [loadDataset]);
@@ -183,6 +239,13 @@ export function FabricDataProvider({ children, repository }: FabricDataProviderP
         createEvidence,
         createFrictionItem,
         updateFrictionItem,
+        createDiagnostic,
+        updateDiagnostic,
+        saveMaturityAssessment,
+        createOpportunity,
+        updateOpportunity,
+        createAction,
+        updateAction,
         repositorySource: repository.source,
       }}
     >

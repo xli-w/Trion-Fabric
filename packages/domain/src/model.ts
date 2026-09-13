@@ -97,6 +97,17 @@ export type EvidenceReviewStatus = (typeof evidenceReviewStatuses)[number];
 export const frictionCategories = ['Time', 'Quality', 'Cost', 'Flow', 'Data', 'People', 'Technology', 'Other'] as const;
 export type FrictionCategory = (typeof frictionCategories)[number];
 
+export const diagnosticStatuses = ['draft', 'in-progress', 'internal-review', 'completed'] as const;
+export type DiagnosticStatus = (typeof diagnosticStatuses)[number];
+export const reviewStatuses = ['draft', 'reviewed', 'approved'] as const;
+export type ReviewStatus = (typeof reviewStatuses)[number];
+export const maturityLevels = ['Reactive', 'Developing', 'Controlled', 'Integrated', 'Optimised'] as const;
+export type MaturityLevel = (typeof maturityLevels)[number];
+export const landscapeEntityTypes = ['area', 'process', 'process-step', 'system', 'data-object', 'role', 'machine', 'handoff'] as const;
+export type LandscapeEntityType = (typeof landscapeEntityTypes)[number];
+export const landscapeRelationshipTypes = ['uses-system', 'produces-data', 'exchanges-data', 'performs-process', 'produces-machine-data', 'depends-on-process', 'observation-relates', 'opportunity-improves'] as const;
+export type LandscapeRelationshipType = (typeof landscapeRelationshipTypes)[number];
+
 export const observationAssuranceLevels = [
   'observed-fact',
   'client-provided',
@@ -133,6 +144,14 @@ export const opportunityTypes = [
   'transform',
 ] as const;
 export type OpportunityType = (typeof opportunityTypes)[number];
+export const opportunityPriorityCategories = ['Quick Win', 'Strategic Project', 'Foundational Improvement', 'Incremental Improvement', 'Reconsider / Defer'] as const;
+export type OpportunityPriorityCategory = (typeof opportunityPriorityCategories)[number];
+export const investmentBands = ['£', '££', '£££', 'Unknown'] as const;
+export type InvestmentBand = (typeof investmentBands)[number];
+export const benefitMeasures = ['Administrative time', 'Reporting delay', 'Estimated annual saving', 'Capacity', 'Scrap / rework', 'Quality', 'Delivery', 'Other'] as const;
+export type BenefitMeasure = (typeof benefitMeasures)[number];
+export const benefitValidationStatuses = ['indicative', 'to-validate', 'validated'] as const;
+export type BenefitValidationStatus = (typeof benefitValidationStatuses)[number];
 
 export const opportunityPriorities = ['critical', 'high', 'medium', 'low'] as const;
 export type OpportunityPriority = (typeof opportunityPriorities)[number];
@@ -347,10 +366,91 @@ export interface FrictionItem extends BaseEntity {
   notes?: string;
 }
 
+export interface DiagnosticDimension extends BaseEntity {
+  key: string;
+  name: string;
+  version: string;
+  description: string;
+  criteria: string[];
+  anchors: Record<string, string>;
+}
+
+export interface Diagnostic extends BaseEntity {
+  engagementId: EntityId;
+  title: string;
+  description: string;
+  status: DiagnosticStatus;
+  startDate: IsoDateTimeString;
+  completionDate?: IsoDateTimeString;
+  assessorUserId: EntityId;
+  currentStage: TransformationStage;
+  scope: string;
+  methodologyVersion: string;
+  overallScore?: number;
+  overallLevel?: MaturityLevel;
+  overallConfidence?: ConfidenceLevel;
+  internalNotes?: string;
+}
+
+export interface MaturityAssessment extends BaseEntity {
+  diagnosticId: EntityId;
+  dimensionId: EntityId;
+  score?: number;
+  level?: MaturityLevel;
+  rationale?: string;
+  currentState?: string;
+  desiredState?: string;
+  gap?: string;
+  relatedObservationIds: EntityId[];
+  evidenceReferences: string[];
+  relatedOpportunityIds: EntityId[];
+  confidence: ConfidenceLevel;
+  reviewStatus: ReviewStatus;
+  assessedByUserId?: EntityId;
+  assessedAt?: IsoDateTimeString;
+}
+
+export interface Finding extends BaseEntity {
+  diagnosticId: EntityId;
+  title: string;
+  currentSituation: string;
+  whyItMatters: string;
+  recommendedDirection: string;
+  category: string;
+  significance: OpportunityPriority;
+  relatedObservationIds: EntityId[];
+  relatedEvidenceIds: EntityId[];
+  relatedOpportunityIds: EntityId[];
+  confidence: ConfidenceLevel;
+  reviewStatus: ReviewStatus;
+  internalNotes?: string;
+  clientSummary?: string;
+}
+
+export interface LandscapeEntity extends BaseEntity {
+  engagementId: EntityId;
+  type: LandscapeEntityType;
+  name: string;
+  description: string;
+  sourceEntityId?: EntityId;
+  ownerRole?: string;
+}
+
+export interface LandscapeRelationship extends BaseEntity {
+  engagementId: EntityId;
+  fromEntityId: EntityId;
+  toEntityId: EntityId;
+  type: LandscapeRelationshipType;
+  rationale?: string;
+  evidenceIds: EntityId[];
+}
+
 export interface Opportunity extends BaseEntity {
   engagementId: EntityId;
+  diagnosticId?: EntityId;
   processId?: EntityId;
   areaId?: EntityId;
+  systemId?: EntityId;
   title: string;
   description: string;
   problemStatement: string;
@@ -368,6 +468,38 @@ export interface Opportunity extends BaseEntity {
   clientSummary?: string;
   approvalState: ApprovalState;
   initiativeIds: EntityId[];
+  currentSituation?: string;
+  identifiedIssue?: string;
+  whyItMatters?: string;
+  recommendedImprovement?: string;
+  potentialBenefits?: string;
+  indicativeValue?: string;
+  valueAssumptions?: string;
+  businessImpact?: OpportunityPriority;
+  implementationEffort?: EffortLevel;
+  investment?: InvestmentBand;
+  strategicValue?: OpportunityPriority;
+  priorityCategory?: OpportunityPriorityCategory;
+  recommendedTiming?: string;
+  dependencies?: string;
+  suggestedNextStep?: string;
+  relatedObservationIds?: EntityId[];
+  relatedFindingIds?: EntityId[];
+  evidenceReferences?: string[];
+  owner?: string;
+  reviewStatus?: ReviewStatus;
+  benefitMeasures?: BenefitMeasureRecord[];
+}
+
+export interface BenefitMeasureRecord extends BaseEntity {
+  opportunityId: EntityId;
+  measure: BenefitMeasure;
+  currentState: string;
+  potentialState: string;
+  unit: string;
+  calculationOrAssumption: string;
+  confidence: ConfidenceLevel;
+  validationStatus: BenefitValidationStatus;
 }
 
 export interface ActionItem extends BaseEntity {
@@ -378,6 +510,10 @@ export interface ActionItem extends BaseEntity {
   status: ActionStatus;
   ownerUserId?: EntityId;
   dueDate?: IsoDateTimeString;
+  priority?: OpportunityPriority;
+  dependencies?: string;
+  notes?: string;
+  owner?: string;
 }
 
 export interface Initiative extends BaseEntity {
@@ -415,6 +551,12 @@ export interface FabricDataset {
   observations: Observation[];
   evidence: Evidence[];
   frictionItems: FrictionItem[];
+  diagnosticDimensions: DiagnosticDimension[];
+  diagnostics: Diagnostic[];
+  maturityAssessments: MaturityAssessment[];
+  findings: Finding[];
+  landscapeEntities: LandscapeEntity[];
+  landscapeRelationships: LandscapeRelationship[];
   opportunities: Opportunity[];
   actionItems: ActionItem[];
   initiatives: Initiative[];

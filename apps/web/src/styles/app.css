@@ -260,6 +260,68 @@
   margin-bottom: 18px;
 }
 
+.diagnostic-select {
+  min-height: 42px;
+  padding: 0 12px;
+  border: 1px solid rgba(255, 255, 255, 0.16);
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.06);
+  color: var(--fabric-text-inverse);
+}
+
+.form-success {
+  color: var(--fabric-success);
+  font-weight: 700;
+}
+
+.assessment-rationale {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  min-width: 220px;
+}
+
+.assessment-rationale input {
+  min-height: 34px;
+  padding: 6px 8px;
+  border: 1px solid var(--fabric-border);
+  border-radius: 8px;
+}
+
+.opportunity-matrix {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.matrix-cell {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  min-height: 130px;
+  padding: 14px;
+  border: 1px solid var(--fabric-border);
+  border-radius: 12px;
+  background: var(--fabric-surface-alt);
+}
+
+.matrix-cell span {
+  color: var(--fabric-text-soft);
+  font-size: 13px;
+}
+
+.priority-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+@media (max-width: 1000px) {
+  .opportunity-matrix {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
 .entity-form {
   display: flex;
   flex-direction: column;

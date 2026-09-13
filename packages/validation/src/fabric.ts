@@ -9,6 +9,15 @@ import {
   engagementTypes,
   evidenceReviewStatuses,
   evidenceTypes,
+  diagnosticStatuses,
+  benefitMeasures,
+  benefitValidationStatuses,
+  investmentBands,
+  landscapeEntityTypes,
+  landscapeRelationshipTypes,
+  maturityLevels,
+  opportunityPriorityCategories,
+  reviewStatuses,
   effortLevels,
   engagementStatuses,
   evidenceKinds,
@@ -213,6 +222,89 @@ export const frictionItemSchema = baseEntitySchema.extend({
   notes: z.string().min(1).optional(),
 });
 
+export const diagnosticDimensionSchema = baseEntitySchema.extend({
+  key: z.string().min(1),
+  name: z.string().min(1),
+  version: z.string().min(1),
+  description: z.string().min(1),
+  criteria: z.array(z.string().min(1)).min(1),
+  anchors: z.record(z.string()),
+});
+
+export const diagnosticSchema = baseEntitySchema.extend({
+  engagementId: z.string().min(1),
+  title: z.string().min(1),
+  description: z.string().min(1),
+  status: z.enum(diagnosticStatuses),
+  startDate: isoDateTimeSchema,
+  completionDate: isoDateTimeSchema.optional(),
+  assessorUserId: z.string().min(1),
+  currentStage: z.enum(transformationStages),
+  scope: z.string().min(1),
+  methodologyVersion: z.string().min(1),
+  overallScore: z.number().min(1).max(5).optional(),
+  overallLevel: z.enum(maturityLevels).optional(),
+  overallConfidence: z.enum(confidenceLevels).optional(),
+  internalNotes: z.string().min(1).optional(),
+});
+
+export const maturityAssessmentSchema = baseEntitySchema.extend({
+  diagnosticId: z.string().min(1),
+  dimensionId: z.string().min(1),
+  score: z.number().min(1).max(5).optional(),
+  level: z.enum(maturityLevels).optional(),
+  rationale: z.string().min(1).optional(),
+  currentState: z.string().min(1).optional(),
+  desiredState: z.string().min(1).optional(),
+  gap: z.string().min(1).optional(),
+  relatedObservationIds: z.array(z.string().min(1)),
+  evidenceReferences: z.array(z.string().min(1)),
+  relatedOpportunityIds: z.array(z.string().min(1)),
+  confidence: z.enum(confidenceLevels),
+  reviewStatus: z.enum(reviewStatuses),
+  assessedByUserId: z.string().min(1).optional(),
+  assessedAt: isoDateTimeSchema.optional(),
+}).superRefine((assessment, context) => {
+  if (assessment.score !== undefined && !assessment.rationale) {
+    context.addIssue({ code: z.ZodIssueCode.custom, path: ['rationale'], message: 'A scored dimension requires rationale.' });
+  }
+});
+
+export const findingSchema = baseEntitySchema.extend({
+  diagnosticId: z.string().min(1),
+  title: z.string().min(1),
+  currentSituation: z.string().min(1),
+  whyItMatters: z.string().min(1),
+  recommendedDirection: z.string().min(1),
+  category: z.string().min(1),
+  significance: z.enum(opportunityPriorities),
+  relatedObservationIds: z.array(z.string().min(1)),
+  relatedEvidenceIds: z.array(z.string().min(1)),
+  relatedOpportunityIds: z.array(z.string().min(1)),
+  confidence: z.enum(confidenceLevels),
+  reviewStatus: z.enum(reviewStatuses),
+  internalNotes: z.string().min(1).optional(),
+  clientSummary: z.string().min(1).optional(),
+});
+
+export const landscapeEntitySchema = baseEntitySchema.extend({
+  engagementId: z.string().min(1),
+  type: z.enum(landscapeEntityTypes),
+  name: z.string().min(1),
+  description: z.string().min(1),
+  sourceEntityId: z.string().min(1).optional(),
+  ownerRole: z.string().min(1).optional(),
+});
+
+export const landscapeRelationshipSchema = baseEntitySchema.extend({
+  engagementId: z.string().min(1),
+  fromEntityId: z.string().min(1),
+  toEntityId: z.string().min(1),
+  type: z.enum(landscapeRelationshipTypes),
+  rationale: z.string().min(1).optional(),
+  evidenceIds: z.array(z.string().min(1)),
+});
+
 export const opportunitySchema = baseEntitySchema.extend({
   engagementId: z.string().min(1),
   processId: z.string().min(1).optional(),
@@ -234,6 +326,41 @@ export const opportunitySchema = baseEntitySchema.extend({
   clientSummary: z.string().min(1).optional(),
   approvalState: z.enum(approvalStates),
   initiativeIds: z.array(z.string().min(1)),
+  diagnosticId: z.string().min(1).optional(),
+  systemId: z.string().min(1).optional(),
+  currentSituation: z.string().min(1).optional(),
+  identifiedIssue: z.string().min(1).optional(),
+  whyItMatters: z.string().min(1).optional(),
+  recommendedImprovement: z.string().min(1).optional(),
+  potentialBenefits: z.string().min(1).optional(),
+  indicativeValue: z.string().min(1).optional(),
+  valueAssumptions: z.string().min(1).optional(),
+  businessImpact: z.enum(opportunityPriorities).optional(),
+  implementationEffort: z.enum(effortLevels).optional(),
+  investment: z.enum(investmentBands).optional(),
+  strategicValue: z.enum(opportunityPriorities).optional(),
+  priorityCategory: z.enum(opportunityPriorityCategories).optional(),
+  recommendedTiming: z.string().min(1).optional(),
+  dependencies: z.string().min(1).optional(),
+  suggestedNextStep: z.string().min(1).optional(),
+  relatedObservationIds: z.array(z.string().min(1)).optional(),
+  relatedFindingIds: z.array(z.string().min(1)).optional(),
+  evidenceReferences: z.array(z.string().min(1)).optional(),
+  owner: z.string().min(1).optional(),
+  reviewStatus: z.enum(reviewStatuses).optional(),
+  benefitMeasures: z.array(z.object({
+    id: z.string().min(1),
+    createdAt: isoDateTimeSchema,
+    updatedAt: isoDateTimeSchema,
+    opportunityId: z.string().min(1),
+    measure: z.enum(benefitMeasures),
+    currentState: z.string().min(1),
+    potentialState: z.string().min(1),
+    unit: z.string().min(1),
+    calculationOrAssumption: z.string().min(1),
+    confidence: z.enum(confidenceLevels),
+    validationStatus: z.enum(benefitValidationStatuses),
+  })).optional(),
 });
 
 export const actionItemSchema = baseEntitySchema.extend({
@@ -244,6 +371,10 @@ export const actionItemSchema = baseEntitySchema.extend({
   status: z.enum(actionStatuses),
   ownerUserId: z.string().min(1).optional(),
   dueDate: isoDateTimeSchema.optional(),
+  priority: z.enum(opportunityPriorities).optional(),
+  dependencies: z.string().min(1).optional(),
+  notes: z.string().min(1).optional(),
+  owner: z.string().min(1).optional(),
 });
 
 export const initiativeSchema = baseEntitySchema.extend({
@@ -281,6 +412,12 @@ export const fabricDatasetSchema = z.object({
   observations: z.array(observationSchema),
   evidence: z.array(evidenceSchema),
   frictionItems: z.array(frictionItemSchema).default([]),
+  diagnosticDimensions: z.array(diagnosticDimensionSchema).default([]),
+  diagnostics: z.array(diagnosticSchema).default([]),
+  maturityAssessments: z.array(maturityAssessmentSchema).default([]),
+  findings: z.array(findingSchema).default([]),
+  landscapeEntities: z.array(landscapeEntitySchema).default([]),
+  landscapeRelationships: z.array(landscapeRelationshipSchema).default([]),
   opportunities: z.array(opportunitySchema),
   actionItems: z.array(actionItemSchema),
   initiatives: z.array(initiativeSchema),

@@ -303,6 +303,8 @@ export function buildOpportunitiesViewModel(dataset: FabricDataset) {
       ownerName: opportunity.ownerUserId ? maps.users.get(opportunity.ownerUserId)?.displayName ?? 'Unknown owner' : 'Unassigned',
       evidenceCount: opportunity.evidenceIds.length,
       initiativeCount: opportunity.initiativeIds.length,
+      actionCount: dataset.actionItems.filter((item) => item.opportunityId === opportunity.id).length,
+      category: opportunity.priorityCategory ?? 'Uncategorised',
       expectedImpact: opportunity.expectedImpact,
       type: labelise(opportunity.type),
     }));

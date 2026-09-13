@@ -5,12 +5,14 @@ import { ClientsPage } from '@app/pages/ClientsPage';
 import { ClientDetailPage } from '@app/pages/ClientsPage';
 import { EngagementsPage } from '@app/pages/EngagementsPage';
 import { EngagementDetailPage } from '@app/pages/EngagementDetailPage';
-import { OpportunitiesPage } from '@app/pages/OpportunitiesPage';
+import { OpportunitiesPage, OpportunityDetailPage } from '@app/pages/OpportunitiesPage';
 import { OutputsPage } from '@app/pages/OutputsPage';
 import { PlannedPage } from '@app/pages/PlannedPage';
 import { SiteWalksPage, SiteWalkWorkspacePage } from '@app/pages/SiteWalksPage';
 import { WorkspacePage } from '@app/pages/WorkspacePage';
 import { SiteDetailPage, SitesPage } from '@app/pages/SitesPage';
+import { DiagnosisPage } from '@app/pages/DiagnosisPage';
+import { LandscapePage } from '@app/pages/LandscapePage';
 
 export function AppRouter() {
   return (
@@ -26,7 +28,9 @@ export function AppRouter() {
           <Route element={<EngagementDetailPage />} path="engagements/:engagementId" />
           <Route element={<SiteWalksPage />} path="site-walks" />
           <Route element={<SiteWalkWorkspacePage />} path="site-walks/:siteWalkId" />
-          <Route
+          <Route element={<LandscapePage />} path="landscape" />
+          <Route element={<DiagnosisPage />} path="diagnosis" />
+          {/*
             element={
               <PlannedPage
                 title="Landscape"
@@ -54,7 +58,9 @@ export function AppRouter() {
             }
             path="diagnosis"
           />
+          */}
           <Route element={<OpportunitiesPage />} path="opportunities" />
+          <Route element={<OpportunityDetailPage />} path="opportunities/:opportunityId" />
           <Route
             element={
               <PlannedPage
