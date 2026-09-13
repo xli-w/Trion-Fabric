@@ -69,6 +69,7 @@ import {
   isClientSafeLandscapeEntity,
   isClientSafeOutputSource,
   isLandscapeRelationshipCompatible,
+  getOutputReportContentFingerprint,
   getOutputTemplate,
 } from '@domain';
 
@@ -79,6 +80,20 @@ const baseEntitySchema = z.object({
   createdAt: isoDateTimeSchema,
   updatedAt: isoDateTimeSchema,
 });
+
+const managedFileReferenceSchema = z
+  .string()
+  .trim()
+  .min(1)
+  .max(240)
+  .regex(
+    /^[a-z0-9][a-z0-9._/-]*$/i,
+    'Use a managed-storage key, not a local path or direct URL.',
+  )
+  .refine(
+    (value) => !value.split('/').includes('..'),
+    'A managed-storage key cannot traverse parent directories.',
+  );
 
 export const userSchema = baseEntitySchema.extend({
   displayName: z.string().min(1),
@@ -270,7 +285,7 @@ export const evidenceSchema = baseEntitySchema
     siteWalkId: z.string().min(1).optional(),
     evidenceType: z.enum(evidenceTypes).optional(),
     description: z.string().min(1).optional(),
-    fileReference: z.string().min(1).optional(),
+    fileReference: managedFileReferenceSchema.optional(),
     source: z.enum(observationSources).optional(),
     capturedByUserId: z.string().min(1).optional(),
     reviewStatus: z.enum(evidenceReviewStatuses).optional(),
@@ -726,6 +741,7 @@ export const benefitMeasurementSchema = baseEntitySchema
 const outputSectionOverrideSchema = z.object({
   sectionId: z.string().min(1),
   narrative: z.string().min(1),
+  sourceReferences: z.array(z.string().min(1)).min(1),
 });
 
 const outputReportBlockSchema = z.discriminatedUnion('type', [
@@ -775,6 +791,7 @@ const outputReportSnapshotSchema = z.object({
   templateVersion: z.string().min(1),
   generatedAt: isoDateTimeSchema,
   sourceFingerprint: z.string().min(1),
+  contentFingerprint: z.string().min(1),
   context: outputReportContextSchema,
   sections: z.array(outputReportSectionSchema).min(1),
   includedSources: z.array(
@@ -834,6 +851,7 @@ export const outputExportReferenceSchema = baseEntitySchema.extend({
   fileName: z.string().min(1),
   outputVersion: z.string().min(1),
   sourceFingerprint: z.string().min(1),
+  contentFingerprint: z.string().min(1),
   exportedByUserId: z.string().min(1),
   exportedAt: isoDateTimeSchema,
 });
@@ -986,6 +1004,19 @@ export const outputSchema = baseEntitySchema
       });
     }
 
+    if (
+      output.reportSnapshot &&
+      output.reportSnapshot.contentFingerprint !==
+        getOutputReportContentFingerprint(output.reportSnapshot)
+    ) {
+      context.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ['reportSnapshot', 'contentFingerprint'],
+        message:
+          'A report snapshot content fingerprint must match its complete frozen report content.',
+      });
+    }
+
     if (isApproved && !output.reportSnapshot) {
       context.addIssue({
         code: z.ZodIssueCode.custom,
@@ -1033,6 +1064,28 @@ export const outputSchema = baseEntitySchema
         });
       }
       overrideIds.add(override.sectionId);
+
+      const sourceIds = new Set<string>();
+      override.sourceReferences.forEach((sourceId, sourceIndex) => {
+        if (sourceIds.has(sourceId)) {
+          context.addIssue({
+            code: z.ZodIssueCode.custom,
+            path: ['sectionOverrides', index, 'sourceReferences', sourceIndex],
+            message:
+              'An editorial narrative cannot cite the same source more than once.',
+          });
+        }
+        sourceIds.add(sourceId);
+
+        if (!output.sourceReferences.includes(sourceId)) {
+          context.addIssue({
+            code: z.ZodIssueCode.custom,
+            path: ['sectionOverrides', index, 'sourceReferences', sourceIndex],
+            message:
+              'An editorial narrative can only cite an explicitly selected output source.',
+          });
+        }
+      });
     });
   });
 
@@ -3963,6 +4016,94 @@ export const fabricDatasetSchema = fabricDatasetShape.superRefine(
         }
       });
 
+      output.sectionOverrides.forEach((override, overrideIndex) => {
+        ensureDistinctValues(
+          context,
+          [
+            'outputs',
+            index,
+            'sectionOverrides',
+            overrideIndex,
+            'sourceReferences',
+          ],
+          override.sourceReferences,
+          'editorial narrative source references',
+        );
+
+        override.sourceReferences.forEach((referenceId, referenceIndex) => {
+          if (!entityBelongsToEngagement(referenceId, output.engagementId)) {
+            addIssue(
+              context,
+              [
+                'outputs',
+                index,
+                'sectionOverrides',
+                overrideIndex,
+                'sourceReferences',
+                referenceIndex,
+              ],
+              'An editorial narrative cannot cite source material outside the engagement scope.',
+            );
+          }
+
+          if (!output.sourceReferences.includes(referenceId)) {
+            addIssue(
+              context,
+              [
+                'outputs',
+                index,
+                'sectionOverrides',
+                overrideIndex,
+                'sourceReferences',
+                referenceIndex,
+              ],
+              'An editorial narrative can only cite an explicitly selected output source.',
+            );
+          }
+
+          if (
+            (output.status === 'approved' || output.status === 'published') &&
+            !isApprovedOutputSource(referenceId)
+          ) {
+            addIssue(
+              context,
+              [
+                'outputs',
+                index,
+                'sectionOverrides',
+                overrideIndex,
+                'sourceReferences',
+                referenceIndex,
+              ],
+              'Approved outputs require every editorial narrative to cite approved, client-safe source material.',
+            );
+          }
+        });
+
+        if (
+          (output.status === 'approved' || output.status === 'published') &&
+          output.reportSnapshot &&
+          !override.sourceReferences.every((sourceId) =>
+            output.reportSnapshot?.sections
+              .find((section) => section.id === override.sectionId)
+              ?.sourceReferences.includes(sourceId),
+          )
+        ) {
+          addIssue(
+            context,
+            [
+              'outputs',
+              index,
+              'reportSnapshot',
+              'sections',
+              override.sectionId,
+              'sourceReferences',
+            ],
+            'An approved report snapshot must retain the source citation for each editorial narrative.',
+          );
+        }
+      });
+
       if (output.reportSnapshot) {
         if (
           output.reportSnapshot.context.engagementId !== output.engagementId
@@ -4173,6 +4314,17 @@ export const fabricDatasetSchema = fabricDatasetShape.superRefine(
           context,
           ['outputExports', index, 'sourceFingerprint'],
           'An export reference must retain the source fingerprint of its report snapshot.',
+        );
+      }
+      if (
+        output?.reportSnapshot &&
+        exportReference.contentFingerprint !==
+          output.reportSnapshot.contentFingerprint
+      ) {
+        addIssue(
+          context,
+          ['outputExports', index, 'contentFingerprint'],
+          'An export reference must retain the complete content fingerprint of its report snapshot.',
         );
       }
     });

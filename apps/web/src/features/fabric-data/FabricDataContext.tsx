@@ -44,6 +44,7 @@ import type {
   OutputExportAudience,
   OutputExportFormat,
   OutputExportReference,
+  OutputReport,
   OutputReviewComment,
   RepositorySource,
   Site,
@@ -55,6 +56,7 @@ import type {
 import {
   assertUserCanPerformAcrossEngagements,
   canUserPerform,
+  createEngagementAccessProjection,
   createMethodologyRun,
   createLandscapeVersionSnapshot,
   createOutputReportSnapshot,
@@ -64,11 +66,13 @@ import {
   isOpportunityReadyForDelivery,
   nextOutputVersion,
   permissionForVisibilityTransition,
+  prepareOutputExportSnapshot,
   preparePreliminarySiteWalkPromotion,
   prepareControlledOutputUpdate,
   prepareControlledOpportunityUpdate,
   prepareKnowledgeEntryUpdate,
   synchroniseMethodologyRun,
+  resolveOutputReport,
 } from '@domain';
 import {
   createAuthorizationActor,
@@ -171,7 +175,7 @@ interface FabricDataContextValue {
     outputId: EntityId,
     format: OutputExportFormat,
     audience: OutputExportAudience,
-  ) => Promise<OutputExportReference>;
+  ) => Promise<OutputExportResult>;
   createKnowledgeEntry: (
     input: CreateKnowledgeEntryInput,
   ) => Promise<KnowledgeEntry>;
@@ -217,6 +221,11 @@ export interface CreateOutputInput {
 export interface CreateOutputReviewCommentInput {
   outputId: EntityId;
   body: string;
+}
+
+export interface OutputExportResult {
+  exportReference: OutputExportReference;
+  report: OutputReport;
 }
 
 export interface CreateLandscapeEntityInput
@@ -1122,6 +1131,15 @@ export function FabricDataProvider({
   const actingUser = useMemo(
     () => (currentUser ? createAuthorizationActor(currentUser) : null),
     [currentUser],
+  );
+  const scopedDataset = useMemo(
+    () =>
+      dataset && actingUser
+        ? createImmutableSnapshot(
+            createEngagementAccessProjection(dataset, actingUser),
+          )
+        : null,
+    [actingUser, dataset],
   );
 
   const loadDataset = useCallback(async () => {
@@ -3173,10 +3191,9 @@ export function FabricDataProvider({
         );
       }
 
-      const snapshot =
-        output.reportSnapshot ??
-        createOutputReportSnapshot(dataset, output, now());
       const timestamp = now();
+      const { output: outputWithSnapshot, snapshot } =
+        prepareOutputExportSnapshot(dataset, output, timestamp);
       const extension = format === 'markdown' ? 'md' : 'json';
       const exportReference: OutputExportReference = {
         id: createId('output-export'),
@@ -3188,14 +3205,28 @@ export function FabricDataProvider({
         fileName: getOutputReportFileName(output, extension),
         outputVersion: output.version,
         sourceFingerprint: snapshot.sourceFingerprint,
+        contentFingerprint: snapshot.contentFingerprint,
         exportedByUserId: actingUser.id,
         exportedAt: timestamp,
       };
-      await persist({
+      const nextDataset: FabricDataset = {
         ...dataset,
+        outputs:
+          outputWithSnapshot === output
+            ? dataset.outputs
+            : replaceExistingRecord(
+                dataset.outputs,
+                outputWithSnapshot,
+                timestamp,
+                'controlled output',
+              ),
         outputExports: [...dataset.outputExports, exportReference],
-      });
-      return exportReference;
+      };
+      await persist(nextDataset);
+      return {
+        exportReference,
+        report: resolveOutputReport(nextDataset, outputWithSnapshot),
+      };
     },
     [actingUser, dataset, persist],
   );
@@ -3273,7 +3304,7 @@ export function FabricDataProvider({
   return (
     <FabricDataContext.Provider
       value={{
-        dataset,
+        dataset: scopedDataset,
         error,
         isLoading,
         currentUser,

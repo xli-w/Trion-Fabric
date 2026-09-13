@@ -4,6 +4,7 @@ import {
   compareOutputReportSnapshots,
   getOutputSourceCatalog,
   hasOutputReportSourceChanges,
+  prepareOutputExportSnapshot,
   resolveOutputReport,
   serializeOutputReportAsAiPackage,
   serializeOutputReportAsMarkdown,
@@ -94,8 +95,15 @@ describe('controlled output reporting', () => {
     };
 
     expect(report.clientReady).toBe(true);
+    expect(report.snapshot.contentFingerprint).toMatch(/^fnv1a-[a-f0-9]{8}$/);
+    expect(
+      report.snapshot.sections.find(
+        (section) => section.id === 'roadmap-next-steps',
+      )?.sourceReferences,
+    ).toContain('initiative-handover-foundation');
     expect(markdown).toContain('# Northbank transformation roadmap');
     expect(markdown).toContain('## Transformation phases');
+    expect(markdown).toContain('**Sources:** initiative-handover-foundation');
     expect(markdown).not.toContain(
       'Validate the operator workflow before any ERP configuration changes.',
     );
@@ -122,6 +130,24 @@ describe('controlled output reporting', () => {
 
     expect(hasOutputReportSourceChanges(dataset, output)).toBe(true);
     expect(output.reportSnapshot).toBe(originalSnapshot);
+  });
+
+  it('freezes and returns the exact snapshot used for an export', () => {
+    const output = fixtureOutput('output-northbank-executive-summary');
+    const draftWithoutSnapshot = {
+      ...output,
+      reportSnapshot: undefined,
+    };
+    const prepared = prepareOutputExportSnapshot(
+      fabricFixtures,
+      draftWithoutSnapshot,
+      '2026-09-13T12:00:00Z',
+    );
+
+    expect(prepared.output.reportSnapshot).toBe(prepared.snapshot);
+    expect(prepared.output.updatedAt).toBe('2026-09-13T12:00:00Z');
+    expect(prepared.snapshot.generatedAt).toBe('2026-09-13T12:00:00Z');
+    expect(prepared.snapshot.contentFingerprint).toMatch(/^fnv1a-[a-f0-9]{8}$/);
   });
 
   it('compares retained report versions rather than silently replacing the reviewed version', () => {

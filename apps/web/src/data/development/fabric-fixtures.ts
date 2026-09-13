@@ -1580,6 +1580,7 @@ const fixtureDataset: FabricDataset = {
           sectionId: 'next-steps',
           narrative:
             'Confirm the practical handover record with operations and quality leaders before scaling the pilot.',
+          sourceReferences: ['opportunity-digitise-handover'],
         },
       ],
       contentReference:
@@ -1621,6 +1622,7 @@ const fixtureDataset: FabricDataset = {
           sectionId: 'scorecard-direction',
           narrative:
             'Use the approved scorecard to agree one practical handover standard before extending technology scope.',
+          sourceReferences: ['assessment-northbank-processes'],
         },
       ],
       supersedesOutputId: 'output-northbank-maturity-scorecard-v01',
@@ -1695,6 +1697,7 @@ const fixtureDataset: FabricDataset = {
           sectionId: 'roadmap-next-steps',
           narrative:
             'Confirm pilot sponsorship, nominate the operational owner, and agree the handover field set before the Simplify phase starts.',
+          sourceReferences: ['initiative-handover-foundation'],
         },
       ],
       contentReference:
@@ -1723,6 +1726,7 @@ const fixtureDataset: FabricDataset = {
           sectionId: 'next-steps',
           narrative:
             'Review the fieldwork summary with the site team before preparing any client-facing observation narrative.',
+          sourceReferences: ['observation-paper-handover'],
         },
       ],
       contentReference:
@@ -1749,6 +1753,7 @@ const fixtureDataset: FabricDataset = {
           sectionId: 'current-state',
           narrative:
             'Complete the planned intake observation before turning this early discovery material into a controlled client output.',
+          sourceReferences: ['opportunity-standardise-receipts'],
         },
       ],
       contentReference:
@@ -1788,6 +1793,7 @@ const fixtureDataset: FabricDataset = {
       fileName: 'northbank-transformation-roadmap-v1-0.md',
       outputVersion: '1.0',
       sourceFingerprint: 'pending-report-snapshot',
+      contentFingerprint: 'pending-report-snapshot',
       exportedByUserId: 'user-amy-wilkinson',
       exportedAt: '2026-09-12T16:05:00Z',
     },
@@ -2186,6 +2192,7 @@ export const fabricFixtures: FabricDataset = {
       ? {
           ...exportReference,
           sourceFingerprint: output.reportSnapshot.sourceFingerprint,
+          contentFingerprint: output.reportSnapshot.contentFingerprint,
         }
       : exportReference;
   }),

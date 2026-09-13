@@ -95,6 +95,25 @@ describe('Fabric dataset relationship and governance validation', () => {
     expect(hasIssueAtPath(result, 'evidence.0.relatedEntityId')).toBe(true);
   });
 
+  it('accepts managed file keys and rejects local or direct file references', () => {
+    const safeDataset = copyDataset();
+    const safeEvidence = safeDataset.evidence[0];
+    if (!safeEvidence) throw new Error('Expected an evidence fixture.');
+
+    safeEvidence.fileReference = 'evidence/northbank/handover-photo-01';
+    expect(fabricDatasetSchema.safeParse(safeDataset).success).toBe(true);
+
+    const unsafeDataset = copyDataset();
+    const unsafeEvidence = unsafeDataset.evidence[0];
+    if (!unsafeEvidence) throw new Error('Expected an evidence fixture.');
+
+    unsafeEvidence.fileReference = 'file:///C:/Users/example/private-photo.jpg';
+    const result = fabricDatasetSchema.safeParse(unsafeDataset);
+
+    expect(result.success).toBe(false);
+    expect(hasIssueAtPath(result, 'evidence.0.fileReference')).toBe(true);
+  });
+
   it('rejects published output sourced from unapproved material', () => {
     const dataset = copyDataset();
     const output = dataset.outputs.find(
@@ -262,18 +281,22 @@ describe('Fabric dataset relationship and governance validation', () => {
       {
         sectionId: 'missing-report-section',
         narrative: 'A report section that is not part of this template.',
+        sourceReferences: ['opportunity-digitise-handover'],
       },
       {
         sectionId: 'key-findings',
         narrative: 'An attempt to replace generated findings.',
+        sourceReferences: ['opportunity-digitise-handover'],
       },
       {
         sectionId: 'current-state',
         narrative: 'First controlled editorial narrative.',
+        sourceReferences: ['opportunity-digitise-handover'],
       },
       {
         sectionId: 'current-state',
         narrative: 'Duplicate controlled editorial narrative.',
+        sourceReferences: ['opportunity-digitise-handover'],
       },
     ];
     const outputIndex = dataset.outputs.findIndex(
@@ -330,6 +353,71 @@ describe('Fabric dataset relationship and governance validation', () => {
       id: 'source-not-selected-by-output',
       type: 'finding',
       title: 'A source that is not selected by the output',
+    });
+
+    it('requires approved editorial narratives to retain approved source citations', () => {
+      const dataset = copyDataset();
+      const output = dataset.outputs.find(
+        (item) => item.id === 'output-northbank-transformation-roadmap',
+      );
+      if (!output) throw new Error('Expected a published roadmap output.');
+
+      output.sourceReferences.push('opportunity-unify-ncr-routing');
+      output.sectionOverrides = [
+        {
+          sectionId: 'roadmap-next-steps',
+          narrative:
+            'An editorial narrative that improperly draws on unapproved material.',
+          sourceReferences: ['opportunity-unify-ncr-routing'],
+        },
+      ];
+
+      const outputIndex = dataset.outputs.findIndex(
+        (item) => item.id === output.id,
+      );
+      const result = fabricDatasetSchema.safeParse(dataset);
+
+      expect(result.success).toBe(false);
+      expect(
+        hasIssueAtPath(
+          result,
+          `outputs.${outputIndex}.sectionOverrides.0.sourceReferences.0`,
+        ),
+      ).toBe(true);
+    });
+
+    it('rejects a report snapshot whose full-content fingerprint was altered', () => {
+      const dataset = copyDataset();
+      const output = dataset.outputs.find(
+        (item) => item.id === 'output-northbank-transformation-roadmap',
+      );
+      if (!output?.reportSnapshot) {
+        throw new Error('Expected a roadmap report snapshot.');
+      }
+
+      const section = output.reportSnapshot.sections.find(
+        (item) => item.id === 'roadmap-next-steps',
+      );
+      const paragraph = section?.blocks.find(
+        (block) => block.type === 'paragraph',
+      );
+      if (!paragraph || paragraph.type !== 'paragraph') {
+        throw new Error('Expected a roadmap editorial paragraph.');
+      }
+      paragraph.content = 'Altered report content without a new fingerprint.';
+
+      const outputIndex = dataset.outputs.findIndex(
+        (item) => item.id === output.id,
+      );
+      const result = fabricDatasetSchema.safeParse(dataset);
+
+      expect(result.success).toBe(false);
+      expect(
+        hasIssueAtPath(
+          result,
+          `outputs.${outputIndex}.reportSnapshot.contentFingerprint`,
+        ),
+      ).toBe(true);
     });
     reportTable.rows[0]?.push('Unexpected extra table cell');
 
@@ -443,6 +531,7 @@ describe('Fabric dataset relationship and governance validation', () => {
       audience: 'client-facing',
       fileName: 'draft-client-facing-report.md',
       sourceFingerprint: draft.reportSnapshot?.sourceFingerprint ?? 'missing',
+      contentFingerprint: draft.reportSnapshot?.contentFingerprint ?? 'missing',
     });
     const fingerprintExportIndex = dataset.outputExports.length;
     dataset.outputExports.push({
@@ -451,6 +540,18 @@ describe('Fabric dataset relationship and governance validation', () => {
       outputId: published.id,
       outputVersion: published.version,
       sourceFingerprint: 'not-the-report-snapshot-fingerprint',
+      contentFingerprint:
+        published.reportSnapshot?.contentFingerprint ?? 'missing',
+    });
+    const contentFingerprintExportIndex = dataset.outputExports.length;
+    dataset.outputExports.push({
+      ...existingExport,
+      id: 'output-export-wrong-content-fingerprint',
+      outputId: published.id,
+      outputVersion: published.version,
+      sourceFingerprint:
+        published.reportSnapshot?.sourceFingerprint ?? 'missing',
+      contentFingerprint: 'not-the-report-content-fingerprint',
     });
     const draftExportIndex = dataset.outputExports.findIndex(
       (item) => item.id === 'output-export-draft-client-facing',
@@ -465,6 +566,12 @@ describe('Fabric dataset relationship and governance validation', () => {
       hasIssueAtPath(
         result,
         `outputExports.${fingerprintExportIndex}.sourceFingerprint`,
+      ),
+    ).toBe(true);
+    expect(
+      hasIssueAtPath(
+        result,
+        `outputExports.${contentFingerprintExportIndex}.contentFingerprint`,
       ),
     ).toBe(true);
   });

@@ -1,7 +1,7 @@
 import type { ReactNode } from 'react';
 
 import type { FabricDataset } from '@domain';
-import { Card, EmptyState } from '@ui';
+import { Button, Card, EmptyState } from '@ui';
 
 import { useFabricData } from './FabricDataContext';
 
@@ -18,7 +18,7 @@ export function FabricDataView({
   emptyTitle,
   children,
 }: FabricDataViewProps) {
-  const { dataset, error, isLoading } = useFabricData();
+  const { dataset, error, isLoading, refresh } = useFabricData();
 
   if (isLoading) {
     return (
@@ -29,7 +29,17 @@ export function FabricDataView({
   }
 
   if (!dataset || error) {
-    return <EmptyState description={error ?? 'No repository dataset is currently available.'} title={emptyTitle} />;
+    return (
+      <EmptyState
+        action={
+          <Button onClick={() => void refresh()} variant="secondary">
+            Retry loading data
+          </Button>
+        }
+        description={error ?? 'No repository dataset is currently available.'}
+        title={emptyTitle}
+      />
+    );
   }
 
   return <>{children(dataset)}</>;

@@ -894,10 +894,14 @@ ul {
   color: var(--fabric-text-soft);
 }
 
-.ui-empty-state p:last-child {
+.ui-empty-state__description {
   margin-top: var(--fabric-space-3);
   color: var(--fabric-text-soft);
   line-height: 1.6;
+}
+
+.ui-empty-state__action {
+  margin-top: var(--fabric-space-4);
 }
 
 @media (max-width: 900px) {

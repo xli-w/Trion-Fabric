@@ -236,6 +236,7 @@ export function OutputDetailPage() {
     updateOutput,
   } = useFabricData();
   const [draftEditorOpen, setDraftEditorOpen] = useState(false);
+  const [archiveConfirmationOpen, setArchiveConfirmationOpen] = useState(false);
   const [reviewComment, setReviewComment] = useState('');
   const [transitionError, setTransitionError] = useState<string | null>(null);
   const [message, setMessage] = useState<string | null>(null);
@@ -392,15 +393,12 @@ export function OutputDetailPage() {
           setTransitionError(null);
           setMessage(null);
           try {
-            const exportReference = await recordOutputExport(
-              output.id,
-              format,
-              audience,
-            );
+            const { exportReference, report: exportedReport } =
+              await recordOutputExport(output.id, format, audience);
             const content =
               format === 'markdown'
-                ? serializeOutputReportAsMarkdown(report)
-                : serializeOutputReportAsAiPackage(report);
+                ? serializeOutputReportAsMarkdown(exportedReport)
+                : serializeOutputReportAsAiPackage(exportedReport);
             downloadTextReport(
               content,
               exportReference.fileName,
@@ -517,7 +515,7 @@ export function OutputDetailPage() {
                     ) : null}
                     {output.status !== 'archived' && canArchive ? (
                       <Button
-                        onClick={() => void transitionTo('archived')}
+                        onClick={() => setArchiveConfirmationOpen(true)}
                         variant="ghost"
                       >
                         Archive output
@@ -770,7 +768,7 @@ export function OutputDetailPage() {
 
             <Card
               title={`Export references (${exports.length})`}
-              description="Export records retain the format, audience, version, source fingerprint, and internal user responsible for each generated file."
+              description="Export records retain the format, audience, version, source state, frozen report content, and internal user responsible for each generated file."
             >
               {exports.length === 0 ? (
                 <p className="body-copy body-copy--small">
@@ -782,6 +780,19 @@ export function OutputDetailPage() {
                     { header: 'File', render: (row) => row.fileName },
                     { header: 'Format', render: (row) => row.format },
                     { header: 'Audience', render: (row) => row.audience },
+                    {
+                      header: 'Report provenance',
+                      render: (row) => (
+                        <span className="output-export-provenance">
+                          <span>
+                            Content <code>{row.contentFingerprint}</code>
+                          </span>
+                          <span>
+                            Sources <code>{row.sourceFingerprint}</code>
+                          </span>
+                        </span>
+                      ),
+                    },
                     {
                       header: 'Exported by',
                       render: (row) => row.exportedByName,
@@ -796,6 +807,39 @@ export function OutputDetailPage() {
                 />
               )}
             </Card>
+
+            <Sheet
+              description="Archiving preserves this report version and its export history, but removes it from active delivery work. Create a new draft version if the engagement needs a revised report later."
+              eyebrow="Destructive action"
+              footer={
+                <div className="output-transition-actions">
+                  <Button
+                    onClick={() => setArchiveConfirmationOpen(false)}
+                    variant="ghost"
+                  >
+                    Keep report active
+                  </Button>
+                  <Button
+                    onClick={() => {
+                      setArchiveConfirmationOpen(false);
+                      void transitionTo('archived');
+                    }}
+                    variant="secondary"
+                  >
+                    Archive this report
+                  </Button>
+                </div>
+              }
+              onOpenChange={setArchiveConfirmationOpen}
+              open={archiveConfirmationOpen}
+              size="sm"
+              title={`Archive ${output.title}?`}
+            >
+              <p className="body-copy">
+                Confirm only when this controlled output should no longer be
+                used as an active engagement deliverable.
+              </p>
+            </Sheet>
 
             <Sheet
               description="Select approved sources and add editorial narrative. Saving regenerates only this internal draft report snapshot."

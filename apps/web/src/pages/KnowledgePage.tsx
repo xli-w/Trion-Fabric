@@ -63,7 +63,11 @@ export function KnowledgePage() {
     null,
   );
   const [creating, setCreating] = useState(false);
+  const [retiringKnowledgeId, setRetiringKnowledgeId] = useState<string | null>(
+    null,
+  );
   const [message, setMessage] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
   const [query, setQuery] = useState('');
   const [type, setType] = useState('');
   const [status, setStatus] = useState('');
@@ -75,6 +79,7 @@ export function KnowledgePage() {
 
   useEffect(() => {
     setSelectedKnowledgeId(searchParams.get('knowledge'));
+    setRetiringKnowledgeId(null);
   }, [searchParams]);
 
   function selectKnowledge(knowledgeId: string) {
@@ -87,6 +92,7 @@ export function KnowledgePage() {
     statusToApply: KnowledgeEntry['status'],
   ) {
     setMessage(null);
+    setError(null);
     try {
       const saved = await updateKnowledgeEntry({
         ...entry,
@@ -102,7 +108,7 @@ export function KnowledgePage() {
             : 'Knowledge entry retired from active reuse.',
       );
     } catch (caught) {
-      setMessage(
+      setError(
         caught instanceof Error
           ? caught.message
           : 'The knowledge status could not be changed.',
@@ -172,17 +178,13 @@ export function KnowledgePage() {
             />
 
             {message ? (
-              <p
-                className={
-                  message.includes('could not') ||
-                  message.includes('cannot') ||
-                  message.includes('must')
-                    ? 'form-error'
-                    : 'form-success'
-                }
-                role="status"
-              >
+              <p className="form-success" role="status">
                 {message}
+              </p>
+            ) : null}
+            {error ? (
+              <p className="form-error" role="alert">
+                {error}
               </p>
             ) : null}
 
@@ -463,14 +465,47 @@ export function KnowledgePage() {
                       </Button>
                     ) : null}
                     {canEdit && selectedKnowledge.status !== 'retired' ? (
-                      <Button
-                        onClick={() =>
-                          void transition(selectedKnowledge.entry, 'retired')
-                        }
-                        variant="ghost"
-                      >
-                        <Archive size={15} /> Retire
-                      </Button>
+                      retiringKnowledgeId === selectedKnowledge.id ? (
+                        <section
+                          className="knowledge-retirement-confirmation"
+                          role="alert"
+                        >
+                          <strong>Retire this knowledge entry?</strong>
+                          <p className="body-copy body-copy--small">
+                            Retired knowledge is excluded from active reuse and
+                            retrieval, while its history remains retained.
+                          </p>
+                          <div className="knowledge-inspector__actions">
+                            <Button
+                              onClick={() => setRetiringKnowledgeId(null)}
+                              variant="ghost"
+                            >
+                              Keep active
+                            </Button>
+                            <Button
+                              onClick={() => {
+                                setRetiringKnowledgeId(null);
+                                void transition(
+                                  selectedKnowledge.entry,
+                                  'retired',
+                                );
+                              }}
+                              variant="secondary"
+                            >
+                              Confirm retirement
+                            </Button>
+                          </div>
+                        </section>
+                      ) : (
+                        <Button
+                          onClick={() =>
+                            setRetiringKnowledgeId(selectedKnowledge.id)
+                          }
+                          variant="ghost"
+                        >
+                          <Archive size={15} /> Retire
+                        </Button>
+                      )
                     ) : null}
                   </div>
                 </div>

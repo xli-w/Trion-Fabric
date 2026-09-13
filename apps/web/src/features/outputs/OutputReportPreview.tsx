@@ -118,6 +118,14 @@ export function OutputReportPreview({
                 />
               ))}
             </div>
+            {showInternalAudit && section.sourceReferences.length > 0 ? (
+              <p className="output-report__section-sources">
+                <strong>Section sources:</strong>{' '}
+                {section.sourceReferences.map((sourceId) => (
+                  <code key={sourceId}>{sourceId}</code>
+                ))}
+              </p>
+            ) : null}
           </section>
         ))}
       </div>

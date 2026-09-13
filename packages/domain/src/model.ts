@@ -748,7 +748,7 @@ export interface Evidence extends BaseEntity {
   siteWalkId?: EntityId;
   evidenceType?: EvidenceType;
   description?: string;
-  fileReference?: string;
+  fileReference?: string; // Managed-storage key; never a local path or direct URL.
   source?: ObservationSource;
   capturedByUserId?: EntityId;
   reviewStatus?: EvidenceReviewStatus;
@@ -1097,6 +1097,7 @@ export interface Output extends BaseEntity {
 export interface OutputSectionOverride {
   sectionId: string;
   narrative: string;
+  sourceReferences: EntityId[];
 }
 
 export type OutputReportBlock =
@@ -1156,6 +1157,7 @@ export interface OutputReportSnapshot {
   templateVersion: string;
   generatedAt: IsoDateTimeString;
   sourceFingerprint: string;
+  contentFingerprint: string;
   context: OutputReportContext;
   sections: OutputReportSection[];
   includedSources: OutputReportSource[];
@@ -1178,6 +1180,7 @@ export interface OutputExportReference extends BaseEntity {
   fileName: string;
   outputVersion: string;
   sourceFingerprint: string;
+  contentFingerprint: string;
   exportedByUserId: EntityId;
   exportedAt: IsoDateTimeString;
 }

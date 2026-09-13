@@ -1,16 +1,32 @@
 # Trion Fabric
 
-Fabric is the foundation of Trion's internal transformation operating environment. This repository establishes the first architecture layer for a connected workspace that can support discovery, diagnostics, opportunity shaping, delivery planning, and controlled client outputs without collapsing into disconnected forms or static reports.
+Fabric is Trion's internal transformation operating environment. It connects
+client and site context, fieldwork, diagnostics, opportunity shaping, delivery
+planning, and governed outputs through one structured engagement model rather
+than disconnected forms or static reports.
 
-## What This Foundation Includes
+## What Fabric Includes
 
-- A runnable TypeScript web application shell for Trion's internal teams.
-- A typed domain model covering clients, sites, engagements, site walks, evidence, opportunities, initiatives, actions, outputs, systems, and users.
-- A data access boundary with an in-memory repository and validated development fixtures.
-- Reusable UI primitives, design tokens, and a structured application layout.
-- Initial pages for workspace, clients, engagements, site walks, opportunities, and outputs.
-- Planned surfaces for sites, landscape, diagnosis, roadmap, and settings so future work lands in explicit domain boundaries.
-- Documentation describing architecture, product principles, and early technical decisions.
+- A runnable TypeScript workspace for internal Trion teams.
+- Typed, runtime-validated domain models for clients, sites, engagements, site
+  walks, evidence, diagnostics, opportunities, initiatives, roadmaps, benefits,
+  outputs, reusable knowledge, and users.
+- Methodology templates/runs and promotion from preliminary site walk to digital
+  diagnostic.
+- A versioned digital landscape model with controlled client-safe projections.
+- Engagement-aware evidence retrieval and internal knowledge lifecycle controls.
+- Controlled reports aligned to the same underlying scorecard, landscape,
+  opportunity, roadmap, and benefit records; Markdown and AI-ingestible JSON
+  downloads; review comments; source freshness; version lineage; and export
+  audit records.
+- Permission checks at the repository persistence seam, engagement-scoped
+  workspace projections, activity events, retry states, and destructive-action
+  confirmation.
+- Reusable UI primitives, design tokens, focused Vitest coverage, and CI checks
+  for lint, tests, and build.
+
+See the [production-readiness review](docs/operations/production-readiness.md)
+for the current operating boundary, known limitations, and release gates.
 
 ## Chosen Stack
 
@@ -20,9 +36,8 @@ Fabric is the foundation of Trion's internal transformation operating environmen
 - React Router 6
 - Zod for runtime validation
 - ESLint + Prettier
-- Vitest for focused unit tests
-
-This stack was selected to keep the repository runnable on the current local Node 14.18 environment while still providing a clean upgrade path to newer tooling once the workspace runtime is modernised.
+- Vitest for focused unit and workflow tests
+- Node 20.19.0 or newer compatible supported LTS release
 
 ## Repository Structure
 
@@ -45,6 +60,7 @@ packages/
 docs/
   architecture/
   decisions/
+  operations/
   product/
 tests/
 ```
@@ -60,11 +76,15 @@ tests/
 
 ## Run The Project
 
-1. Install the exact dependencies from the committed lockfile with `npm ci`. Use `npm install` only when intentionally changing dependencies.
-2. Start the development server with `npm run dev`.
-3. Run lint checks with `npm run lint`.
-4. Run tests with `npm run test`.
-5. Create a production build with `npm run build`.
+1. Use the Node version in [`.nvmrc`](.nvmrc).
+2. Copy [`.env.example`](.env.example) to `.env.local` for local
+   development. Only use synthetic fixture data.
+3. Install the exact dependencies from the committed lockfile with `npm ci`.
+   Use `npm install` only when intentionally changing dependencies.
+4. Start the development server with `npm run dev`.
+5. Run lint checks with `npm run lint`.
+6. Run tests with `npm run test`.
+7. Create a production build with `npm run build`.
 
 ## How Future Features Should Be Added
 
@@ -76,13 +96,14 @@ tests/
 
 ## Intentionally Deferred
 
-- Real database persistence
-- Authentication and permissions
-- AI model integration
-- Graph editing for the digital landscape
-- Configurable diagnostic engine
-- Document generation engine
-- Client portal
-- Delivery automation workflows
+- Authenticated server-side API/database persistence and server-enforced
+  engagement isolation.
+- Managed evidence-file storage and authorized download delivery.
+- External AI model integration and telemetry.
+- Database migration, backup, monitoring, and deployment infrastructure.
+- Client portal and delivery automation workflows.
 
-See the architecture notes in `docs/` for the rationale behind the structure and the next implementation seam.
+The application intentionally fails rather than using in-memory fixtures in a
+production release stage. See the
+[production-readiness review](docs/operations/production-readiness.md) for the
+next implementation sequence.

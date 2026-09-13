@@ -858,18 +858,7 @@ export function isOutputSourceSupportedByTemplate(
   return sourceTypesByOutputType[outputType].has(sourceType);
 }
 
-function createSourceFingerprint(sources: OutputSourceCandidate[]) {
-  const value = sources
-    .map((source) =>
-      [
-        source.id,
-        source.engagementId ?? '',
-        source.updatedAt ?? '',
-        source.isClientSafe ? 'safe' : 'excluded',
-      ].join(':'),
-    )
-    .sort()
-    .join('|');
+function createFingerprint(value: string) {
   let hash = 2166136261;
 
   for (let index = 0; index < value.length; index += 1) {
@@ -878,6 +867,24 @@ function createSourceFingerprint(sources: OutputSourceCandidate[]) {
   }
 
   return `fnv1a-${(hash >>> 0).toString(16).padStart(8, '0')}`;
+}
+
+function createSourceFingerprint(sources: OutputSourceCandidate[]) {
+  const value = sources
+    .map((source) =>
+      [
+        source.id,
+        source.engagementId ?? '',
+        source.updatedAt ?? '',
+        source.type,
+        source.title,
+        source.isClientSafe ? 'safe' : 'excluded',
+      ].join(':'),
+    )
+    .sort()
+    .join('|');
+
+  return createFingerprint(value);
 }
 
 function selectedSources(
@@ -1757,17 +1764,16 @@ function reportSections(
 function applySectionOverrides(
   output: Output,
   sections: OutputReportSection[],
+  includedSourceIds: Set<EntityId>,
 ) {
   const overrides = new Map(
-    output.sectionOverrides.map((override) => [
-      override.sectionId,
-      override.narrative.trim(),
-    ]),
+    output.sectionOverrides.map((override) => [override.sectionId, override]),
   );
 
   return sections.map((section) => {
-    const narrative = overrides.get(section.id);
-    if (!section.editable || !narrative) {
+    const override = overrides.get(section.id);
+    const narrative = override?.narrative.trim();
+    if (!section.editable || !narrative || !override) {
       return section;
     }
 
@@ -1780,8 +1786,29 @@ function applySectionOverrides(
           content: narrative,
         },
       ],
+      sourceReferences: uniqueValues([
+        ...section.sourceReferences,
+        ...override.sourceReferences.filter((sourceId) =>
+          includedSourceIds.has(sourceId),
+        ),
+      ]),
     };
   });
+}
+
+type OutputReportSnapshotContent = Omit<
+  OutputReportSnapshot,
+  'contentFingerprint'
+>;
+type OutputReportSnapshotFingerprintInput = OutputReportSnapshotContent &
+  Partial<Pick<OutputReportSnapshot, 'contentFingerprint'>>;
+
+export function getOutputReportContentFingerprint(
+  snapshot: OutputReportSnapshotFingerprintInput,
+) {
+  const content = { ...snapshot };
+  delete content.contentFingerprint;
+  return createFingerprint(JSON.stringify(content));
 }
 
 export function createOutputReportSnapshot(
@@ -1797,9 +1824,10 @@ export function createOutputReportSnapshot(
   const sections = applySectionOverrides(
     output,
     reportSections(dataset, output, includedSourceIds),
+    includedSourceIds,
   );
 
-  return {
+  const snapshot: OutputReportSnapshotContent = {
     schemaVersion: 'trion-output-report/v1',
     templateId: template.id,
     templateVersion: template.version,
@@ -1812,6 +1840,30 @@ export function createOutputReportSnapshot(
     ),
     excludedSources: sources.excluded,
   };
+
+  return {
+    ...snapshot,
+    contentFingerprint: getOutputReportContentFingerprint(snapshot),
+  };
+}
+
+export function prepareOutputExportSnapshot(
+  dataset: FabricDataset,
+  output: Output,
+  generatedAt: string,
+) {
+  const snapshot =
+    output.reportSnapshot ??
+    createOutputReportSnapshot(dataset, output, generatedAt);
+  const outputWithSnapshot = output.reportSnapshot
+    ? output
+    : {
+        ...output,
+        reportSnapshot: snapshot,
+        updatedAt: generatedAt,
+      };
+
+  return { output: outputWithSnapshot, snapshot };
 }
 
 export function resolveOutputReport(
@@ -1867,7 +1919,27 @@ export function isOutputReportClientReady(
   }
 
   const sources = selectedSources(dataset, output);
-  return sources.excluded.length === 0 && sources.included.length > 0;
+  const snapshot = output.reportSnapshot;
+  if (!snapshot) {
+    return false;
+  }
+  const includedSourceIds = new Set(
+    sources.included.map((source) => source.id),
+  );
+
+  return (
+    snapshot.contentFingerprint ===
+      getOutputReportContentFingerprint(snapshot) &&
+    sources.excluded.length === 0 &&
+    sources.included.length > 0 &&
+    output.sectionOverrides.every(
+      (override) =>
+        override.sourceReferences.length > 0 &&
+        override.sourceReferences.every((sourceId) =>
+          includedSourceIds.has(sourceId),
+        ),
+    )
+  );
 }
 
 export function nextOutputVersion(existingVersions: string[]) {
@@ -1929,15 +2001,25 @@ export function serializeOutputReportAsMarkdown(report: OutputReport) {
     `**Version:** ${report.output.version}`,
     `**Status:** ${labelise(report.output.status)}`,
     `**Generated:** ${report.snapshot.generatedAt}`,
+    `**Content fingerprint:** ${report.snapshot.contentFingerprint}`,
     '',
     'This controlled report is derived from approved, engagement-scoped source data.',
   ];
   const sections = report.snapshot.sections.map((section) =>
-    [`## ${section.title}`, '', markdownBlocks(section.blocks)].join('\n'),
+    [
+      `## ${section.title}`,
+      '',
+      markdownBlocks(section.blocks),
+      ...(section.sourceReferences.length > 0
+        ? ['', `**Sources:** ${section.sourceReferences.join(', ')}`]
+        : []),
+    ].join('\n'),
   );
   const provenance = [
     '## Provenance',
     '',
+    `Frozen report content: ${report.snapshot.contentFingerprint}`,
+    `Selected source state: ${report.snapshot.sourceFingerprint}`,
     `Included source records: ${report.snapshot.includedSources.length}`,
     ...report.snapshot.includedSources.map(
       (source) => `- ${source.type}: ${source.title} (${source.id})`,

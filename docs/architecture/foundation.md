@@ -28,7 +28,10 @@ Page
   -> validated dataset
 ```
 
-Development fixtures currently back the repository. Replacing this with a database or API should happen at the repository layer without rewriting the page surfaces.
+Development fixtures currently back the repository. Replacing this with a
+database or API should happen at the repository layer without rewriting the
+page surfaces. The browser project now rejects fixture storage for a production
+release stage; it does not include a production repository adapter.
 
 ## Domain Boundaries
 
@@ -70,11 +73,17 @@ This avoids the common mistake of treating all captured information as publishab
 
 ## Workspace Activity And Access
 
-The internal workbench records important changes as reusable activity events with an actor, timestamp, affected entity, action, and metadata. The repository-backed data context applies the domain access policy before saving changes, so a button is not the sole permission boundary. It exposes immutable UI snapshots and keeps the authorization actor separate from those snapshots. The current development workspace can switch between Administrator, Engagement Lead, Consultant, Analyst, Reviewer, and Read-only internal user contexts to exercise these constraints.
+The internal workbench records important changes as reusable activity events with an actor, timestamp, affected entity, action, and metadata. The repository-backed data context applies the domain access policy before saving changes, so a button is not the sole permission boundary. It exposes immutable UI snapshots and keeps the authorization actor separate from those snapshots. The standard workspace view also projects data to the selected actor's accessible engagements, preventing normal route enumeration from exposing another engagement's records.
+
+The current development workspace can switch between Administrator, Engagement
+Lead, Consultant, Analyst, Reviewer, and Read-only internal user contexts to
+exercise these constraints. That selector is not authentication. A production
+repository must bind the actor to a server-authenticated session and enforce the
+same engagement boundary for every read and write.
 
 ## AI Extension Seam
 
-No AI provider is integrated yet. The current architecture reserves room for future AI capabilities by making provenance, approval, and human review first-class concerns in the domain model.
+No AI provider is integrated yet. The current architecture reserves room for future AI capabilities by making provenance, approval, and human review first-class concerns in the domain model. Controlled report downloads are structured for AI ingestion, but they remain context for manual preparation rather than a model integration or authorization grant.
 
 When AI work begins, the preferred seam is:
 

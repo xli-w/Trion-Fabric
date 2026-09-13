@@ -45,6 +45,9 @@ export function OutputDraftEditor({
   );
   const [selectedSourceIds, setSelectedSourceIds] = useState<EntityId[]>([]);
   const [narratives, setNarratives] = useState<Record<string, string>>({});
+  const [narrativeSourceIds, setNarrativeSourceIds] = useState<
+    Record<string, EntityId[]>
+  >({});
   const [error, setError] = useState<string | null>(null);
   const [isSaving, setIsSaving] = useState(false);
 
@@ -65,6 +68,14 @@ export function OutputDraftEditor({
         ]),
       ),
     );
+    setNarrativeSourceIds(
+      Object.fromEntries(
+        output.sectionOverrides.map((override) => [
+          override.sectionId,
+          override.sourceReferences,
+        ]),
+      ),
+    );
     setError(null);
   }, [output, sources]);
 
@@ -76,11 +87,34 @@ export function OutputDraftEditor({
   );
 
   function toggleSource(sourceId: EntityId) {
+    if (selectedSourceIds.includes(sourceId)) {
+      setNarrativeSourceIds((narrativesBySection) =>
+        Object.fromEntries(
+          Object.entries(narrativesBySection).map(([sectionId, sourceIds]) => [
+            sectionId,
+            sourceIds.filter((id) => id !== sourceId),
+          ]),
+        ),
+      );
+    }
+
     setSelectedSourceIds((current) =>
       current.includes(sourceId)
         ? current.filter((id) => id !== sourceId)
         : [...current, sourceId],
     );
+  }
+
+  function toggleNarrativeSource(sectionId: string, sourceId: EntityId) {
+    setNarrativeSourceIds((current) => {
+      const sourceIds = current[sectionId] ?? [];
+      return {
+        ...current,
+        [sectionId]: sourceIds.includes(sourceId)
+          ? sourceIds.filter((id) => id !== sourceId)
+          : [...sourceIds, sourceId],
+      };
+    });
   }
 
   async function save(event: FormEvent<HTMLFormElement>) {
@@ -92,17 +126,33 @@ export function OutputDraftEditor({
       return;
     }
 
+    const sectionOverrides = editableSections
+      .map((section) => ({
+        sectionId: section.id,
+        narrative: narratives[section.id]?.trim() ?? '',
+        sourceReferences: (narrativeSourceIds[section.id] ?? []).filter(
+          (sourceId) => selectedSourceIds.includes(sourceId),
+        ),
+      }))
+      .filter((override) => override.narrative.length > 0);
+
+    if (
+      sectionOverrides.some(
+        (override) => override.sourceReferences.length === 0,
+      )
+    ) {
+      setError(
+        'Select at least one approved report source for every editorial narrative.',
+      );
+      return;
+    }
+
     setIsSaving(true);
     try {
       await onSave({
         ...output,
         sourceReferences: selectedSourceIds,
-        sectionOverrides: editableSections
-          .map((section) => ({
-            sectionId: section.id,
-            narrative: narratives[section.id]?.trim() ?? '',
-          }))
-          .filter((override) => override.narrative.length > 0),
+        sectionOverrides,
       });
     } catch (caught) {
       setError(
@@ -164,22 +214,62 @@ export function OutputDraftEditor({
         </section>
       ) : null}
 
-      {editableSections.map((section) => (
-        <label className="output-report-form__narrative" key={section.id}>
-          <span>{section.title}</span>
-          <textarea
-            onChange={(event) =>
-              setNarratives((current) => ({
-                ...current,
-                [section.id]: event.target.value,
-              }))
-            }
-            placeholder="Add a concise client-ready narrative for this section..."
-            rows={5}
-            value={narratives[section.id] ?? ''}
-          />
-        </label>
-      ))}
+      {editableSections.map((section) => {
+        const narrative = narratives[section.id] ?? '';
+        const supportingSources = safeSources.filter((source) =>
+          selectedSourceIds.includes(source.id),
+        );
+
+        return (
+          <fieldset className="output-report-form__narrative" key={section.id}>
+            <legend>{section.title}</legend>
+            <label>
+              <span className="sr-only">{section.title} narrative</span>
+              <textarea
+                onChange={(event) =>
+                  setNarratives((current) => ({
+                    ...current,
+                    [section.id]: event.target.value,
+                  }))
+                }
+                placeholder="Add a concise client-ready narrative for this section..."
+                rows={5}
+                value={narrative}
+              />
+            </label>
+            <div className="output-report-form__narrative-sources">
+              <span>Sources supporting this editorial narrative</span>
+              <p className="body-copy body-copy--small">
+                Required when a narrative is added. Only selected approved
+                report sources can be cited.
+              </p>
+              {supportingSources.length > 0 ? (
+                <div className="output-report-form__source-list">
+                  {supportingSources.map((source) => (
+                    <label key={source.id}>
+                      <input
+                        checked={(
+                          narrativeSourceIds[section.id] ?? []
+                        ).includes(source.id)}
+                        disabled={narrative.trim().length === 0}
+                        onChange={() =>
+                          toggleNarrativeSource(section.id, source.id)
+                        }
+                        type="checkbox"
+                      />
+                      <span>{sourceLabel(source)}</span>
+                    </label>
+                  ))}
+                </div>
+              ) : (
+                <p className="form-error">
+                  Select an approved report source before adding a narrative.
+                </p>
+              )}
+            </div>
+          </fieldset>
+        );
+      })}
 
       {error ? (
         <p className="form-error" role="alert">

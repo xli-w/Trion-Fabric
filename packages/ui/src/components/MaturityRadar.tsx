@@ -34,26 +34,46 @@ export interface MaturityRadarProps {
   showTargetBenchmark?: boolean;
 }
 
+interface MaturityRadarDatum {
+  id: string;
+  dimension: string;
+  fullName: string;
+  currentScore: number;
+  targetScore: number;
+  level: string;
+  confidence: string;
+  reviewStatus: string;
+  rationale?: string;
+  raw: MaturityDimensionScore;
+}
+
+interface MaturityTooltipProps {
+  active?: boolean;
+  payload?: Array<{ payload?: MaturityRadarDatum }>;
+}
+
+interface MaturityRadarClickEvent {
+  activePayload?: Array<{ payload?: { raw?: MaturityDimensionScore } }>;
+}
+
 const levelNames = ['Reactive', 'Developing', 'Controlled', 'Integrated', 'Optimised'];
+
+function isMaturityRadarClickEvent(
+  event: unknown,
+): event is MaturityRadarClickEvent {
+  return typeof event === 'object' && event !== null && 'activePayload' in event;
+}
 
 export function MaturityRadar({
   dimensions,
   onSelectDimension,
-  selectedDimensionId,
   height = 380,
   showTargetBenchmark = true,
 }: MaturityRadarProps) {
-  let isDark = true;
-  try {
-    const themeContext = useTheme();
-    isDark = themeContext.resolvedTheme === 'dark';
-  } catch {
-    if (typeof document !== 'undefined') {
-      isDark = document.documentElement.getAttribute('data-theme') === 'dark';
-    }
-  }
+  const { resolvedTheme } = useTheme();
+  const isDark = resolvedTheme === 'dark';
 
-  const chartData = useMemo(() => {
+  const chartData = useMemo<MaturityRadarDatum[]>(() => {
     return dimensions.map((d) => {
       // Shorten name if very long for radar axis
       const shortLabel =
@@ -75,9 +95,9 @@ export function MaturityRadar({
     });
   }, [dimensions]);
 
-  const CustomTooltip = ({ active, payload }: any) => {
-    if (active && payload && payload.length) {
-      const data = payload[0].payload;
+  const CustomTooltip = ({ active, payload }: MaturityTooltipProps) => {
+    const data = payload?.[0]?.payload;
+    if (active && data) {
       return (
         <div className="fabric-radar-tooltip">
           <div className="radar-tooltip-title">{data.fullName}</div>
@@ -120,10 +140,14 @@ export function MaturityRadar({
           <RadarChart
             data={chartData}
             margin={{ top: 20, right: 30, bottom: 20, left: 30 }}
-            onClick={(e: any) => {
-              if (e && e.activePayload && e.activePayload.length && onSelectDimension) {
-                const item = e.activePayload[0].payload.raw;
-                onSelectDimension(item);
+            onClick={(event: unknown) => {
+              if (!onSelectDimension || !isMaturityRadarClickEvent(event)) {
+                return;
+              }
+
+              const dimension = event.activePayload?.[0]?.payload?.raw;
+              if (dimension) {
+                onSelectDimension(dimension);
               }
             }}
           >

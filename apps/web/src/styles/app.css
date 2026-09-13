@@ -1628,6 +1628,21 @@
   gap: 8px;
 }
 
+.knowledge-retirement-confirmation {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  width: 100%;
+  padding: 14px;
+  border: 1px solid var(--fabric-warning);
+  border-radius: var(--fabric-radius-md);
+  background: var(--fabric-warning-soft);
+}
+
+.knowledge-retirement-confirmation p {
+  margin: 0;
+}
+
 .knowledge-tag-list {
   display: flex;
   flex-wrap: wrap;
@@ -1835,6 +1850,45 @@
   line-height: 1.5;
 }
 
+.output-report__section-sources {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin: 14px 0 0;
+  color: var(--fabric-text-soft);
+  font-size: 12px;
+}
+
+.output-report__section-sources strong {
+  color: var(--fabric-text);
+}
+
+.output-export-provenance {
+  display: grid;
+  gap: 3px;
+  color: var(--fabric-text-soft);
+  font-size: 12px;
+}
+
+.app-error-boundary {
+  display: grid;
+  min-height: 100vh;
+  place-items: center;
+  padding: 24px;
+  background: var(--fabric-canvas);
+}
+
+.app-error-boundary .ui-empty-state {
+  max-width: 520px;
+}
+
+.app-error-boundary__actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 10px;
+}
+
 .output-report__editorial-label {
   padding: 5px 8px;
   border: 1px solid var(--fabric-accent-border);
@@ -2019,6 +2073,16 @@
   font-weight: 700;
 }
 
+.output-report-form__narrative {
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+
+.output-report-form__narrative legend {
+  padding: 0;
+}
+
 .output-report-form__narrative textarea,
 .output-review-comment-form textarea {
   width: 100%;
@@ -2039,6 +2103,23 @@
   outline: none;
   border-color: var(--fabric-accent);
   background: var(--fabric-surface);
+}
+
+.output-report-form__narrative-sources {
+  display: grid;
+  gap: 4px;
+  padding: 12px;
+  border: 1px solid var(--fabric-border);
+  border-radius: var(--fabric-radius-sm);
+  background: var(--fabric-surface-alt);
+}
+
+.output-report-form__narrative-sources > .body-copy {
+  margin: 0;
+}
+
+.output-report-form__narrative-sources .output-report-form__source-list {
+  margin-top: 4px;
 }
 
 .output-report-form__actions,
