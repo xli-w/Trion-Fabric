@@ -40,7 +40,8 @@ export const fabricFixtures: FabricDataset = {
       industry: 'Aerospace machining',
       status: 'active',
       primaryContact: 'Operations Director',
-      notes: 'Digital diagnostic centred on production visibility, quality escalation, and shop-floor information flow.',
+      notes:
+        'Digital diagnostic centred on production visibility, quality escalation, and shop-floor information flow.',
     },
     {
       id: 'client-airedale-foods',
@@ -51,7 +52,8 @@ export const fabricFixtures: FabricDataset = {
       industry: 'Food manufacturing',
       status: 'active',
       primaryContact: 'Site General Manager',
-      notes: 'Discovery engagement to map intake, stock accuracy, and dispatch handoffs.',
+      notes:
+        'Discovery engagement to map intake, stock accuracy, and dispatch handoffs.',
     },
   ],
   sites: [
@@ -74,7 +76,8 @@ export const fabricFixtures: FabricDataset = {
       clientId: 'client-airedale-foods',
       name: 'Leeds Production Campus',
       location: 'Leeds, UK',
-      description: 'Batch production site with intake, mixing, packing, and despatch.',
+      description:
+        'Batch production site with intake, mixing, packing, and despatch.',
       operationalProfile: 'Goods intake, batch processing, and warehouse flow',
       areaIds: ['area-intake-yard', 'area-dispatch'],
       systemIds: ['system-legacy-mes', 'system-business-central'],
@@ -122,7 +125,8 @@ export const fabricFixtures: FabricDataset = {
       siteId: 'site-northbank-sheffield',
       areaId: 'area-machine-shop',
       name: 'Shift handover',
-      description: 'Transfer current job status, blockers, and priorities between production shifts.',
+      description:
+        'Transfer current job status, blockers, and priorities between production shifts.',
       relatedSystemIds: ['system-epicor'],
     },
     {
@@ -132,7 +136,8 @@ export const fabricFixtures: FabricDataset = {
       siteId: 'site-northbank-sheffield',
       areaId: 'area-quality-lab',
       name: 'NCR reporting',
-      description: 'Capture, review, and route non-conformance information into corrective actions.',
+      description:
+        'Capture, review, and route non-conformance information into corrective actions.',
       relatedSystemIds: ['system-qms-sharepoint', 'system-epicor'],
     },
     {
@@ -142,7 +147,8 @@ export const fabricFixtures: FabricDataset = {
       siteId: 'site-airedale-leeds',
       areaId: 'area-intake-yard',
       name: 'Ingredient receipts',
-      description: 'Book-in and verify inbound materials against supplier and ERP records.',
+      description:
+        'Book-in and verify inbound materials against supplier and ERP records.',
       relatedSystemIds: ['system-business-central', 'system-legacy-mes'],
     },
   ],
@@ -174,7 +180,8 @@ export const fabricFixtures: FabricDataset = {
       siteId: 'site-airedale-leeds',
       name: 'Legacy MES',
       category: 'MES',
-      description: 'Batch and intake status capture used by warehouse and planning teams.',
+      description:
+        'Batch and intake status capture used by warehouse and planning teams.',
       ownerTeam: 'Planning',
     },
     {
@@ -196,7 +203,8 @@ export const fabricFixtures: FabricDataset = {
       clientId: 'client-northbank-precision',
       siteIds: ['site-northbank-sheffield'],
       name: 'Northbank digital diagnostic',
-      description: 'Assess the current operational information flow from machining through release and dispatch.',
+      description:
+        'Assess the current operational information flow from machining through release and dispatch.',
       type: 'Digital Diagnostic',
       status: 'active',
       stage: 'diagnose',
@@ -212,7 +220,8 @@ export const fabricFixtures: FabricDataset = {
       clientId: 'client-airedale-foods',
       siteIds: ['site-airedale-leeds'],
       name: 'Airedale intake and stock discovery',
-      description: 'Map intake, stock visibility, and paperwork pain points before solution shaping.',
+      description:
+        'Map intake, stock visibility, and paperwork pain points before solution shaping.',
       type: 'Advisory / Discovery',
       status: 'active',
       stage: 'discover',
@@ -235,8 +244,15 @@ export const fabricFixtures: FabricDataset = {
       scheduledAt: '2026-09-03T06:30:00Z',
       consultantUserId: 'user-amy-wilkinson',
       walkType: 'Focused process walk',
-      plannedScope: ['Observe two shift changes', 'Track job status updates into ERP'],
-      completedScope: ['Observed shift change', 'Captured paper handover artefacts', 'Traced one escalated issue'],
+      plannedScope: [
+        'Observe two shift changes',
+        'Track job status updates into ERP',
+      ],
+      completedScope: [
+        'Observed shift change',
+        'Captured paper handover artefacts',
+        'Traced one escalated issue',
+      ],
       status: 'completed',
       followUpActionIds: ['action-map-handover-fields'],
     },
@@ -252,8 +268,14 @@ export const fabricFixtures: FabricDataset = {
       scheduledAt: '2026-09-05T10:00:00Z',
       consultantUserId: 'user-james-carter',
       walkType: 'Evidence capture walk',
-      plannedScope: ['Review NCR intake', 'Observe routing between quality and production'],
-      completedScope: ['Reviewed NCR queue', 'Captured reporting duplication between systems'],
+      plannedScope: [
+        'Review NCR intake',
+        'Observe routing between quality and production',
+      ],
+      completedScope: [
+        'Reviewed NCR queue',
+        'Captured reporting duplication between systems',
+      ],
       status: 'completed',
       followUpActionIds: ['action-validate-ncr-routing'],
     },
@@ -269,7 +291,10 @@ export const fabricFixtures: FabricDataset = {
       scheduledAt: '2026-09-20T09:00:00Z',
       consultantUserId: 'user-sarah-mitchell',
       walkType: 'Discovery walk',
-      plannedScope: ['Follow one inbound booking process', 'Check paperwork against ERP receipt status'],
+      plannedScope: [
+        'Follow one inbound booking process',
+        'Check paperwork against ERP receipt status',
+      ],
       completedScope: [],
       status: 'planned',
       followUpActionIds: ['action-outline-receipts-checkpoints'],
@@ -282,8 +307,10 @@ export const fabricFixtures: FabricDataset = {
       updatedAt: '2026-09-03T13:45:00Z',
       siteWalkId: 'walk-northbank-machine-shop-01',
       processId: 'process-shift-handover',
-      summary: 'Operators rely on handwritten shift sheets before ERP updates are completed.',
-      detail: 'Handover notes are captured first on paper and later summarised into ERP by supervisors, creating a lag and inconsistent detail.',
+      summary:
+        'Operators rely on handwritten shift sheets before ERP updates are completed.',
+      detail:
+        'Handover notes are captured first on paper and later summarised into ERP by supervisors, creating a lag and inconsistent detail.',
       observedAt: '2026-09-03T07:10:00Z',
       origin: 'consultant',
       assurance: 'observed-fact',
@@ -297,8 +324,10 @@ export const fabricFixtures: FabricDataset = {
       updatedAt: '2026-09-05T15:20:00Z',
       siteWalkId: 'walk-northbank-quality-01',
       processId: 'process-ncr-reporting',
-      summary: 'NCR details are entered into both a SharePoint form and ERP comments.',
-      detail: 'Quality staff duplicate core defect context across two systems because production teams do not routinely access the QMS workspace.',
+      summary:
+        'NCR details are entered into both a SharePoint form and ERP comments.',
+      detail:
+        'Quality staff duplicate core defect context across two systems because production teams do not routinely access the QMS workspace.',
       observedAt: '2026-09-05T11:10:00Z',
       origin: 'consultant',
       assurance: 'observed-fact',
@@ -316,7 +345,8 @@ export const fabricFixtures: FabricDataset = {
       relatedEntityType: 'observation',
       kind: 'photo',
       title: 'Shift handover board photo set',
-      summary: 'Photographs of handwritten shift board and supervisor notebook.',
+      summary:
+        'Photographs of handwritten shift board and supervisor notebook.',
       capturedAt: '2026-09-03T07:15:00Z',
       origin: 'consultant',
       visibility: 'internal',
@@ -330,7 +360,8 @@ export const fabricFixtures: FabricDataset = {
       relatedEntityType: 'observation',
       kind: 'system-export',
       title: 'Open NCR queue export',
-      summary: 'Queue export highlighting duplicated information and aged records.',
+      summary:
+        'Queue export highlighting duplicated information and aged records.',
       capturedAt: '2026-09-05T11:30:00Z',
       origin: 'imported',
       visibility: 'internal',
@@ -341,10 +372,11 @@ export const fabricFixtures: FabricDataset = {
       createdAt: timestamp,
       updatedAt: '2026-09-08T12:10:00Z',
       relatedEntityId: 'engagement-airedale-discovery',
-      relatedEntityType: 'site-walk',
+      relatedEntityType: 'engagement',
       kind: 'interview-note',
       title: 'Warehouse supervisor intake briefing',
-      summary: 'Supervisor described paper-first receipts and later stock reconciliation.',
+      summary:
+        'Supervisor described paper-first receipts and later stock reconciliation.',
       capturedAt: '2026-09-08T12:00:00Z',
       origin: 'client',
       visibility: 'internal',
@@ -360,12 +392,17 @@ export const fabricFixtures: FabricDataset = {
       processId: 'process-shift-handover',
       areaId: 'area-machine-shop',
       title: 'Digitise shift handover capture',
-      description: 'Replace paper-first shift handover notes with a structured digital capture aligned to current ERP status fields.',
-      problemStatement: 'Critical production detail is delayed, summarised differently by shift supervisors, and not visible in real time.',
-      rootCause: 'Current ERP handover fields are too awkward for live use on the shop floor, so paper remains the practical first record.',
+      description:
+        'Replace paper-first shift handover notes with a structured digital capture aligned to current ERP status fields.',
+      problemStatement:
+        'Critical production detail is delayed, summarised differently by shift supervisors, and not visible in real time.',
+      rootCause:
+        'Current ERP handover fields are too awkward for live use on the shop floor, so paper remains the practical first record.',
       type: 'automate',
-      expectedImpact: 'Faster issue visibility, less transcription, and better production continuity between shifts.',
-      estimatedValueRange: 'Reduced daily coordination loss and fewer avoidable status chases.',
+      expectedImpact:
+        'Faster issue visibility, less transcription, and better production continuity between shifts.',
+      estimatedValueRange:
+        'Reduced daily coordination loss and fewer avoidable status chases.',
       estimatedEffort: 'medium',
       confidence: 'high',
       priority: 'high',
@@ -373,9 +410,37 @@ export const fabricFixtures: FabricDataset = {
       ownerUserId: 'user-amy-wilkinson',
       evidenceIds: ['evidence-handover-photo'],
       internalNotes: 'Needs field trial with one cell before wider rollout.',
-      clientSummary: 'Introduce a lightweight digital handover process to replace handwritten shift notes.',
+      clientSummary:
+        'Introduce a lightweight digital handover process to replace handwritten shift notes.',
       approvalState: 'approved',
-      initiativeIds: ['initiative-handover-foundation'],
+      reviewStatus: 'approved',
+      currentSituation:
+        'Operators complete handwritten shift sheets before supervisors re-key or summarise key information in Epicor.',
+      identifiedIssue:
+        'Critical production detail is delayed, inconsistent between shifts, and not visible when supervisors need it.',
+      whyItMatters:
+        'The next shift starts with incomplete context, while supervisors spend time chasing status instead of addressing blockers.',
+      recommendedImprovement:
+        'Pilot a lightweight digital handover record that captures only the information needed by the next shift and reuses existing ERP status fields.',
+      potentialBenefits:
+        'Faster issue visibility, less transcription, and better production continuity between shifts.',
+      indicativeValue:
+        'Indicative time release from reducing 20 minutes of transcription per shift; validate during the pilot.',
+      valueAssumptions:
+        'Based on two observed handovers and the current two-shift operating pattern.',
+      businessImpact: 'high',
+      implementationEffort: 'medium',
+      investment: '££',
+      strategicValue: 'high',
+      priorityCategory: 'Strategic Project',
+      recommendedTiming: 'Simplify phase: pilot within 0–3 months.',
+      dependencies:
+        'Agreement on minimum data fields and practical terminal access at the pilot cell.',
+      suggestedNextStep:
+        'Validate the minimum viable handover record with operators and supervisors.',
+      relatedObservationIds: ['observation-paper-handover'],
+      relatedFindingIds: ['finding-northbank-information-latency'],
+      owner: 'Amy Wilkinson',
     },
     {
       id: 'opportunity-unify-ncr-routing',
@@ -385,12 +450,17 @@ export const fabricFixtures: FabricDataset = {
       processId: 'process-ncr-reporting',
       areaId: 'area-quality-lab',
       title: 'Unify NCR routing and production visibility',
-      description: 'Reduce duplicated defect entry and make NCR status visible to production without parallel narratives.',
-      problemStatement: 'Quality and production teams operate from different views of the same defect because the primary record is fragmented.',
-      rootCause: 'The QMS tool is the formal system of record, but production teams rely on ERP comments for practical execution.',
+      description:
+        'Reduce duplicated defect entry and make NCR status visible to production without parallel narratives.',
+      problemStatement:
+        'Quality and production teams operate from different views of the same defect because the primary record is fragmented.',
+      rootCause:
+        'The QMS tool is the formal system of record, but production teams rely on ERP comments for practical execution.',
       type: 'integrate',
-      expectedImpact: 'Lower administration overhead and clearer corrective action ownership.',
-      estimatedValueRange: 'Avoided delay in NCR closure and less manual re-keying.',
+      expectedImpact:
+        'Lower administration overhead and clearer corrective action ownership.',
+      estimatedValueRange:
+        'Avoided delay in NCR closure and less manual re-keying.',
       estimatedEffort: 'medium',
       confidence: 'medium',
       priority: 'high',
@@ -398,9 +468,38 @@ export const fabricFixtures: FabricDataset = {
       ownerUserId: 'user-james-carter',
       evidenceIds: ['evidence-ncr-export'],
       internalNotes: 'Needs a quick architecture option set before approval.',
-      clientSummary: 'Create one coherent workflow for defect routing and visibility.',
+      clientSummary:
+        'Create one coherent workflow for defect routing and visibility.',
       approvalState: 'internal-review',
-      initiativeIds: [],
+      reviewStatus: 'reviewed',
+      currentSituation:
+        'Quality staff complete a SharePoint NCR form while production relies on separate ERP comments for operational context.',
+      identifiedIssue:
+        'The same defect context is entered twice and teams do not share one timely operational view.',
+      whyItMatters:
+        'Duplicate entry consumes quality capacity and slows corrective-action ownership across production and quality.',
+      recommendedImprovement:
+        'Define one primary NCR record and expose the agreed status fields to production through the existing systems.',
+      potentialBenefits:
+        'Lower administration overhead and clearer corrective-action ownership.',
+      indicativeValue:
+        'Indicative reduction in duplicate entry and aged NCR follow-up; validate against the NCR queue.',
+      valueAssumptions:
+        'Requires agreement on the QMS record of truth and the production status fields that must be visible.',
+      businessImpact: 'high',
+      implementationEffort: 'medium',
+      investment: '££',
+      strategicValue: 'high',
+      priorityCategory: 'Strategic Project',
+      recommendedTiming:
+        'Connect phase: validate options in 3–6 months after handover standardisation.',
+      dependencies:
+        'A confirmed primary NCR record and an agreed production visibility requirement.',
+      suggestedNextStep:
+        'Compare configuration and integration options with quality and production leads.',
+      relatedObservationIds: ['observation-ncr-double-entry'],
+      relatedFindingIds: ['finding-northbank-information-latency'],
+      owner: 'James Carter',
     },
     {
       id: 'opportunity-standardise-receipts',
@@ -410,11 +509,15 @@ export const fabricFixtures: FabricDataset = {
       processId: 'process-ingredient-receipts',
       areaId: 'area-intake-yard',
       title: 'Standardise intake receipts checkpoints',
-      description: 'Create a consistent intake check sequence before stock is considered available downstream.',
-      problemStatement: 'Inbound paperwork, visual checks, and ERP receipts are not completed in a repeatable order.',
-      rootCause: 'The intake process has evolved through local workarounds rather than one agreed operational standard.',
+      description:
+        'Create a consistent intake check sequence before stock is considered available downstream.',
+      problemStatement:
+        'Inbound paperwork, visual checks, and ERP receipts are not completed in a repeatable order.',
+      rootCause:
+        'The intake process has evolved through local workarounds rather than one agreed operational standard.',
       type: 'standardise',
-      expectedImpact: 'More reliable stock status and fewer downstream reconciliation surprises.',
+      expectedImpact:
+        'More reliable stock status and fewer downstream reconciliation surprises.',
       estimatedValueRange: 'Lower rework and fewer stock status queries.',
       estimatedEffort: 'low',
       confidence: 'medium',
@@ -422,10 +525,37 @@ export const fabricFixtures: FabricDataset = {
       status: 'identified',
       ownerUserId: 'user-sarah-mitchell',
       evidenceIds: ['evidence-receipts-interview'],
-      internalNotes: 'Confirm future-state ownership between warehouse and planning.',
-      clientSummary: 'Introduce a standard intake check flow before stock release.',
+      internalNotes:
+        'Confirm future-state ownership between warehouse and planning.',
+      clientSummary:
+        'Introduce a standard intake check flow before stock release.',
       approvalState: 'draft',
-      initiativeIds: [],
+      reviewStatus: 'draft',
+      currentSituation:
+        'Warehouse colleagues complete paperwork, visual checks, and ERP receipts in an inconsistent sequence.',
+      identifiedIssue:
+        'Stock can appear available before the required checks are completed consistently.',
+      whyItMatters:
+        'Planning and production may work from unreliable stock status, creating rework and avoidable status queries.',
+      recommendedImprovement:
+        'Agree and test a standard intake checkpoint sequence before stock is released downstream.',
+      potentialBenefits:
+        'More reliable stock status and fewer downstream reconciliation surprises.',
+      indicativeValue:
+        'Indicative reduction in stock-status queries and reconciliation effort; evidence remains incomplete.',
+      valueAssumptions:
+        'Validate the current variation and downstream consequences during the planned intake walk.',
+      businessImpact: 'medium',
+      implementationEffort: 'low',
+      investment: '£',
+      strategicValue: 'medium',
+      priorityCategory: 'Incremental Improvement',
+      recommendedTiming: 'Complete the discovery walk before agreeing timing.',
+      dependencies:
+        'Warehouse and planning agreement on ownership of each intake checkpoint.',
+      suggestedNextStep:
+        'Observe a representative inbound receipt and validate the future-state owner.',
+      owner: 'Sarah Mitchell',
     },
   ],
   actionItems: [
@@ -436,7 +566,8 @@ export const fabricFixtures: FabricDataset = {
       initiativeId: 'initiative-handover-foundation',
       opportunityId: 'opportunity-digitise-handover',
       title: 'Map minimum digital handover fields',
-      description: 'Define the minimum data set needed to replace the handwritten shift sheet without slowing operators.',
+      description:
+        'Define the minimum data set needed to replace the handwritten shift sheet without slowing operators.',
       status: 'in-progress',
       ownerUserId: 'user-amy-wilkinson',
       dueDate: '2026-09-17T17:00:00Z',
@@ -447,7 +578,8 @@ export const fabricFixtures: FabricDataset = {
       updatedAt: '2026-09-08T10:15:00Z',
       opportunityId: 'opportunity-unify-ncr-routing',
       title: 'Validate NCR data handoff options',
-      description: 'Compare workflow choices for keeping one primary defect record while exposing actionable status to production.',
+      description:
+        'Compare workflow choices for keeping one primary defect record while exposing actionable status to production.',
       status: 'open',
       ownerUserId: 'user-james-carter',
       dueDate: '2026-09-19T17:00:00Z',
@@ -458,7 +590,8 @@ export const fabricFixtures: FabricDataset = {
       updatedAt: '2026-09-10T16:45:00Z',
       opportunityId: 'opportunity-standardise-receipts',
       title: 'Draft intake checkpoints with warehouse lead',
-      description: 'Turn observed intake steps into a first controlled checklist for validation during the next walk.',
+      description:
+        'Turn observed intake steps into a first controlled checklist for validation during the next walk.',
       status: 'open',
       ownerUserId: 'user-sarah-mitchell',
       dueDate: '2026-09-22T17:00:00Z',
@@ -470,50 +603,240 @@ export const fabricFixtures: FabricDataset = {
       createdAt: timestamp,
       updatedAt: '2026-09-07T15:20:00Z',
       engagementId: 'engagement-northbank-diagnostic',
-      opportunityIds: ['opportunity-digitise-handover'],
+      opportunityId: 'opportunity-digitise-handover',
       title: 'Digital handover foundation',
-      summary: 'A lightweight digital handover layer aligned to shop-floor practicality and current ERP constraints.',
-      status: 'active',
+      description:
+        'A lightweight digital handover layer aligned to shop-floor practicality and current ERP constraints.',
+      objective:
+        'Create a reliable shift handover record without replacing the ERP.',
+      phase: 'Simplify',
+      status: 'in-progress',
       ownerUserId: 'user-amy-wilkinson',
-      targetWindow: 'Weeks 3-6 of diagnostic follow-on',
-      expectedBenefits: 'Real-time continuity between shifts, less manual re-keying, and earlier issue visibility.',
-      actionIds: ['action-map-handover-fields'],
+      priority: 'high',
+      startDate: '2026-09-15T09:00:00Z',
+      targetEndDate: '2026-10-24T17:00:00Z',
+      estimatedCost: '££',
+      expectedBenefit:
+        'Reduce handover transcription and improve issue visibility.',
+      benefitType: 'Time released and operational visibility',
+      confidence: 'high',
+      scope:
+        'Pilot the minimum viable record on CNC cell 3 before a wider rollout decision.',
+      dependencies:
+        'Agreement on the minimum handover data set and supervisor ownership.',
+      prerequisites: 'Confirm tablet or terminal access at the pilot cell.',
+      risks:
+        'A cumbersome capture process could recreate the current paper workaround.',
+      internalNotes:
+        'Validate the operator workflow before any ERP configuration changes.',
+      clientSummary:
+        'Pilot a lightweight digital handover process that gives both shifts a reliable, timely view of current work.',
+      reviewStatus: 'approved',
+    },
+  ],
+  roadmaps: [
+    {
+      id: 'roadmap-northbank-2026',
+      createdAt: timestamp,
+      updatedAt: timestamp,
+      engagementId: 'engagement-northbank-diagnostic',
+      diagnosticId: 'diagnostic-northbank-2026',
+      title: 'Northbank transformation roadmap',
+      description:
+        'A sequenced path from visibility foundations to connected and optimised operations.',
+      status: 'approved',
+      phases: ['Simplify', 'Connect', 'Optimise', 'Scale'],
+      initiativeIds: ['initiative-handover-foundation'],
+      assumptions:
+        'Existing ERP remains the system of record during the first phase.',
+      dependencies:
+        'Operations sponsorship and named process owners are required.',
+      sequencingRationale:
+        'Stabilise handover information before introducing wider integration.',
+      reviewStatus: 'approved',
+    },
+  ],
+  milestones: [
+    {
+      id: 'milestone-handover-design',
+      createdAt: timestamp,
+      updatedAt: timestamp,
+      initiativeId: 'initiative-handover-foundation',
+      title: 'Agree handover fields and ownership',
+      description:
+        'Confirm the minimum viable handover record with both shifts.',
+      dueDate: '2026-10-02T17:00:00Z',
+      status: 'in-progress',
+      owner: 'Amy Wilkinson',
+    },
+  ],
+  deliveryActions: [
+    {
+      id: 'delivery-action-handover-pilot',
+      createdAt: timestamp,
+      updatedAt: timestamp,
+      initiativeId: 'initiative-handover-foundation',
+      title: 'Run a two-week digital handover pilot',
+      description: 'Pilot the agreed handover record on CNC cell 3.',
+      owner: 'Sarah Mitchell',
+      status: 'open',
+      dependencyIds: ['milestone-handover-design'],
+    },
+  ],
+  benefitMeasurements: [
+    {
+      id: 'benefit-handover-time',
+      createdAt: timestamp,
+      updatedAt: timestamp,
+      initiativeId: 'initiative-handover-foundation',
+      benefitType: 'Time released',
+      measure: 'Handover transcription time',
+      baseline: '20 minutes per shift',
+      target: 'Less than 5 minutes per shift',
+      expectedValue: '15 minutes per shift',
+      unit: 'minutes / shift',
+      measurementMethod:
+        'Compare observed handovers over four representative weeks.',
+      measurementOwner: 'James Carter',
+      confidence: 'medium',
+      status: 'planned',
+      notes: 'Validate after pilot stabilises.',
     },
   ],
   outputs: [
     {
-      id: 'output-northbank-site-walk-summary',
+      id: 'output-northbank-executive-summary',
       createdAt: timestamp,
       updatedAt: '2026-09-06T18:00:00Z',
       engagementId: 'engagement-northbank-diagnostic',
-      kind: 'site-walk-summary',
-      title: 'Northbank observed handover and NCR summary',
-      state: 'internal-review',
+      outputType: 'executive-summary',
+      title: 'Northbank executive summary',
+      status: 'draft',
       visibility: 'internal',
-      approvedEntityIds: ['observation-paper-handover'],
+      version: '0.1',
+      createdByUserId: 'user-amy-wilkinson',
+      sourceReferences: [
+        'assessment-northbank-processes',
+        'finding-northbank-information-latency',
+        'opportunity-digitise-handover',
+      ],
+      contentReference:
+        'Executive summary draft generated from the structured diagnostic record.',
+      internalNotes: 'Hold for diagnostic completion and review.',
     },
     {
-      id: 'output-northbank-opportunity-register',
+      id: 'output-northbank-maturity-scorecard',
       createdAt: timestamp,
       updatedAt: '2026-09-09T14:20:00Z',
       engagementId: 'engagement-northbank-diagnostic',
-      kind: 'opportunity-register',
-      title: 'Northbank opportunity register v0.2',
-      state: 'draft',
+      outputType: 'maturity-scorecard',
+      title: 'Northbank digital and operational maturity scorecard',
+      status: 'internal-review',
       visibility: 'internal',
-      approvedEntityIds: ['opportunity-digitise-handover'],
+      version: '0.2',
+      createdByUserId: 'user-amy-wilkinson',
+      sourceReferences: ['assessment-northbank-processes'],
+      contentReference:
+        'Maturity scorecard projection from the assessment record.',
+    },
+    {
+      id: 'output-northbank-landscape-map',
+      createdAt: timestamp,
+      updatedAt: '2026-09-11T12:00:00Z',
+      engagementId: 'engagement-northbank-diagnostic',
+      outputType: 'landscape-map',
+      title: 'Northbank digital landscape map',
+      status: 'internal-review',
+      visibility: 'internal',
+      version: '0.1',
+      createdByUserId: 'user-james-carter',
+      sourceReferences: [
+        'landscape-process-shift-handover',
+        'landscape-system-epicor',
+        'relationship-handover-epicor',
+      ],
+      contentReference:
+        'Landscape map projection from structured entities and relationships.',
+    },
+    {
+      id: 'output-northbank-opportunity-action-register',
+      createdAt: timestamp,
+      updatedAt: '2026-09-11T14:00:00Z',
+      engagementId: 'engagement-northbank-diagnostic',
+      outputType: 'opportunity-action-register',
+      title: 'Northbank opportunity and action register',
+      status: 'internal-review',
+      visibility: 'internal',
+      version: '0.2',
+      createdByUserId: 'user-amy-wilkinson',
+      sourceReferences: [
+        'finding-northbank-information-latency',
+        'opportunity-digitise-handover',
+        'opportunity-unify-ncr-routing',
+        'action-map-handover-fields',
+      ],
+      contentReference:
+        'Opportunity and action register projection from findings and evidence-led recommendations.',
+    },
+    {
+      id: 'output-northbank-transformation-roadmap',
+      createdAt: timestamp,
+      updatedAt: '2026-09-12T16:00:00Z',
+      engagementId: 'engagement-northbank-diagnostic',
+      outputType: 'transformation-roadmap',
+      title: 'Northbank transformation roadmap',
+      status: 'published',
+      visibility: 'client-shareable',
+      version: '1.0',
+      createdByUserId: 'user-amy-wilkinson',
+      approvedByUserId: 'user-amy-wilkinson',
+      approvedAt: '2026-09-12T15:30:00Z',
+      publishedAt: '2026-09-12T16:00:00Z',
+      sourceReferences: [
+        'roadmap-northbank-2026',
+        'initiative-handover-foundation',
+        'opportunity-digitise-handover',
+      ],
+      contentReference:
+        'Controlled client roadmap shared after internal approval.',
+    },
+    {
+      id: 'output-northbank-site-walk-summary',
+      createdAt: timestamp,
+      updatedAt: '2026-09-10T16:30:00Z',
+      engagementId: 'engagement-northbank-diagnostic',
+      outputType: 'site-walk-summary',
+      title: 'Northbank observed handover and NCR summary',
+      status: 'draft',
+      visibility: 'internal',
+      version: '0.1',
+      createdByUserId: 'user-james-carter',
+      sourceReferences: [
+        'observation-paper-handover',
+        'observation-ncr-double-entry',
+        'evidence-handover-photo',
+        'evidence-ncr-export',
+      ],
+      contentReference:
+        'Site-walk summary draft with raw fieldwork retained in the internal workspace.',
     },
     {
       id: 'output-airedale-discovery-brief',
       createdAt: timestamp,
       updatedAt: '2026-09-11T12:00:00Z',
       engagementId: 'engagement-airedale-discovery',
-      kind: 'executive-summary',
+      outputType: 'executive-summary',
       title: 'Airedale discovery brief',
-      state: 'approved',
-      visibility: 'client-shareable',
-      approvedEntityIds: ['opportunity-standardise-receipts'],
-      lastPublishedAt: '2026-09-11T12:00:00Z',
+      status: 'draft',
+      visibility: 'internal',
+      version: '0.1',
+      createdByUserId: 'user-james-carter',
+      sourceReferences: [
+        'opportunity-standardise-receipts',
+        'evidence-receipts-interview',
+      ],
+      contentReference:
+        'Early discovery brief retained internally until conclusions are reviewed.',
     },
   ],
   frictionItems: [
@@ -544,12 +867,14 @@ export const fabricFixtures: FabricDataset = {
       updatedAt: '2026-09-10T16:00:00Z',
       engagementId: 'engagement-northbank-diagnostic',
       title: 'Northbank digital and operational diagnostic',
-      description: 'Evidence-led assessment of operational information flow from machining through release and dispatch.',
+      description:
+        'Evidence-led assessment of operational information flow from machining through release and dispatch.',
       status: 'in-progress',
       startDate: '2026-09-08T09:00:00Z',
       assessorUserId: 'user-amy-wilkinson',
       currentStage: 'diagnose',
-      scope: 'Production control, quality information, shift handover, and ERP-supported visibility.',
+      scope:
+        'Production control, quality information, shift handover, and ERP-supported visibility.',
       methodologyVersion: '2026.1',
       overallConfidence: 'medium',
     },
@@ -563,11 +888,17 @@ export const fabricFixtures: FabricDataset = {
       dimensionId: 'dimension-3',
       score: 2,
       level: 'Developing',
-      rationale: 'Observed paper-first handover and duplicate entry across systems; evidence is available from two walks.',
-      currentState: 'Core processes exist but live handover information varies by supervisor and is transcribed later.',
-      desiredState: 'A fit-for-purpose standard handover process with clear ownership and minimal duplicate capture.',
+      rationale:
+        'Observed paper-first handover and duplicate entry across systems; evidence is available from two walks.',
+      currentState:
+        'Core processes exist but live handover information varies by supervisor and is transcribed later.',
+      desiredState:
+        'A fit-for-purpose standard handover process with clear ownership and minimal duplicate capture.',
       gap: 'Standard work and live information flow are not yet consistent.',
-      relatedObservationIds: ['observation-paper-handover', 'observation-ncr-double-entry'],
+      relatedObservationIds: [
+        'observation-paper-handover',
+        'observation-ncr-double-entry',
+      ],
       evidenceReferences: ['evidence-handover-photo', 'evidence-ncr-export'],
       relatedOpportunityIds: ['opportunity-digitise-handover'],
       confidence: 'high',
@@ -583,17 +914,24 @@ export const fabricFixtures: FabricDataset = {
       updatedAt: '2026-09-10T16:00:00Z',
       diagnosticId: 'diagnostic-northbank-2026',
       title: 'Critical shopfloor information is delayed by paper-first capture',
-      currentSituation: 'Shift and quality information is captured in local records before being entered or summarised in shared systems.',
-      whyItMatters: 'Supervisors and management receive inconsistent information later than the operation needs it.',
-      recommendedDirection: 'Simplify the live capture process first, then standardise and improve system visibility before considering wider automation.',
+      currentSituation:
+        'Shift and quality information is captured in local records before being entered or summarised in shared systems.',
+      whyItMatters:
+        'Supervisors and management receive inconsistent information later than the operation needs it.',
+      recommendedDirection:
+        'Simplify the live capture process first, then standardise and improve system visibility before considering wider automation.',
       category: 'Information flow',
       significance: 'high',
-      relatedObservationIds: ['observation-paper-handover', 'observation-ncr-double-entry'],
+      relatedObservationIds: [
+        'observation-paper-handover',
+        'observation-ncr-double-entry',
+      ],
       relatedEvidenceIds: ['evidence-handover-photo', 'evidence-ncr-export'],
       relatedOpportunityIds: ['opportunity-digitise-handover'],
       confidence: 'high',
       reviewStatus: 'reviewed',
-      clientSummary: 'Important production and quality information is not reaching the right people quickly or consistently.',
+      clientSummary:
+        'Important production and quality information is not reaching the right people quickly or consistently.',
     },
   ],
   landscapeEntities: [
@@ -604,8 +942,10 @@ export const fabricFixtures: FabricDataset = {
       engagementId: 'engagement-northbank-diagnostic',
       type: 'process',
       name: 'Shift handover',
-      description: 'Transfer current job status, blockers, and priorities between production shifts.',
+      description:
+        'Transfer current job status, blockers, and priorities between production shifts.',
       sourceEntityId: 'process-shift-handover',
+      reviewStatus: 'reviewed',
     },
     {
       id: 'landscape-system-epicor',
@@ -616,6 +956,7 @@ export const fabricFixtures: FabricDataset = {
       name: 'Epicor ERP',
       description: 'Work order, inventory, and production status management.',
       sourceEntityId: 'system-epicor',
+      reviewStatus: 'reviewed',
     },
   ],
   landscapeRelationships: [
@@ -627,8 +968,10 @@ export const fabricFixtures: FabricDataset = {
       fromEntityId: 'landscape-process-shift-handover',
       toEntityId: 'landscape-system-epicor',
       type: 'uses-system',
-      rationale: 'The handover process updates and relies on ERP production status.',
+      rationale:
+        'The handover process updates and relies on ERP production status.',
       evidenceIds: ['evidence-handover-photo'],
+      reviewStatus: 'reviewed',
     },
   ],
 };

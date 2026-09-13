@@ -1,7 +1,13 @@
 export type EntityId = string;
 export type IsoDateTimeString = string;
 
-export const transformationStages = ['discover', 'diagnose', 'design', 'deliver', 'measure'] as const;
+export const transformationStages = [
+  'discover',
+  'diagnose',
+  'design',
+  'deliver',
+  'measure',
+] as const;
 export type TransformationStage = (typeof transformationStages)[number];
 
 export const userRoles = [
@@ -33,13 +39,29 @@ export const engagementTypes = [
 ] as const;
 export type EngagementType = (typeof engagementTypes)[number];
 
-export const engagementStatuses = ['planned', 'active', 'at-risk', 'completed'] as const;
+export const engagementStatuses = [
+  'planned',
+  'active',
+  'at-risk',
+  'completed',
+] as const;
 export type EngagementStatus = (typeof engagementStatuses)[number];
 
-export const siteWalkStatuses = ['planned', 'in-progress', 'completed', 'needs-follow-up', 'cancelled'] as const;
+export const siteWalkStatuses = [
+  'planned',
+  'in-progress',
+  'completed',
+  'needs-follow-up',
+  'cancelled',
+] as const;
 export type SiteWalkStatus = (typeof siteWalkStatuses)[number];
 
-export const informationOrigins = ['consultant', 'client', 'imported', 'ai'] as const;
+export const informationOrigins = [
+  'consultant',
+  'client',
+  'imported',
+  'ai',
+] as const;
 export type InformationOrigin = (typeof informationOrigins)[number];
 
 export const siteWalkTypes = [
@@ -76,7 +98,12 @@ export const observationSources = [
 ] as const;
 export type ObservationSource = (typeof observationSources)[number];
 
-export const observationStatuses = ['draft', 'needs-review', 'verified', 'disputed'] as const;
+export const observationStatuses = [
+  'draft',
+  'needs-review',
+  'verified',
+  'disputed',
+] as const;
 export type ObservationStatus = (typeof observationStatuses)[number];
 
 export const evidenceTypes = [
@@ -91,22 +118,66 @@ export const evidenceTypes = [
 ] as const;
 export type EvidenceType = (typeof evidenceTypes)[number];
 
-export const evidenceReviewStatuses = ['draft', 'needs-review', 'verified', 'rejected'] as const;
+export const evidenceReviewStatuses = [
+  'draft',
+  'needs-review',
+  'verified',
+  'rejected',
+] as const;
 export type EvidenceReviewStatus = (typeof evidenceReviewStatuses)[number];
 
-export const frictionCategories = ['Time', 'Quality', 'Cost', 'Flow', 'Data', 'People', 'Technology', 'Other'] as const;
+export const frictionCategories = [
+  'Time',
+  'Quality',
+  'Cost',
+  'Flow',
+  'Data',
+  'People',
+  'Technology',
+  'Other',
+] as const;
 export type FrictionCategory = (typeof frictionCategories)[number];
 
-export const diagnosticStatuses = ['draft', 'in-progress', 'internal-review', 'completed'] as const;
+export const diagnosticStatuses = [
+  'draft',
+  'in-progress',
+  'internal-review',
+  'completed',
+] as const;
 export type DiagnosticStatus = (typeof diagnosticStatuses)[number];
 export const reviewStatuses = ['draft', 'reviewed', 'approved'] as const;
 export type ReviewStatus = (typeof reviewStatuses)[number];
-export const maturityLevels = ['Reactive', 'Developing', 'Controlled', 'Integrated', 'Optimised'] as const;
+export const maturityLevels = [
+  'Reactive',
+  'Developing',
+  'Controlled',
+  'Integrated',
+  'Optimised',
+] as const;
 export type MaturityLevel = (typeof maturityLevels)[number];
-export const landscapeEntityTypes = ['area', 'process', 'process-step', 'system', 'data-object', 'role', 'machine', 'handoff'] as const;
+export const landscapeEntityTypes = [
+  'area',
+  'process',
+  'process-step',
+  'system',
+  'data-object',
+  'role',
+  'machine',
+  'handoff',
+] as const;
 export type LandscapeEntityType = (typeof landscapeEntityTypes)[number];
-export const landscapeRelationshipTypes = ['uses-system', 'produces-data', 'exchanges-data', 'performs-process', 'produces-machine-data', 'depends-on-process', 'observation-relates', 'opportunity-improves'] as const;
-export type LandscapeRelationshipType = (typeof landscapeRelationshipTypes)[number];
+export const landscapeRelationshipTypes = [
+  'uses-system',
+  'produces-data',
+  'exchanges-data',
+  'performs-process',
+  'produces-machine-data',
+  'depends-on-process',
+  'observation-relates',
+  'opportunity-improves',
+] as const;
+export type LandscapeRelationshipType =
+  (typeof landscapeRelationshipTypes)[number];
 
 export const observationAssuranceLevels = [
   'observed-fact',
@@ -114,7 +185,8 @@ export const observationAssuranceLevels = [
   'interpreted',
   'assumption',
 ] as const;
-export type ObservationAssuranceLevel = (typeof observationAssuranceLevels)[number];
+export type ObservationAssuranceLevel =
+  (typeof observationAssuranceLevels)[number];
 
 export const evidenceKinds = [
   'photo',
@@ -128,10 +200,21 @@ export type EvidenceKind = (typeof evidenceKinds)[number];
 export const visibilityScopes = ['internal', 'client-shareable'] as const;
 export type VisibilityScope = (typeof visibilityScopes)[number];
 
-export const approvalStates = ['draft', 'internal-review', 'approved', 'rejected'] as const;
+export const approvalStates = [
+  'draft',
+  'internal-review',
+  'approved',
+  'rejected',
+] as const;
 export type ApprovalState = (typeof approvalStates)[number];
 
-export const aiStatuses = ['not-applicable', 'suggested', 'reviewed', 'approved', 'rejected'] as const;
+export const aiStatuses = [
+  'not-applicable',
+  'suggested',
+  'reviewed',
+  'approved',
+  'rejected',
+] as const;
 export type AiStatus = (typeof aiStatuses)[number];
 
 export const opportunityTypes = [
@@ -144,19 +227,51 @@ export const opportunityTypes = [
   'transform',
 ] as const;
 export type OpportunityType = (typeof opportunityTypes)[number];
-export const opportunityPriorityCategories = ['Quick Win', 'Strategic Project', 'Foundational Improvement', 'Incremental Improvement', 'Reconsider / Defer'] as const;
-export type OpportunityPriorityCategory = (typeof opportunityPriorityCategories)[number];
+export const opportunityPriorityCategories = [
+  'Quick Win',
+  'Strategic Project',
+  'Foundational Improvement',
+  'Incremental Improvement',
+  'Reconsider / Defer',
+] as const;
+export type OpportunityPriorityCategory =
+  (typeof opportunityPriorityCategories)[number];
 export const investmentBands = ['£', '££', '£££', 'Unknown'] as const;
 export type InvestmentBand = (typeof investmentBands)[number];
-export const benefitMeasures = ['Administrative time', 'Reporting delay', 'Estimated annual saving', 'Capacity', 'Scrap / rework', 'Quality', 'Delivery', 'Other'] as const;
+export const benefitMeasures = [
+  'Administrative time',
+  'Reporting delay',
+  'Estimated annual saving',
+  'Capacity',
+  'Scrap / rework',
+  'Quality',
+  'Delivery',
+  'Other',
+] as const;
 export type BenefitMeasure = (typeof benefitMeasures)[number];
-export const benefitValidationStatuses = ['indicative', 'to-validate', 'validated'] as const;
-export type BenefitValidationStatus = (typeof benefitValidationStatuses)[number];
+export const benefitValidationStatuses = [
+  'indicative',
+  'to-validate',
+  'validated',
+] as const;
+export type BenefitValidationStatus =
+  (typeof benefitValidationStatuses)[number];
 
-export const opportunityPriorities = ['critical', 'high', 'medium', 'low'] as const;
+export const opportunityPriorities = [
+  'critical',
+  'high',
+  'medium',
+  'low',
+] as const;
 export type OpportunityPriority = (typeof opportunityPriorities)[number];
 
-export const opportunityStatuses = ['identified', 'triaged', 'approved', 'in-delivery', 'closed'] as const;
+export const opportunityStatuses = [
+  'identified',
+  'triaged',
+  'approved',
+  'in-delivery',
+  'closed',
+] as const;
 export type OpportunityStatus = (typeof opportunityStatuses)[number];
 
 export const effortLevels = ['low', 'medium', 'high'] as const;
@@ -165,27 +280,74 @@ export type EffortLevel = (typeof effortLevels)[number];
 export const confidenceLevels = ['low', 'medium', 'high'] as const;
 export type ConfidenceLevel = (typeof confidenceLevels)[number];
 
-export const initiativeStatuses = ['planned', 'active', 'completed'] as const;
-export type InitiativeStatus = (typeof initiativeStatuses)[number];
+export const roadmapPhases = [
+  'Simplify',
+  'Connect',
+  'Optimise',
+  'Scale',
+] as const;
+export type RoadmapPhase = (typeof roadmapPhases)[number];
+export const deliveryStatuses = [
+  'proposed',
+  'approved',
+  'planned',
+  'in-progress',
+  'blocked',
+  'complete',
+  'cancelled',
+] as const;
+export type DeliveryStatus = (typeof deliveryStatuses)[number];
+export const benefitStatuses = [
+  'planned',
+  'measuring',
+  'validated',
+  'not-realised',
+] as const;
+export type BenefitStatus = (typeof benefitStatuses)[number];
+export const milestoneStatuses = [
+  'planned',
+  'in-progress',
+  'complete',
+  'blocked',
+] as const;
+export type MilestoneStatus = (typeof milestoneStatuses)[number];
 
-export const actionStatuses = ['open', 'in-progress', 'blocked', 'completed'] as const;
+export const actionStatuses = [
+  'open',
+  'in-progress',
+  'blocked',
+  'completed',
+] as const;
 export type ActionStatus = (typeof actionStatuses)[number];
 
-export const outputStates = ['draft', 'internal-review', 'approved', 'shared'] as const;
-export type OutputState = (typeof outputStates)[number];
-
-export const outputKinds = [
+export const outputTypes = [
   'executive-summary',
-  'landscape-map',
   'maturity-scorecard',
-  'opportunity-register',
-  'roadmap',
+  'landscape-map',
+  'opportunity-action-register',
+  'transformation-roadmap',
   'site-walk-summary',
-  'diagnostic-report',
+  'supporting-analysis',
+  'progress-report',
+  'benefits-report',
 ] as const;
-export type OutputKind = (typeof outputKinds)[number];
+export type OutputType = (typeof outputTypes)[number];
+export const outputStatuses = [
+  'draft',
+  'internal-review',
+  'approved',
+  'published',
+  'archived',
+] as const;
+export type OutputStatus = (typeof outputStatuses)[number];
 
-export const relatedEntityTypes = ['site-walk', 'observation', 'opportunity', 'output'] as const;
+export const relatedEntityTypes = [
+  'engagement',
+  'site-walk',
+  'observation',
+  'opportunity',
+  'output',
+] as const;
 export type RelatedEntityType = (typeof relatedEntityTypes)[number];
 
 export interface BaseEntity {
@@ -434,6 +596,7 @@ export interface LandscapeEntity extends BaseEntity {
   description: string;
   sourceEntityId?: EntityId;
   ownerRole?: string;
+  reviewStatus: ReviewStatus;
 }
 
 export interface LandscapeRelationship extends BaseEntity {
@@ -443,6 +606,7 @@ export interface LandscapeRelationship extends BaseEntity {
   type: LandscapeRelationshipType;
   rationale?: string;
   evidenceIds: EntityId[];
+  reviewStatus: ReviewStatus;
 }
 
 export interface Opportunity extends BaseEntity {
@@ -467,7 +631,6 @@ export interface Opportunity extends BaseEntity {
   internalNotes?: string;
   clientSummary?: string;
   approvalState: ApprovalState;
-  initiativeIds: EntityId[];
   currentSituation?: string;
   identifiedIssue?: string;
   whyItMatters?: string;
@@ -485,7 +648,6 @@ export interface Opportunity extends BaseEntity {
   suggestedNextStep?: string;
   relatedObservationIds?: EntityId[];
   relatedFindingIds?: EntityId[];
-  evidenceReferences?: string[];
   owner?: string;
   reviewStatus?: ReviewStatus;
   benefitMeasures?: BenefitMeasureRecord[];
@@ -518,25 +680,95 @@ export interface ActionItem extends BaseEntity {
 
 export interface Initiative extends BaseEntity {
   engagementId: EntityId;
-  opportunityIds: EntityId[];
+  opportunityId: EntityId;
   title: string;
-  summary: string;
-  status: InitiativeStatus;
+  description: string;
+  objective: string;
+  phase: RoadmapPhase;
+  status: DeliveryStatus;
   ownerUserId: EntityId;
-  targetWindow: string;
-  expectedBenefits: string;
-  actualBenefits?: string;
-  actionIds: EntityId[];
+  startDate?: IsoDateTimeString;
+  targetEndDate?: IsoDateTimeString;
+  priority: OpportunityPriority;
+  estimatedCost?: string;
+  expectedBenefit: string;
+  benefitType?: string;
+  confidence: ConfidenceLevel;
+  scope?: string;
+  dependencies?: string;
+  prerequisites?: string;
+  risks?: string;
+  internalNotes?: string;
+  clientSummary?: string;
+  reviewStatus: ReviewStatus;
+}
+
+export interface Roadmap extends BaseEntity {
+  engagementId: EntityId;
+  diagnosticId?: EntityId;
+  title: string;
+  description: string;
+  status: DeliveryStatus;
+  phases: RoadmapPhase[];
+  initiativeIds: EntityId[];
+  assumptions?: string;
+  dependencies?: string;
+  sequencingRationale: string;
+  internalNotes?: string;
+  reviewStatus: ReviewStatus;
+}
+
+export interface Milestone extends BaseEntity {
+  initiativeId: EntityId;
+  title: string;
+  description: string;
+  dueDate: IsoDateTimeString;
+  status: MilestoneStatus;
+  owner: string;
+}
+
+export interface DeliveryAction extends BaseEntity {
+  initiativeId: EntityId;
+  title: string;
+  description: string;
+  owner: string;
+  status: ActionStatus;
+  dueDate?: IsoDateTimeString;
+  dependencyIds: EntityId[];
+  notes?: string;
+}
+
+export interface BenefitMeasurement extends BaseEntity {
+  initiativeId: EntityId;
+  benefitType: string;
+  measure: string;
+  baseline: string;
+  target: string;
+  expectedValue: string;
+  actualValue?: string;
+  unit: string;
+  measurementMethod: string;
+  measurementOwner: string;
+  measurementDate?: IsoDateTimeString;
+  confidence: ConfidenceLevel;
+  status: BenefitStatus;
+  notes?: string;
 }
 
 export interface Output extends BaseEntity {
   engagementId: EntityId;
-  kind: OutputKind;
+  outputType: OutputType;
   title: string;
-  state: OutputState;
+  status: OutputStatus;
   visibility: VisibilityScope;
-  approvedEntityIds: EntityId[];
-  lastPublishedAt?: IsoDateTimeString;
+  version: string;
+  createdByUserId: EntityId;
+  approvedByUserId?: EntityId;
+  approvedAt?: IsoDateTimeString;
+  publishedAt?: IsoDateTimeString;
+  sourceReferences: EntityId[];
+  contentReference?: string;
+  internalNotes?: string;
 }
 
 export interface FabricDataset {
@@ -560,6 +792,10 @@ export interface FabricDataset {
   opportunities: Opportunity[];
   actionItems: ActionItem[];
   initiatives: Initiative[];
+  roadmaps: Roadmap[];
+  milestones: Milestone[];
+  deliveryActions: DeliveryAction[];
+  benefitMeasurements: BenefitMeasurement[];
   outputs: Output[];
 }
 

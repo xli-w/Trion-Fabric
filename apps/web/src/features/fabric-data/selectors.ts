@@ -1,14 +1,22 @@
 import type {
   ClientStatus,
+  DeliveryStatus,
   EngagementStatus,
   FabricDataset,
   OpportunityPriority,
-  OutputState,
+  OutputStatus,
+  OutputType,
+  RoadmapPhase,
   SiteWalkStatus,
   TransformationStage,
 } from '@domain';
 
-export type DisplayTone = 'neutral' | 'accent' | 'success' | 'warning' | 'danger';
+export type DisplayTone =
+  | 'neutral'
+  | 'accent'
+  | 'success'
+  | 'warning'
+  | 'danger';
 
 const dateFormatter = new Intl.DateTimeFormat('en-GB', {
   day: '2-digit',
@@ -30,11 +38,32 @@ const priorityWeight: Record<OpportunityPriority, number> = {
   low: 3,
 };
 
-const outputStateWeight: Record<OutputState, number> = {
+const outputStatusWeight: Record<OutputStatus, number> = {
   draft: 0,
   'internal-review': 1,
   approved: 2,
-  shared: 3,
+  published: 3,
+  archived: 4,
+};
+
+const outputTypeLabels: Record<OutputType, string> = {
+  'executive-summary': 'Executive Summary',
+  'maturity-scorecard': 'Digital & Operational Maturity Scorecard',
+  'landscape-map': 'Digital Landscape Map',
+  'opportunity-action-register': 'Opportunity & Action Register',
+  'transformation-roadmap': 'Transformation Roadmap',
+  'site-walk-summary': 'Site Walk Summary',
+  'supporting-analysis': 'Supporting Analysis',
+  'progress-report': 'Progress Report',
+  'benefits-report': 'Benefits Report',
+};
+
+const outputStatusLabels: Record<OutputStatus, string> = {
+  draft: 'Draft',
+  'internal-review': 'Internal Review',
+  approved: 'Approved',
+  published: 'Published / Shared',
+  archived: 'Archived',
 };
 
 function labelise(value: string): string {
@@ -57,8 +86,12 @@ function createMaps(dataset: FabricDataset) {
     clients: new Map(dataset.clients.map((client) => [client.id, client])),
     sites: new Map(dataset.sites.map((site) => [site.id, site])),
     areas: new Map(dataset.areas.map((area) => [area.id, area])),
-    processes: new Map(dataset.processes.map((process) => [process.id, process])),
-    engagements: new Map(dataset.engagements.map((engagement) => [engagement.id, engagement])),
+    processes: new Map(
+      dataset.processes.map((process) => [process.id, process]),
+    ),
+    engagements: new Map(
+      dataset.engagements.map((engagement) => [engagement.id, engagement]),
+    ),
     users: new Map(dataset.users.map((user) => [user.id, user])),
   };
 }
@@ -115,22 +148,45 @@ function opportunityPriorityTone(priority: OpportunityPriority): DisplayTone {
   return 'neutral';
 }
 
-function outputStateTone(state: OutputState): DisplayTone {
-  if (state === 'approved' || state === 'shared') {
+function outputStatusTone(status: OutputStatus): DisplayTone {
+  if (status === 'approved' || status === 'published') {
     return 'success';
   }
 
-  if (state === 'internal-review') {
+  if (status === 'internal-review') {
     return 'warning';
   }
 
   return 'neutral';
 }
 
+function isOutputReadyToShare(
+  status: OutputStatus,
+  visibility: string,
+): boolean {
+  return (
+    visibility === 'client-shareable' &&
+    (status === 'approved' || status === 'published')
+  );
+}
+
+function deliveryStatusTone(status: DeliveryStatus): DisplayTone {
+  if (status === 'complete' || status === 'approved') {
+    return 'success';
+  }
+
+  if (status === 'blocked') {
+    return 'warning';
+  }
+
+  return 'accent';
+}
+
 export function buildWorkspaceSnapshot(dataset: FabricDataset) {
   const maps = createMaps(dataset);
   const activeEngagements = dataset.engagements.filter(
-    (engagement) => engagement.status === 'active' || engagement.status === 'at-risk',
+    (engagement) =>
+      engagement.status === 'active' || engagement.status === 'at-risk',
   );
   const upcomingSiteWalks = dataset.siteWalks
     .filter((siteWalk) => siteWalk.status !== 'completed')
@@ -139,34 +195,50 @@ export function buildWorkspaceSnapshot(dataset: FabricDataset) {
       id: siteWalk.id,
       title: siteWalk.title,
       when: formatDateTime(siteWalk.scheduledAt),
-      engagementName: maps.engagements.get(siteWalk.engagementId)?.name ?? 'Unknown engagement',
+      engagementName:
+        maps.engagements.get(siteWalk.engagementId)?.name ??
+        'Unknown engagement',
       siteName: maps.sites.get(siteWalk.siteId)?.name ?? 'Unknown site',
-      ownerName: maps.users.get(siteWalk.consultantUserId)?.displayName ?? 'Unknown consultant',
+      ownerName:
+        maps.users.get(siteWalk.consultantUserId)?.displayName ??
+        'Unknown consultant',
       status: labelise(siteWalk.status),
     }));
 
   const priorityOpportunities = [...dataset.opportunities]
-    .sort((left, right) => priorityWeight[left.priority] - priorityWeight[right.priority])
+    .sort(
+      (left, right) =>
+        priorityWeight[left.priority] - priorityWeight[right.priority],
+    )
     .slice(0, 4)
     .map((opportunity) => ({
       id: opportunity.id,
       title: opportunity.title,
       priority: labelise(opportunity.priority),
       status: labelise(opportunity.status),
-      engagementName: maps.engagements.get(opportunity.engagementId)?.name ?? 'Unknown engagement',
+      engagementName:
+        maps.engagements.get(opportunity.engagementId)?.name ??
+        'Unknown engagement',
       evidenceCount: opportunity.evidenceIds.length,
       tone: opportunityPriorityTone(opportunity.priority),
     }));
 
   const outputsAwaitingReview = [...dataset.outputs]
-    .filter((output) => output.state === 'draft' || output.state === 'internal-review')
-    .sort((left, right) => outputStateWeight[left.state] - outputStateWeight[right.state])
+    .filter(
+      (output) =>
+        output.status === 'draft' || output.status === 'internal-review',
+    )
+    .sort(
+      (left, right) =>
+        outputStatusWeight[left.status] - outputStatusWeight[right.status],
+    )
     .map((output) => ({
       id: output.id,
       title: output.title,
-      kind: labelise(output.kind),
-      state: labelise(output.state),
-      engagementName: maps.engagements.get(output.engagementId)?.name ?? 'Unknown engagement',
+      outputType: outputTypeLabels[output.outputType],
+      status: outputStatusLabels[output.status],
+      engagementName:
+        maps.engagements.get(output.engagementId)?.name ?? 'Unknown engagement',
       visibility: labelise(output.visibility),
     }));
 
@@ -180,7 +252,11 @@ export function buildWorkspaceSnapshot(dataset: FabricDataset) {
       },
       {
         label: 'Site coverage',
-        value: String(uniqueCount(activeEngagements.flatMap((engagement) => engagement.siteIds))),
+        value: String(
+          uniqueCount(
+            activeEngagements.flatMap((engagement) => engagement.siteIds),
+          ),
+        ),
         detail: 'Sites represented by the current development engagement set.',
         tone: 'success' as DisplayTone,
       },
@@ -193,17 +269,21 @@ export function buildWorkspaceSnapshot(dataset: FabricDataset) {
       {
         label: 'Outputs awaiting review',
         value: String(outputsAwaitingReview.length),
-        detail: 'Draft or internal-review outputs that are not yet approved for sharing.',
+        detail:
+          'Draft or internal-review outputs that are not yet approved for sharing.',
         tone: 'warning' as DisplayTone,
       },
     ],
     activeEngagements: activeEngagements.map((engagement) => ({
       id: engagement.id,
       name: engagement.name,
-      clientName: maps.clients.get(engagement.clientId)?.name ?? 'Unknown client',
+      clientName:
+        maps.clients.get(engagement.clientId)?.name ?? 'Unknown client',
       stage: labelise(engagement.stage),
       status: labelise(engagement.status),
-      targetDate: engagement.targetDate ? formatDate(engagement.targetDate) : 'TBC',
+      targetDate: engagement.targetDate
+        ? formatDate(engagement.targetDate)
+        : 'TBC',
       teamSize: engagement.teamUserIds.length,
     })),
     upcomingSiteWalks,
@@ -216,7 +296,9 @@ export function buildClientsViewModel(dataset: FabricDataset) {
   return dataset.clients
     .map((client) => {
       const sites = dataset.sites.filter((site) => site.clientId === client.id);
-      const engagements = dataset.engagements.filter((engagement) => engagement.clientId === client.id);
+      const engagements = dataset.engagements.filter(
+        (engagement) => engagement.clientId === client.id,
+      );
 
       return {
         id: client.id,
@@ -242,19 +324,28 @@ export function buildEngagementsViewModel(dataset: FabricDataset) {
     stage: labelise(engagement.stage),
     status: labelise(engagement.status),
     statusTone: engagementStatusTone(engagement.status),
-    leadName: maps.users.get(engagement.leadUserId)?.displayName ?? 'Unknown lead',
+    leadName:
+      maps.users.get(engagement.leadUserId)?.displayName ?? 'Unknown lead',
     teamSize: engagement.teamUserIds.length,
     siteCount: engagement.siteIds.length,
-    targetDate: engagement.targetDate ? formatDate(engagement.targetDate) : 'TBC',
+    targetDate: engagement.targetDate
+      ? formatDate(engagement.targetDate)
+      : 'TBC',
     type: engagement.type,
   }));
 
-  const stageSummary = (['discover', 'diagnose', 'design', 'deliver', 'measure'] as TransformationStage[]).map(
-    (stage) => ({
-      stage: labelise(stage),
-      count: rows.filter((row) => row.stage === labelise(stage)).length,
-    }),
-  );
+  const stageSummary = (
+    [
+      'discover',
+      'diagnose',
+      'design',
+      'deliver',
+      'measure',
+    ] as TransformationStage[]
+  ).map((stage) => ({
+    stage: labelise(stage),
+    count: rows.filter((row) => row.stage === labelise(stage)).length,
+  }));
 
   return { rows, stageSummary };
 }
@@ -268,10 +359,16 @@ export function buildSiteWalksViewModel(dataset: FabricDataset) {
       id: siteWalk.id,
       title: siteWalk.title,
       scheduledAt: formatDateTime(siteWalk.scheduledAt),
-      engagementName: maps.engagements.get(siteWalk.engagementId)?.name ?? 'Unknown engagement',
+      engagementName:
+        maps.engagements.get(siteWalk.engagementId)?.name ??
+        'Unknown engagement',
       siteName: maps.sites.get(siteWalk.siteId)?.name ?? 'Unknown site',
-      areaName: siteWalk.areaId ? maps.areas.get(siteWalk.areaId)?.name ?? 'Unknown area' : 'Cross-area',
-      consultantName: maps.users.get(siteWalk.consultantUserId)?.displayName ?? 'Unknown consultant',
+      areaName: siteWalk.areaId
+        ? (maps.areas.get(siteWalk.areaId)?.name ?? 'Unknown area')
+        : 'Cross-area',
+      consultantName:
+        maps.users.get(siteWalk.consultantUserId)?.displayName ??
+        'Unknown consultant',
       status: labelise(siteWalk.status),
       statusTone: siteWalkStatusTone(siteWalk.status),
       scopeCount: siteWalk.plannedScope.length,
@@ -280,8 +377,14 @@ export function buildSiteWalksViewModel(dataset: FabricDataset) {
 
   return {
     rows,
-    completedCount: countBy(dataset.siteWalks, (siteWalk) => siteWalk.status === 'completed'),
-    upcomingCount: countBy(dataset.siteWalks, (siteWalk) => siteWalk.status !== 'completed'),
+    completedCount: countBy(
+      dataset.siteWalks,
+      (siteWalk) => siteWalk.status === 'completed',
+    ),
+    upcomingCount: countBy(
+      dataset.siteWalks,
+      (siteWalk) => siteWalk.status !== 'completed',
+    ),
     observationCount: dataset.observations.length,
   };
 }
@@ -290,20 +393,34 @@ export function buildOpportunitiesViewModel(dataset: FabricDataset) {
   const maps = createMaps(dataset);
 
   const rows = [...dataset.opportunities]
-    .sort((left, right) => priorityWeight[left.priority] - priorityWeight[right.priority])
+    .sort(
+      (left, right) =>
+        priorityWeight[left.priority] - priorityWeight[right.priority],
+    )
     .map((opportunity) => ({
       id: opportunity.id,
       title: opportunity.title,
-      engagementName: maps.engagements.get(opportunity.engagementId)?.name ?? 'Unknown engagement',
-      processName: opportunity.processId ? maps.processes.get(opportunity.processId)?.name ?? 'Unassigned' : 'Unassigned',
+      engagementName:
+        maps.engagements.get(opportunity.engagementId)?.name ??
+        'Unknown engagement',
+      processName: opportunity.processId
+        ? (maps.processes.get(opportunity.processId)?.name ?? 'Unassigned')
+        : 'Unassigned',
       priority: labelise(opportunity.priority),
       priorityTone: opportunityPriorityTone(opportunity.priority),
       status: labelise(opportunity.status),
       approvalState: labelise(opportunity.approvalState),
-      ownerName: opportunity.ownerUserId ? maps.users.get(opportunity.ownerUserId)?.displayName ?? 'Unknown owner' : 'Unassigned',
+      ownerName: opportunity.ownerUserId
+        ? (maps.users.get(opportunity.ownerUserId)?.displayName ??
+          'Unknown owner')
+        : 'Unassigned',
       evidenceCount: opportunity.evidenceIds.length,
-      initiativeCount: opportunity.initiativeIds.length,
-      actionCount: dataset.actionItems.filter((item) => item.opportunityId === opportunity.id).length,
+      initiativeCount: dataset.initiatives.filter(
+        (initiative) => initiative.opportunityId === opportunity.id,
+      ).length,
+      actionCount: dataset.actionItems.filter(
+        (item) => item.opportunityId === opportunity.id,
+      ).length,
       category: opportunity.priorityCategory ?? 'Uncategorised',
       expectedImpact: opportunity.expectedImpact,
       type: labelise(opportunity.type),
@@ -311,10 +428,19 @@ export function buildOpportunitiesViewModel(dataset: FabricDataset) {
 
   return {
     rows,
-    highPriorityCount: countBy(dataset.opportunities, (opportunity) =>
-      opportunity.priority === 'critical' || opportunity.priority === 'high'),
-    approvedCount: countBy(dataset.opportunities, (opportunity) => opportunity.status === 'approved'),
-    evidenceLinkedCount: countBy(dataset.opportunities, (opportunity) => opportunity.evidenceIds.length > 0),
+    highPriorityCount: countBy(
+      dataset.opportunities,
+      (opportunity) =>
+        opportunity.priority === 'critical' || opportunity.priority === 'high',
+    ),
+    approvedCount: countBy(
+      dataset.opportunities,
+      (opportunity) => opportunity.status === 'approved',
+    ),
+    evidenceLinkedCount: countBy(
+      dataset.opportunities,
+      (opportunity) => opportunity.evidenceIds.length > 0,
+    ),
   };
 }
 
@@ -322,22 +448,116 @@ export function buildOutputsViewModel(dataset: FabricDataset) {
   const maps = createMaps(dataset);
 
   const rows = [...dataset.outputs]
-    .sort((left, right) => outputStateWeight[left.state] - outputStateWeight[right.state])
+    .sort(
+      (left, right) =>
+        outputStatusWeight[left.status] - outputStatusWeight[right.status],
+    )
     .map((output) => ({
       id: output.id,
       title: output.title,
-      engagementName: maps.engagements.get(output.engagementId)?.name ?? 'Unknown engagement',
-      kind: labelise(output.kind),
-      state: labelise(output.state),
-      stateTone: outputStateTone(output.state),
+      engagementName:
+        maps.engagements.get(output.engagementId)?.name ?? 'Unknown engagement',
+      outputType: outputTypeLabels[output.outputType],
+      status: outputStatusLabels[output.status],
+      statusTone: outputStatusTone(output.status),
       visibility: labelise(output.visibility),
-      approvedEntityCount: output.approvedEntityIds.length,
-      lastPublishedAt: output.lastPublishedAt ? formatDate(output.lastPublishedAt) : 'Not shared',
+      sourceCount: output.sourceReferences.length,
+      publishedAt: output.publishedAt
+        ? formatDate(output.publishedAt)
+        : 'Not shared',
+      isReadyToShare: isOutputReadyToShare(output.status, output.visibility),
     }));
 
   return {
     rows,
-    readyToShareCount: countBy(dataset.outputs, (output) => output.state === 'approved' || output.state === 'shared'),
-    reviewQueueCount: countBy(dataset.outputs, (output) => output.state === 'draft' || output.state === 'internal-review'),
+    readyToShareCount: countBy(dataset.outputs, (output) =>
+      isOutputReadyToShare(output.status, output.visibility),
+    ),
+    reviewQueueCount: countBy(
+      dataset.outputs,
+      (output) =>
+        output.status === 'draft' || output.status === 'internal-review',
+    ),
+    coreOutputCount: new Set(
+      dataset.outputs
+        .filter((output) =>
+          [
+            'executive-summary',
+            'maturity-scorecard',
+            'landscape-map',
+            'opportunity-action-register',
+            'transformation-roadmap',
+          ].includes(output.outputType),
+        )
+        .map((output) => output.outputType),
+    ).size,
+  };
+}
+
+export function buildRoadmapViewModel(dataset: FabricDataset) {
+  const maps = createMaps(dataset);
+  const phases: Array<{ phase: RoadmapPhase; window: string }> = [
+    { phase: 'Simplify', window: '0–3 months' },
+    { phase: 'Connect', window: '3–6 months' },
+    { phase: 'Optimise', window: '6–12 months' },
+    { phase: 'Scale', window: '12+ months' },
+  ];
+  const initiativeById = new Map(
+    dataset.initiatives.map((initiative) => [initiative.id, initiative]),
+  );
+  const sequencedInitiativeIds = new Set(
+    dataset.roadmaps.flatMap((roadmap) => roadmap.initiativeIds),
+  );
+  const initiativeRow = (initiative: FabricDataset['initiatives'][number]) => ({
+    id: initiative.id,
+    title: initiative.title,
+    objective: initiative.objective,
+    status: labelise(initiative.status),
+    statusTone: deliveryStatusTone(initiative.status),
+    ownerName:
+      maps.users.get(initiative.ownerUserId)?.displayName ?? 'Unknown owner',
+  });
+
+  return {
+    roadmaps: dataset.roadmaps.map((roadmap) => {
+      const roadmapInitiatives = roadmap.initiativeIds.flatMap(
+        (initiativeId) => {
+          const initiative = initiativeById.get(initiativeId);
+          return initiative ? [initiative] : [];
+        },
+      );
+
+      return {
+        id: roadmap.id,
+        title: roadmap.title,
+        description: roadmap.description,
+        status: labelise(roadmap.status),
+        statusTone: deliveryStatusTone(roadmap.status),
+        reviewStatus: labelise(roadmap.reviewStatus),
+        assumptions: roadmap.assumptions ?? 'None recorded',
+        dependencies: roadmap.dependencies ?? 'None recorded',
+        sequencingRationale: roadmap.sequencingRationale,
+        phases: phases
+          .filter(({ phase }) => roadmap.phases.includes(phase))
+          .map(({ phase, window }) => ({
+            phase,
+            window,
+            initiatives: roadmapInitiatives
+              .filter((initiative) => initiative.phase === phase)
+              .map(initiativeRow),
+          })),
+      };
+    }),
+    unsequencedInitiatives: dataset.initiatives
+      .filter((initiative) => !sequencedInitiativeIds.has(initiative.id))
+      .map(initiativeRow),
+    initiativeCount: dataset.initiatives.length,
+    milestoneCount: dataset.milestones.length,
+    benefitMeasurementCount: dataset.benefitMeasurements.length,
+    activeInitiativeCount: countBy(
+      dataset.initiatives,
+      (initiative) =>
+        initiative.status === 'in-progress' || initiative.status === 'planned',
+    ),
   };
 }

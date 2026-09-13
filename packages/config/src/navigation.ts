@@ -32,7 +32,8 @@ export const fabricNavigation: NavigationItem[] = [
     key: 'engagements',
     label: 'Engagements',
     path: '/engagements',
-    description: 'Transformation assignments connecting clients, sites, and workstreams.',
+    description:
+      'Transformation assignments connecting clients, sites, and workstreams.',
     status: 'available',
   },
   {
@@ -47,14 +48,15 @@ export const fabricNavigation: NavigationItem[] = [
     label: 'Landscape',
     path: '/landscape',
     description: 'Processes, systems, and operational relationships.',
-    status: 'planned',
+    status: 'available',
   },
   {
     key: 'diagnosis',
     label: 'Diagnosis',
     path: '/diagnosis',
-    description: 'Diagnostic scoring, findings, and evidence-linked conclusions.',
-    status: 'planned',
+    description:
+      'Diagnostic scoring, findings, and evidence-linked conclusions.',
+    status: 'available',
   },
   {
     key: 'opportunities',
@@ -68,7 +70,7 @@ export const fabricNavigation: NavigationItem[] = [
     label: 'Roadmap',
     path: '/roadmap',
     description: 'Initiatives, actions, sequencing, and delivery status.',
-    status: 'planned',
+    status: 'available',
   },
   {
     key: 'outputs',
@@ -81,15 +83,20 @@ export const fabricNavigation: NavigationItem[] = [
     key: 'settings',
     label: 'Settings',
     path: '/settings',
-    description: 'Configuration seams for users, taxonomies, and environment controls.',
+    description:
+      'Configuration seams for users, taxonomies, and environment controls.',
     status: 'planned',
   },
 ];
 
-export function findNavigationItem(pathname: string): NavigationItem | undefined {
+export function findNavigationItem(
+  pathname: string,
+): NavigationItem | undefined {
   if (pathname === '/') {
     return fabricNavigation[0];
   }
 
-  return fabricNavigation.find((item) => item.path !== '/' && pathname.startsWith(item.path));
+  return fabricNavigation.find(
+    (item) => item.path !== '/' && pathname.startsWith(item.path),
+  );
 }

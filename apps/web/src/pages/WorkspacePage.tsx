@@ -19,7 +19,11 @@ export function WorkspacePage() {
               eyebrow="Workspace"
               title="Connected transformation workspace"
               description="This shell establishes Fabric as one structured internal environment for engagements, evidence, opportunities, and controlled outputs. The current content is validated development data rather than production client records."
-              metadata={['Evidence-led', 'Modular monolith', 'Internal-first governance']}
+              metadata={[
+                'Evidence-led',
+                'Modular monolith',
+                'Internal-first governance',
+              ]}
               actions={<Badge tone="accent">Development baseline</Badge>}
             />
 
@@ -66,7 +70,9 @@ export function WorkspacePage() {
                     <article className="record-item" key={siteWalk.id}>
                       <div>
                         <h4>{siteWalk.title}</h4>
-                        <p className="body-copy">{siteWalk.engagementName} · {siteWalk.siteName}</p>
+                        <p className="body-copy">
+                          {siteWalk.engagementName} · {siteWalk.siteName}
+                        </p>
                       </div>
                       <div className="record-item__meta">
                         <Badge tone="warning">{siteWalk.status}</Badge>
@@ -89,10 +95,20 @@ export function WorkspacePage() {
                     <article className="record-item" key={opportunity.id}>
                       <div>
                         <h4>{opportunity.title}</h4>
-                        <p className="body-copy">{opportunity.engagementName}</p>
+                        <p className="body-copy">
+                          {opportunity.engagementName}
+                        </p>
                       </div>
                       <div className="record-item__meta">
-                        <Badge tone={opportunity.tone === 'danger' ? 'warning' : opportunity.tone}>{opportunity.priority}</Badge>
+                        <Badge
+                          tone={
+                            opportunity.tone === 'danger'
+                              ? 'warning'
+                              : opportunity.tone
+                          }
+                        >
+                          {opportunity.priority}
+                        </Badge>
                         <span>{opportunity.status}</span>
                         <span>{opportunity.evidenceCount} evidence links</span>
                       </div>
@@ -110,10 +126,20 @@ export function WorkspacePage() {
                     <article className="record-item" key={output.id}>
                       <div>
                         <h4>{output.title}</h4>
-                        <p className="body-copy">{output.kind} · {output.engagementName}</p>
+                        <p className="body-copy">
+                          {output.outputType} · {output.engagementName}
+                        </p>
                       </div>
                       <div className="record-item__meta">
-                        <Badge tone={output.state === 'Internal Review' ? 'warning' : 'neutral'}>{output.state}</Badge>
+                        <Badge
+                          tone={
+                            output.status === 'Internal Review'
+                              ? 'warning'
+                              : 'neutral'
+                          }
+                        >
+                          {output.status}
+                        </Badge>
                         <span>{output.visibility}</span>
                       </div>
                     </article>
