@@ -26,7 +26,7 @@ export const fabricNavigation: NavigationItem[] = [
     label: 'Sites',
     path: '/sites',
     description: 'Physical operating environments and operational context.',
-    status: 'planned',
+    status: 'available',
   },
   {
     key: 'engagements',

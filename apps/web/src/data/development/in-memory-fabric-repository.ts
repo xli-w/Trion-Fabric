@@ -3,7 +3,7 @@ import { fabricDatasetSchema } from '@validation';
 
 import { fabricFixtures } from './fabric-fixtures';
 
-const validatedDataset = fabricDatasetSchema.parse(fabricFixtures);
+let validatedDataset = fabricDatasetSchema.parse(fabricFixtures);
 
 function cloneDataset(dataset: FabricDataset): FabricDataset {
   return JSON.parse(JSON.stringify(dataset)) as FabricDataset;
@@ -17,6 +17,9 @@ export function createInMemoryFabricRepository(): FabricRepository {
     },
     async getDataset() {
       return cloneDataset(validatedDataset);
+    },
+    async saveDataset(dataset) {
+      validatedDataset = fabricDatasetSchema.parse(dataset);
     },
   };
 }

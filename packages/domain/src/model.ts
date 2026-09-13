@@ -18,6 +18,21 @@ export type UserRole = (typeof userRoles)[number];
 export const clientStatuses = ['prospect', 'active', 'dormant'] as const;
 export type ClientStatus = (typeof clientStatuses)[number];
 
+export const siteStatuses = ['planned', 'active', 'inactive'] as const;
+export type SiteStatus = (typeof siteStatuses)[number];
+
+export const engagementTypes = [
+  'Preliminary Site Walk',
+  'Digital Diagnostic',
+  'Operational Improvement',
+  'Systems / ERP Review',
+  'Data / Reporting Improvement',
+  'Automation Sprint',
+  'Transformation Programme',
+  'Advisory / Discovery',
+] as const;
+export type EngagementType = (typeof engagementTypes)[number];
+
 export const engagementStatuses = ['planned', 'active', 'at-risk', 'completed'] as const;
 export type EngagementStatus = (typeof engagementStatuses)[number];
 
@@ -115,8 +130,11 @@ export interface Client extends BaseEntity {
   name: string;
   slug: string;
   industry: string;
+  companySize?: string;
+  description?: string;
   status: ClientStatus;
   primaryContact?: string;
+  contactDetails?: string;
   notes?: string;
 }
 
@@ -126,6 +144,11 @@ export interface Site extends BaseEntity {
   location: string;
   description: string;
   operationalProfile: string;
+  siteType?: string;
+  workforce?: string;
+  shifts?: string;
+  status?: SiteStatus;
+  internalNotes?: string;
   areaIds: EntityId[];
   systemIds: EntityId[];
 }
@@ -158,6 +181,10 @@ export interface Engagement extends BaseEntity {
   name: string;
   description: string;
   type: string;
+  objectives?: string;
+  scope?: string;
+  commercialContext?: string;
+  internalNotes?: string;
   status: EngagementStatus;
   stage: TransformationStage;
   startDate: IsoDateTimeString;

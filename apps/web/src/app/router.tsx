@@ -2,12 +2,15 @@ import { BrowserRouter, Navigate, Route, Routes } from 'react-router-dom';
 
 import { AppShell } from '@app/layouts/AppShell';
 import { ClientsPage } from '@app/pages/ClientsPage';
+import { ClientDetailPage } from '@app/pages/ClientsPage';
 import { EngagementsPage } from '@app/pages/EngagementsPage';
+import { EngagementDetailPage } from '@app/pages/EngagementDetailPage';
 import { OpportunitiesPage } from '@app/pages/OpportunitiesPage';
 import { OutputsPage } from '@app/pages/OutputsPage';
 import { PlannedPage } from '@app/pages/PlannedPage';
 import { SiteWalksPage } from '@app/pages/SiteWalksPage';
 import { WorkspacePage } from '@app/pages/WorkspacePage';
+import { SiteDetailPage, SitesPage } from '@app/pages/SitesPage';
 
 export function AppRouter() {
   return (
@@ -16,21 +19,11 @@ export function AppRouter() {
         <Route element={<AppShell />} path="/">
           <Route element={<WorkspacePage />} index />
           <Route element={<ClientsPage />} path="clients" />
-          <Route
-            element={
-              <PlannedPage
-                title="Sites"
-                description="Capture the physical operating environment, linked areas, and site-specific context in one canonical location."
-                plannedCapabilities={[
-                  'site profiles, contacts, and engagement history',
-                  'areas and process coverage linked back to observations',
-                  'site-level system landscape and operational dependencies',
-                ]}
-              />
-            }
-            path="sites"
-          />
+          <Route element={<ClientDetailPage />} path="clients/:clientId" />
+          <Route element={<SitesPage />} path="sites" />
+          <Route element={<SiteDetailPage />} path="sites/:siteId" />
           <Route element={<EngagementsPage />} path="engagements" />
+          <Route element={<EngagementDetailPage />} path="engagements/:engagementId" />
           <Route element={<SiteWalksPage />} path="site-walks" />
           <Route
             element={

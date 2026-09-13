@@ -1,9 +1,15 @@
-import { Badge, Card, DataTable, PageHeader, StatCard } from '@ui';
+import { useState } from 'react';
+import { Link } from 'react-router-dom';
 
+import { Badge, Button, Card, DataTable, PageHeader, StatCard } from '@ui';
+
+import { EngagementForm } from '@app/features/fabric-data/EntityForms';
 import { FabricDataView } from '@app/features/fabric-data/FabricDataView';
 import { buildEngagementsViewModel } from '@app/features/fabric-data/selectors';
 
 export function EngagementsPage() {
+  const [query, setQuery] = useState('');
+  const [showForm, setShowForm] = useState(false);
   return (
     <FabricDataView
       emptyTitle="Engagements cannot be loaded"
@@ -20,7 +26,9 @@ export function EngagementsPage() {
               title="Transformation assignments"
               description="Engagements connect clients, sites, stage, team, and linked diagnostic work without assuming that one client always maps to one project."
               metadata={['Client-linked', 'Stage-aware', 'Repository-backed']}
+              actions={<Button onClick={() => setShowForm((value) => !value)}>{showForm ? 'Close form' : 'Add engagement'}</Button>}
             />
+            {showForm ? <Card title="Create engagement" description="A preliminary site walk can remain lightweight and later progress into a Digital Diagnostic."><EngagementForm onSaved={() => setShowForm(false)} /></Card> : null}
 
             <section className="metric-grid metric-grid--compact">
               {stageSummary.map((item) => (
@@ -35,13 +43,14 @@ export function EngagementsPage() {
             </section>
 
             <Card title="Engagement register" description="Assignments are stage-aware and maintain explicit ties to clients, sites, and delivery teams.">
+              <input className="search-input" aria-label="Search engagements" placeholder="Search engagements..." value={query} onChange={(event) => setQuery(event.target.value)} />
               <DataTable
                 columns={[
                   {
                     header: 'Engagement',
                     render: (row) => (
                       <div>
-                        <strong>{row.name}</strong>
+                        <Link className="table-link" to={`/engagements/${row.id}`}><strong>{row.name}</strong></Link>
                         <div className="body-copy body-copy--small">{row.clientName}</div>
                       </div>
                     ),
@@ -73,7 +82,7 @@ export function EngagementsPage() {
                   },
                 ]}
                 getRowKey={(row) => row.id}
-                rows={rows}
+                rows={rows.filter((row) => `${row.name} ${row.clientName} ${row.type}`.toLowerCase().includes(query.toLowerCase()))}
               />
             </Card>
           </>
