@@ -1,4 +1,4 @@
-import type { ReactNode } from 'react';
+import type { CSSProperties, ReactNode } from 'react';
 import * as TabsPrimitive from '@radix-ui/react-tabs';
 
 import { cx } from '../utils/cx';
@@ -20,6 +20,7 @@ export interface TabsProps {
   items?: TabItem[];
   variant?: TabsVariant;
   className?: string;
+  style?: CSSProperties;
   children?: ReactNode;
 }
 
@@ -30,11 +31,13 @@ export function Tabs({
   items,
   variant = 'underline',
   className,
+  style,
   children,
 }: TabsProps) {
   return (
     <TabsPrimitive.Root
       className={cx('ui-tabs', `ui-tabs--${variant}`, className)}
+      style={style}
       value={value}
       defaultValue={defaultValue}
       onValueChange={onValueChange}
@@ -63,5 +66,32 @@ export function Tabs({
 }
 
 export const TabsList = TabsPrimitive.List;
-export const TabsTrigger = TabsPrimitive.Trigger;
+
+export interface TabsTriggerProps
+  extends React.ComponentPropsWithoutRef<typeof TabsPrimitive.Trigger> {
+  badge?: ReactNode;
+  icon?: ReactNode;
+}
+
+export function TabsTrigger({
+  badge,
+  icon,
+  children,
+  className,
+  ...props
+}: TabsTriggerProps) {
+  return (
+    <TabsPrimitive.Trigger
+      className={cx('ui-tabs-trigger', className)}
+      {...props}
+    >
+      {icon && <span className="ui-tabs-trigger__icon">{icon}</span>}
+      <span>{children}</span>
+      {badge !== undefined && (
+        <span className="ui-tabs-trigger__badge">{badge}</span>
+      )}
+    </TabsPrimitive.Trigger>
+  );
+}
+
 export const TabsContent = TabsPrimitive.Content;

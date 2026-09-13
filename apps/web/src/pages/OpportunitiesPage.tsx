@@ -1,5 +1,12 @@
 import { useState } from 'react';
-import { Link, useParams } from 'react-router-dom';
+import { Link, useNavigate, useParams } from 'react-router-dom';
+import {
+  ChevronRight,
+  ExternalLink,
+  LayoutGrid,
+  Plus,
+  Table as TableIcon,
+} from 'lucide-react';
 import type {
   ApprovalState,
   EffortLevel,
@@ -10,7 +17,24 @@ import type {
   OpportunityType,
   ReviewStatus,
 } from '@domain';
-import { Badge, Button, Card, DataTable, PageHeader, StatCard } from '@ui';
+import {
+  Badge,
+  Button,
+  Card,
+  DataTable,
+  FilterSelect,
+  PageHeader,
+  SearchInput,
+  Sheet,
+  StatCard,
+  Tabs,
+  TabsContent,
+  TabsList,
+  TabsTrigger,
+  Toolbar,
+  ToolbarGroup,
+  ViewToggle,
+} from '@ui';
 import { FabricDataView } from '@app/features/fabric-data/FabricDataView';
 import { useFabricData } from '@app/features/fabric-data/FabricDataContext';
 import { buildOpportunitiesViewModel } from '@app/features/fabric-data/selectors';
@@ -547,8 +571,18 @@ function OpportunityForm({
 }
 
 export function OpportunitiesPage() {
+  const navigate = useNavigate();
   const [query, setQuery] = useState('');
-  const [showForm, setShowForm] = useState(false);
+  const [typeFilter, setTypeFilter] = useState('');
+  const [priorityFilter, setPriorityFilter] = useState('');
+  const [viewMode, setViewMode] = useState('table');
+  const [sortColumn, setSortColumn] = useState<string>('priority');
+  const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('desc');
+
+  // Sheet states
+  const [createSheetOpen, setCreateSheetOpen] = useState(false);
+  const [selectedOpportunityId, setSelectedOpportunityId] = useState<string | null>(null);
+
   return (
     <FabricDataView
       emptyTitle="Opportunities cannot be loaded"
@@ -557,14 +591,65 @@ export function OpportunitiesPage() {
     >
       {(dataset) => {
         const viewModel = buildOpportunitiesViewModel(dataset);
-        const rows = viewModel.rows.filter((row) =>
-          `${row.title} ${row.engagementName} ${row.type} ${row.priority}`
+
+        // Filter
+        let filteredRows = viewModel.rows.filter((row) => {
+          const matchesQuery = `${row.title} ${row.engagementName} ${row.type} ${row.priority} ${row.category ?? ''}`
             .toLowerCase()
-            .includes(query.toLowerCase()),
-        );
+            .includes(query.toLowerCase());
+          const matchesType = !typeFilter || row.type === typeFilter;
+          const matchesPriority = !priorityFilter || row.priority === priorityFilter;
+          return matchesQuery && matchesType && matchesPriority;
+        });
+
+        // Sort
+        filteredRows = [...filteredRows].sort((a, b) => {
+          let aVal: string | number = '';
+          let bVal: string | number = '';
+
+          if (sortColumn === 'Opportunity') {
+            aVal = a.title;
+            bVal = b.title;
+          } else if (sortColumn === 'type') {
+            aVal = a.type;
+            bVal = b.type;
+          } else if (sortColumn === 'priority') {
+            const rank = { critical: 4, high: 3, medium: 2, low: 1 };
+            aVal = rank[a.priority as keyof typeof rank] || 0;
+            bVal = rank[b.priority as keyof typeof rank] || 0;
+          } else if (sortColumn === 'category') {
+            aVal = a.category ?? '';
+            bVal = b.category ?? '';
+          } else if (sortColumn === 'status') {
+            aVal = a.status;
+            bVal = b.status;
+          } else if (sortColumn === 'evidence') {
+            aVal = a.evidenceCount;
+            bVal = b.evidenceCount;
+          }
+
+          if (aVal < bVal) return sortDirection === 'asc' ? -1 : 1;
+          if (aVal > bVal) return sortDirection === 'asc' ? 1 : -1;
+          return 0;
+        });
+
+        const handleSort = (colKey: string) => {
+          if (sortColumn === colKey) {
+            setSortDirection((prev) => (prev === 'asc' ? 'desc' : 'asc'));
+          } else {
+            setSortColumn(colKey);
+            setSortDirection('asc');
+          }
+        };
+
+        const selectedOpp = selectedOpportunityId
+          ? dataset.opportunities.find((o) => o.id === selectedOpportunityId)
+          : null;
+
         const categoryCount = dataset.opportunities.filter(
           (item) => item.priorityCategory === 'Foundational Improvement',
         ).length;
+
         return (
           <>
             <PageHeader
@@ -577,16 +662,12 @@ export function OpportunitiesPage() {
                 'Approval-aware',
               ]}
               actions={
-                <Button onClick={() => setShowForm((value) => !value)}>
-                  {showForm ? 'Close form' : 'Add opportunity'}
+                <Button onClick={() => setCreateSheetOpen(true)}>
+                  <Plus size={16} style={{ marginRight: 6 }} /> Add opportunity
                 </Button>
               }
             />
-            {showForm ? (
-              <Card title="Create opportunity">
-                <OpportunityForm onSaved={() => setShowForm(false)} />
-              </Card>
-            ) : null}
+
             <section className="metric-grid metric-grid--compact">
               <StatCard
                 label="High priority"
@@ -613,105 +694,352 @@ export function OpportunitiesPage() {
                 tone="neutral"
               />
             </section>
-            <Card
-              title="Opportunity register"
-              description="Search and triage recommendations before they become delivery initiatives."
-            >
-              <input
-                className="search-input"
-                aria-label="Search opportunities"
-                placeholder="Search opportunities..."
-                value={query}
-                onChange={(event) => setQuery(event.target.value)}
-              />
-              <DataTable
-                rows={rows}
-                getRowKey={(row) => row.id}
-                emptyState="No opportunities match this search."
-                columns={[
-                  {
-                    header: 'Opportunity',
-                    render: (row) => (
-                      <div>
-                        <Link
-                          className="table-link"
-                          to={`/opportunities/${row.id}`}
+
+            <Toolbar>
+              <ToolbarGroup>
+                <SearchInput
+                  value={query}
+                  onChange={setQuery}
+                  placeholder="Search opportunities..."
+                />
+                <FilterSelect
+                  label="Type"
+                  value={typeFilter}
+                  onChange={setTypeFilter}
+                  allLabel="All types"
+                  options={types.map((t) => ({ value: t, label: t }))}
+                />
+                <FilterSelect
+                  label="Priority"
+                  value={priorityFilter}
+                  onChange={setPriorityFilter}
+                  allLabel="All priorities"
+                  options={priorities.map((p) => ({ value: p, label: p }))}
+                />
+              </ToolbarGroup>
+              <ToolbarGroup align="right">
+                <ViewToggle
+                  value={viewMode}
+                  onChange={setViewMode}
+                  options={[
+                    { id: 'table', label: 'Table', icon: <TableIcon size={14} /> },
+                    { id: 'matrix', label: 'Matrix', icon: <LayoutGrid size={14} /> },
+                  ]}
+                />
+              </ToolbarGroup>
+            </Toolbar>
+
+            {viewMode === 'table' && (
+              <Card
+                title="Opportunity register"
+                description="Search and triage recommendations before they become delivery initiatives. Click any row to inspect."
+              >
+                <DataTable
+                  rows={filteredRows}
+                  getRowKey={(row) => row.id}
+                  selectedRowKey={selectedOpportunityId ?? undefined}
+                  onRowClick={(row) => setSelectedOpportunityId(row.id)}
+                  sortColumn={sortColumn}
+                  sortDirection={sortDirection}
+                  onSort={handleSort}
+                  emptyState="No opportunities match this search."
+                  columns={[
+                    {
+                      key: 'Opportunity',
+                      header: 'Opportunity',
+                      sortable: true,
+                      render: (row) => (
+                        <div>
+                          <div style={{ fontWeight: 700, color: 'var(--fabric-text)' }}>
+                            {row.title}
+                          </div>
+                          <div className="body-copy body-copy--small">
+                            {row.engagementName}
+                          </div>
+                        </div>
+                      ),
+                      width: '32%',
+                    },
+                    {
+                      key: 'type',
+                      header: 'Type',
+                      sortable: true,
+                      render: (row) => (
+                        <span style={{ textTransform: 'capitalize', fontSize: 13 }}>
+                          {row.type}
+                        </span>
+                      ),
+                    },
+                    {
+                      key: 'priority',
+                      header: 'Priority',
+                      sortable: true,
+                      render: (row) => (
+                        <Badge tone={row.priorityTone}>{row.priority}</Badge>
+                      ),
+                    },
+                    {
+                      key: 'category',
+                      header: 'Category',
+                      sortable: true,
+                      render: (row) => row.category ?? 'Uncategorised',
+                    },
+                    {
+                      key: 'status',
+                      header: 'Status',
+                      sortable: true,
+                      render: (row) => (
+                        <Badge
+                          tone={
+                            row.status === 'approved' || row.status === 'in-delivery'
+                              ? 'success'
+                              : 'neutral'
+                          }
                         >
-                          <strong>{row.title}</strong>
+                          {row.status}
+                        </Badge>
+                      ),
+                    },
+                    {
+                      key: 'evidence',
+                      header: 'Evidence',
+                      sortable: true,
+                      render: (row) => `${row.evidenceCount} refs`,
+                    },
+                    {
+                      header: '',
+                      align: 'right',
+                      render: (row) => (
+                        <Link
+                          to={`/opportunities/${row.id}`}
+                          onClick={(e) => e.stopPropagation()}
+                          className="table-link"
+                          style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}
+                        >
+                          <span>Full view</span> <ChevronRight size={14} />
                         </Link>
-                        <div className="body-copy body-copy--small">
-                          {row.engagementName}
+                      ),
+                    },
+                  ]}
+                />
+              </Card>
+            )}
+
+            {viewMode === 'matrix' && (
+              <Card
+                title="Impact versus effort matrix"
+                description="High impact / low effort indicates a Quick Win; high impact / high effort indicates a Strategic Project. Click any item to inspect."
+              >
+                <div className="opportunity-matrix">
+                  {matrixCells.map(({ label, impacts, effort }) => {
+                    const items = dataset.opportunities.filter(
+                      (item) =>
+                        impacts.includes(item.businessImpact ?? item.priority) &&
+                        (item.implementationEffort ?? item.estimatedEffort) ===
+                          effort,
+                    );
+                    return (
+                      <div className="matrix-cell" key={label}>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                          <strong>{label}</strong>
+                          <Badge tone="neutral">{items.length}</Badge>
+                        </div>
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: 6, marginTop: 6 }}>
+                          {items.map((item) => (
+                            <button
+                              key={item.id}
+                              type="button"
+                              onClick={() => setSelectedOpportunityId(item.id)}
+                              style={{
+                                textAlign: 'left',
+                                padding: '8px 10px',
+                                borderRadius: 8,
+                                border: '1px solid var(--fabric-border)',
+                                background: 'var(--fabric-surface)',
+                                cursor: 'pointer',
+                                fontSize: 13,
+                              }}
+                            >
+                              <div style={{ fontWeight: 600, color: 'var(--fabric-text)' }}>
+                                {item.title}
+                              </div>
+                              <div style={{ fontSize: 11, color: 'var(--fabric-text-soft)' }}>
+                                {item.priority} · {item.type}
+                              </div>
+                            </button>
+                          ))}
                         </div>
                       </div>
-                    ),
-                    width: '25%',
-                  },
-                  { header: 'Type', render: (row) => row.type },
-                  {
-                    header: 'Priority',
-                    render: (row) => (
-                      <Badge tone={row.priorityTone}>{row.priority}</Badge>
-                    ),
-                  },
-                  {
-                    header: 'Category',
-                    render: (row) => row.category ?? 'Uncategorised',
-                  },
-                  { header: 'Status', render: (row) => row.status },
-                  {
-                    header: 'Evidence',
-                    render: (row) => `${row.evidenceCount} refs`,
-                  },
-                  { header: 'Actions', render: (row) => row.actionCount ?? 0 },
-                ]}
-              />
-            </Card>
-            <Card
-              title="Impact versus effort matrix"
-              description="High impact / low effort indicates a Quick Win; high impact / high effort indicates a Strategic Project. Medium-effort work remains visible, and foundational work is separately identifiable."
+                    );
+                  })}
+                </div>
+                <div className="prompt-list" style={{ marginTop: 16 }}>
+                  <span>Categories: {categories.join(' · ')}</span>
+                </div>
+              </Card>
+            )}
+
+            {/* Create Drawer */}
+            <Sheet
+              open={createSheetOpen}
+              onOpenChange={setCreateSheetOpen}
+              size="lg"
+              eyebrow="Transformation"
+              title="Create opportunity"
+              description="Capture problem statement, proposed improvement, and target value."
             >
-              <div className="opportunity-matrix">
-                {matrixCells.map(({ label, impacts, effort }) => {
-                  const items = dataset.opportunities.filter(
-                    (item) =>
-                      impacts.includes(item.businessImpact ?? item.priority) &&
-                      (item.implementationEffort ?? item.estimatedEffort) ===
-                        effort,
-                  );
-                  return (
-                    <div className="matrix-cell" key={label}>
-                      <strong>{label}</strong>
-                      <span>{items.length} opportunities</span>
-                      {items.map((item) => (
-                        <Link
-                          className="table-link"
-                          key={item.id}
-                          to={`/opportunities/${item.id}`}
-                        >
-                          {item.title}
-                        </Link>
-                      ))}
-                    </div>
-                  );
-                })}
-              </div>
-              <div className="prompt-list">
-                <span>Categories: {categories.join(' · ')}</span>
-              </div>
-            </Card>
+              <OpportunityForm
+                onSaved={() => {
+                  setCreateSheetOpen(false);
+                }}
+              />
+            </Sheet>
+
+            {/* Quick Inspector Drawer */}
+            <Sheet
+              open={Boolean(selectedOpp)}
+              onOpenChange={(open) => {
+                if (!open) setSelectedOpportunityId(null);
+              }}
+              size="lg"
+              eyebrow={selectedOpp?.priorityCategory ?? 'Opportunity Inspector'}
+              title={selectedOpp?.title}
+              description={selectedOpp?.description}
+              footer={
+                selectedOpp && (
+                  <div style={{ display: 'flex', gap: 10 }}>
+                    <Button
+                      variant="ghost"
+                      onClick={() => setSelectedOpportunityId(null)}
+                    >
+                      Close
+                    </Button>
+                    <Button
+                      onClick={() => {
+                        navigate(`/opportunities/${selectedOpp.id}`);
+                      }}
+                    >
+                      Open full detail workspace <ExternalLink size={14} style={{ marginLeft: 6 }} />
+                    </Button>
+                  </div>
+                )
+              }
+            >
+              {selectedOpp && (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
+                  <div className="detail-badges">
+                    <Badge tone="accent">{selectedOpp.type}</Badge>
+                    <Badge
+                      tone={
+                        selectedOpp.priority === 'critical' || selectedOpp.priority === 'high'
+                          ? 'warning'
+                          : 'neutral'
+                      }
+                    >
+                      {selectedOpp.priority} priority
+                    </Badge>
+                    <Badge tone="neutral">Effort: {selectedOpp.estimatedEffort}</Badge>
+                    <Badge
+                      tone={
+                        selectedOpp.status === 'approved' || selectedOpp.status === 'in-delivery'
+                          ? 'success'
+                          : 'neutral'
+                      }
+                    >
+                      {selectedOpp.status}
+                    </Badge>
+                  </div>
+
+                  <Tabs defaultValue="overview" variant="underline">
+                    <TabsList>
+                      <TabsTrigger value="overview">Overview</TabsTrigger>
+                      <TabsTrigger value="problem">Problem & Cause</TabsTrigger>
+                      <TabsTrigger value="benefits">Benefits & ROI</TabsTrigger>
+                      <TabsTrigger
+                        value="evidence"
+                        badge={selectedOpp.evidenceIds.length}
+                      >
+                        Evidence
+                      </TabsTrigger>
+                    </TabsList>
+
+                    <TabsContent value="overview">
+                      <dl className="detail-list" style={{ marginTop: 12 }}>
+                        <dt>Current situation</dt>
+                        <dd>{selectedOpp.currentSituation || 'Not documented'}</dd>
+                        <dt>Recommended improvement</dt>
+                        <dd>{selectedOpp.recommendedImprovement || selectedOpp.description}</dd>
+                        <dt>Suggested next step</dt>
+                        <dd>{selectedOpp.suggestedNextStep || 'None recorded'}</dd>
+                        <dt>Recommended timing</dt>
+                        <dd>{selectedOpp.recommendedTiming || 'Not specified'}</dd>
+                      </dl>
+                    </TabsContent>
+
+                    <TabsContent value="problem">
+                      <dl className="detail-list" style={{ marginTop: 12 }}>
+                        <dt>Identified issue</dt>
+                        <dd>{selectedOpp.identifiedIssue || selectedOpp.problemStatement}</dd>
+                        <dt>Root cause</dt>
+                        <dd>{selectedOpp.rootCause || 'Not specified'}</dd>
+                        <dt>Why it matters</dt>
+                        <dd>{selectedOpp.whyItMatters || 'Not specified'}</dd>
+                      </dl>
+                    </TabsContent>
+
+                    <TabsContent value="benefits">
+                      <dl className="detail-list" style={{ marginTop: 12 }}>
+                        <dt>Potential benefits</dt>
+                        <dd>{selectedOpp.potentialBenefits || selectedOpp.expectedImpact}</dd>
+                        <dt>Value assumptions</dt>
+                        <dd>{selectedOpp.valueAssumptions || 'None recorded'}</dd>
+                        <dt>Investment band</dt>
+                        <dd>{selectedOpp.investment || 'Unknown'}</dd>
+                      </dl>
+                    </TabsContent>
+
+                    <TabsContent value="evidence">
+                      <div style={{ marginTop: 12 }}>
+                        {selectedOpp.evidenceIds.length === 0 ? (
+                          <div className="ui-table-empty">
+                            No direct evidence IDs linked to this opportunity.
+                          </div>
+                        ) : (
+                          <div className="record-stack">
+                            {selectedOpp.evidenceIds.map((eid) => (
+                              <div
+                                key={eid}
+                                className="record-item record-item--note"
+                              >
+                                <div>
+                                  <strong>Evidence ID: {eid}</strong>
+                                  <p className="body-copy body-copy--small">
+                                    Linked transformation fieldwork item
+                                  </p>
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+                    </TabsContent>
+                  </Tabs>
+                </div>
+              )}
+            </Sheet>
           </>
         );
       }}
     </FabricDataView>
   );
 }
-
 export function OpportunityDetailPage() {
   const { opportunityId } = useParams();
   const { createAction } = useFabricData();
-  const [editing, setEditing] = useState(false);
-  const [showAction, setShowAction] = useState(false);
-  const [showInitiative, setShowInitiative] = useState(false);
+  const [editingSheetOpen, setEditingSheetOpen] = useState(false);
+  const [actionSheetOpen, setActionSheetOpen] = useState(false);
+  const [initiativeSheetOpen, setInitiativeSheetOpen] = useState(false);
+
   const [actionTitle, setActionTitle] = useState('');
   const [actionDescription, setActionDescription] = useState('');
   const [actionError, setActionError] = useState<string | null>(null);
@@ -737,7 +1065,7 @@ export function OpportunityDetailPage() {
       });
       setActionTitle('');
       setActionDescription('');
-      setShowAction(false);
+      setActionSheetOpen(false);
     } catch (caught) {
       setActionError(
         caught instanceof Error ? caught.message : 'Unable to create action.',
@@ -787,7 +1115,7 @@ export function OpportunityDetailPage() {
         return (
           <>
             <PageHeader
-              eyebrow="Opportunity detail"
+              eyebrow="Transformation Workbench"
               title={opportunity.title}
               description={opportunity.clientSummary ?? opportunity.description}
               metadata={[
@@ -796,252 +1124,284 @@ export function OpportunityDetailPage() {
                 opportunity.confidence,
               ]}
               actions={
-                <>
+                <div style={{ display: 'flex', gap: 8 }}>
                   <Button
                     variant="ghost"
-                    onClick={() => setEditing((value) => !value)}
+                    onClick={() => setEditingSheetOpen(true)}
                   >
-                    {editing ? 'Close edit' : 'Edit opportunity'}
+                    Edit opportunity
+                  </Button>
+                  <Button
+                    variant="ghost"
+                    onClick={() => setActionSheetOpen(true)}
+                  >
+                    + Action item
                   </Button>
                   {canCreateInitiative ? (
                     <Button
-                      onClick={() => setShowInitiative((value) => !value)}
+                      onClick={() => setInitiativeSheetOpen(true)}
                     >
-                      {showInitiative
-                        ? 'Close initiative'
-                        : 'Create delivery initiative'}
+                      Convert to delivery initiative
                     </Button>
                   ) : null}
-                </>
+                </div>
               }
             />
 
-            {editing ? (
-              <Card title="Edit opportunity">
-                <OpportunityForm
-                  key={opportunity.updatedAt}
-                  opportunity={opportunity}
-                  onSaved={() => setEditing(false)}
-                />
-              </Card>
-            ) : null}
-
-            {showInitiative && canCreateInitiative ? (
-              <Card
-                title="Create delivery initiative"
-                description="This carries the approved opportunity context into the phased roadmap without duplicating the recommendation."
+            <div className="detail-badges">
+              <Badge tone="accent">{opportunity.type}</Badge>
+              <Badge
+                tone={
+                  opportunity.priority === 'critical' || opportunity.priority === 'high'
+                    ? 'warning'
+                    : 'neutral'
+                }
               >
-                <InitiativeForm
-                  opportunity={opportunity}
-                  onSaved={() => setShowInitiative(false)}
-                />
-              </Card>
-            ) : null}
+                {opportunity.priority} priority
+              </Badge>
+              <Badge tone="neutral">Effort: {opportunity.estimatedEffort}</Badge>
+              <Badge tone="neutral">Investment: {opportunity.investment ?? '£'}</Badge>
+              <Badge
+                tone={
+                  opportunity.status === 'approved' || opportunity.status === 'in-delivery'
+                    ? 'success'
+                    : 'neutral'
+                }
+              >
+                {opportunity.status}
+              </Badge>
+            </div>
 
-            <section className="content-grid content-grid--two">
-              <Card title="Reasoning chain">
-                <dl className="detail-list">
-                  <dt>Area / process / system</dt>
-                  <dd>
-                    {dataset.areas.find(
-                      (item) => item.id === opportunity.areaId,
-                    )?.name ?? '—'}
-                    {' · '}
-                    {dataset.processes.find(
-                      (item) => item.id === opportunity.processId,
-                    )?.name ?? '—'}
-                    {' · '}
-                    {dataset.systems.find(
-                      (item) => item.id === opportunity.systemId,
-                    )?.name ?? '—'}
-                  </dd>
-                  <dt>Current situation</dt>
-                  <dd>
-                    {opportunity.currentSituation ?? opportunity.description}
-                  </dd>
-                  <dt>Identified issue</dt>
-                  <dd>
-                    {opportunity.identifiedIssue ??
-                      opportunity.problemStatement}
-                  </dd>
-                  <dt>Root cause</dt>
-                  <dd>{opportunity.rootCause}</dd>
-                  <dt>Why it matters</dt>
-                  <dd>{opportunity.whyItMatters ?? 'Not recorded'}</dd>
-                  <dt>Recommended improvement</dt>
-                  <dd>
-                    {opportunity.recommendedImprovement ??
-                      opportunity.description}
-                  </dd>
-                  <dt>Potential benefits</dt>
-                  <dd>
-                    {opportunity.potentialBenefits ??
-                      opportunity.expectedImpact}
-                  </dd>
-                </dl>
-              </Card>
-              <Card title="Priority assessment">
-                <div className="priority-panel">
-                  <Badge tone="warning">{opportunity.priority}</Badge>
-                  <strong>
-                    {opportunity.priorityCategory ?? 'Category pending'}
-                  </strong>
-                  <span>
-                    Impact: {opportunity.businessImpact ?? opportunity.priority}
-                  </span>
-                  <span>
-                    Effort:{' '}
-                    {opportunity.implementationEffort ??
-                      opportunity.estimatedEffort}
-                  </span>
-                  <span>Investment: {opportunity.investment ?? 'Unknown'}</span>
-                  <span>
-                    Strategic value:{' '}
-                    {opportunity.strategicValue ?? 'Not recorded'}
-                  </span>
-                  <span>
-                    Timing: {opportunity.recommendedTiming ?? 'Not recorded'}
-                  </span>
-                </div>
-              </Card>
-            </section>
+            <Tabs defaultValue="transformation" variant="pills" style={{ marginTop: 16 }}>
+              <TabsList>
+                <TabsTrigger value="transformation">Problem & Transformation</TabsTrigger>
+                <TabsTrigger value="evidence" badge={linkedEvidence.length + linkedObservations.length}>
+                  Evidence & Lineage
+                </TabsTrigger>
+                <TabsTrigger value="actions" badge={actions.length}>
+                  Action Items
+                </TabsTrigger>
+                <TabsTrigger value="delivery" badge={initiatives.length}>
+                  Delivery & Roadmaps
+                </TabsTrigger>
+              </TabsList>
 
-            <section className="content-grid content-grid--two">
-              <Card title="Supporting evidence">
-                <div className="record-stack">
-                  {linkedObservations.map((item) => (
-                    <span key={item.id}>
-                      Observation: {item.title ?? item.summary}
-                    </span>
-                  ))}
-                  {linkedFindings.map((item) => (
-                    <span key={item.id}>Finding: {item.title}</span>
-                  ))}
-                  {linkedEvidence.map((item) => (
-                    <span key={item.id}>Evidence: {item.title}</span>
-                  ))}
-                  {linkedObservations.length +
-                    linkedFindings.length +
-                    linkedEvidence.length ===
-                  0 ? (
-                    <span>No linked evidence recorded.</span>
-                  ) : null}
-                  <p className="body-copy">
-                    Internal assumptions:{' '}
-                    {opportunity.valueAssumptions ?? 'None recorded'}
-                  </p>
-                </div>
-              </Card>
-              <Card title="Review and approval">
-                <dl className="detail-list">
-                  <dt>Content approval</dt>
-                  <dd>{opportunity.approvalState}</dd>
-                  <dt>Review status</dt>
-                  <dd>{opportunity.reviewStatus}</dd>
-                  <dt>Client-safe summary</dt>
-                  <dd>
-                    {opportunity.clientSummary ??
-                      'Not approved for client-facing use.'}
-                  </dd>
-                  <dt>Delivery handoff</dt>
-                  <dd>
-                    {initiatives.length > 0
-                      ? `${initiatives.length} linked initiative${initiatives.length === 1 ? '' : 's'}`
-                      : canCreateInitiative
-                        ? 'Ready to become a delivery initiative.'
-                        : 'Requires approved content and an approved review before delivery handoff.'}
-                  </dd>
-                  <dt>Internal notes</dt>
-                  <dd>{opportunity.internalNotes ?? 'None'}</dd>
-                </dl>
-              </Card>
-            </section>
+              <TabsContent value="transformation">
+                <section className="content-grid content-grid--two">
+                  <Card title="Current situation & problem">
+                    <dl className="detail-list">
+                      <dt>Area / Process / System</dt>
+                      <dd>
+                        {dataset.areas.find((item) => item.id === opportunity.areaId)?.name ?? '—'} ·{' '}
+                        {dataset.processes.find((item) => item.id === opportunity.processId)?.name ?? '—'} ·{' '}
+                        {dataset.systems.find((item) => item.id === opportunity.systemId)?.name ?? '—'}
+                      </dd>
+                      <dt>Current situation</dt>
+                      <dd>{opportunity.currentSituation || 'Not recorded'}</dd>
+                      <dt>Identified issue</dt>
+                      <dd>{opportunity.identifiedIssue || opportunity.problemStatement}</dd>
+                      <dt>Root cause</dt>
+                      <dd>{opportunity.rootCause || 'Not recorded'}</dd>
+                      <dt>Why it matters</dt>
+                      <dd>{opportunity.whyItMatters || 'Not recorded'}</dd>
+                    </dl>
+                  </Card>
 
-            {initiatives.length > 0 ? (
-              <Card title={`Delivery initiatives (${initiatives.length})`}>
-                <div className="record-stack">
-                  {initiatives.map((initiative) => (
-                    <Link
-                      className="record-item table-link"
-                      key={initiative.id}
-                      to={`/roadmap/${initiative.id}`}
-                    >
-                      <strong>{initiative.title}</strong>
-                      <span>
-                        {initiative.phase} · {initiative.status}
-                      </span>
-                    </Link>
-                  ))}
-                </div>
-              </Card>
-            ) : null}
+                  <Card title="Target improvement & benefits">
+                    <dl className="detail-list">
+                      <dt>Improvement</dt>
+                      <dd>{opportunity.recommendedImprovement || opportunity.description}</dd>
+                      <dt>Expected benefits</dt>
+                      <dd>{opportunity.potentialBenefits || opportunity.expectedImpact}</dd>
+                      <dt>Assumptions</dt>
+                      <dd>{opportunity.valueAssumptions || 'None'}</dd>
+                      <dt>Next step</dt>
+                      <dd>{opportunity.suggestedNextStep || 'None recorded'}</dd>
+                    </dl>
+                  </Card>
+                </section>
+              </TabsContent>
 
-            <Card
-              title={`Actions (${actions.length})`}
-              actions={
-                <Button
-                  variant="ghost"
-                  onClick={() => setShowAction((value) => !value)}
-                >
-                  {showAction ? 'Close action' : 'Add action'}
-                </Button>
-              }
-            >
-              {showAction ? (
-                <form
-                  className="entity-form"
-                  onSubmit={(event) => void addAction(event, opportunity)}
-                >
-                  <Field label="Action title">
-                    <input
-                      required
-                      value={actionTitle}
-                      onChange={(event) => setActionTitle(event.target.value)}
+              <TabsContent value="evidence">
+                <section className="content-grid content-grid--two">
+                  <Card title={`Linked evidence records (${linkedEvidence.length})`}>
+                    <DataTable
+                      rows={linkedEvidence}
+                      getRowKey={(row) => row.id}
+                      emptyState="No evidence records directly linked."
+                      columns={[
+                        {
+                          header: 'Title',
+                          render: (row) => <strong>{row.title}</strong>,
+                        },
+                        {
+                          header: 'Type',
+                          render: (row) => row.evidenceType ?? row.kind,
+                        },
+                        {
+                          header: 'Source',
+                          render: (row) => row.source ?? row.origin,
+                        },
+                      ]}
                     />
-                  </Field>
-                  <Field label="Specific next step">
-                    <textarea
-                      value={actionDescription}
-                      onChange={(event) =>
-                        setActionDescription(event.target.value)
-                      }
-                      rows={2}
-                    />
-                  </Field>
-                  {actionError ? (
-                    <p className="form-error" role="alert">
-                      {actionError}
-                    </p>
-                  ) : null}
-                  <Button type="submit">Create action</Button>
-                </form>
-              ) : null}
-              <div className="record-stack">
-                {actions.map((action) => (
-                  <article className="record-item" key={action.id}>
-                    <div>
-                      <strong>{action.title}</strong>
-                      <p className="body-copy">{action.description}</p>
-                      <span>
-                        {action.owner ??
-                          dataset.users.find(
-                            (user) => user.id === action.ownerUserId,
-                          )?.displayName ??
-                          'Owner pending'}{' '}
-                        · {action.dueDate?.slice(0, 10) ?? 'No due date'}
-                      </span>
+                  </Card>
+
+                  <Card title={`Linked observations (${linkedObservations.length})`}>
+                    <div className="record-stack">
+                      {linkedObservations.length === 0 ? (
+                        <div className="ui-table-empty">No linked fieldwork observations.</div>
+                      ) : (
+                        linkedObservations.map((obs) => (
+                          <div key={obs.id} className="record-item record-item--note">
+                            <div>
+                              <strong>{obs.title ?? obs.summary}</strong>
+                              <p className="body-copy body-copy--small">
+                                {obs.description ?? obs.detail}
+                              </p>
+                            </div>
+                            <Badge tone="neutral">{obs.status ?? obs.assurance}</Badge>
+                          </div>
+                        ))
+                      )}
                     </div>
-                    <Badge
-                      tone={
-                        action.status === 'completed' ? 'success' : 'warning'
-                      }
-                    >
-                      {action.status}
-                    </Badge>
-                  </article>
-                ))}
-              </div>
-            </Card>
+                  </Card>
+                </section>
+              </TabsContent>
+
+              <TabsContent value="actions">
+                <Card
+                  title={`Action items (${actions.length})`}
+                  description="Immediate tasks required before or during transformation."
+                  actions={
+                    <Button variant="ghost" onClick={() => setActionSheetOpen(true)}>
+                      + Add action
+                    </Button>
+                  }
+                >
+                  <DataTable
+                    rows={actions}
+                    getRowKey={(row) => row.id}
+                    emptyState="No action items created for this opportunity."
+                    columns={[
+                      {
+                        header: 'Action',
+                        render: (row) => <strong>{row.title}</strong>,
+                      },
+                      {
+                        header: 'Status',
+                        render: (row) => <Badge tone="neutral">{row.status}</Badge>,
+                      },
+                      {
+                        header: 'Priority',
+                        render: (row) => <Badge tone="warning">{row.priority}</Badge>,
+                      },
+                      {
+                        header: 'Owner',
+                        render: (row) => row.owner ?? 'Unassigned',
+                      },
+                    ]}
+                  />
+                </Card>
+              </TabsContent>
+
+              <TabsContent value="delivery">
+                <Card
+                  title={`Delivery initiatives (${initiatives.length})`}
+                  description="Approved initiatives executed through the transformation roadmap."
+                >
+                  {initiatives.length === 0 ? (
+                    <div className="ui-table-empty">
+                      No initiative created yet.
+                      {canCreateInitiative && (
+                        <div style={{ marginTop: 10 }}>
+                          <Button onClick={() => setInitiativeSheetOpen(true)}>
+                            Convert to delivery initiative
+                          </Button>
+                        </div>
+                      )}
+                    </div>
+                  ) : (
+                    <div className="record-stack">
+                      {initiatives.map((init) => (
+                        <div key={init.id} className="record-item record-item--note">
+                          <div>
+                            <Link to={`/roadmap/${init.id}`} className="table-link">
+                              <strong>{init.title}</strong>
+                            </Link>
+                            <p className="body-copy">{init.description}</p>
+                            <span className="record-item__meta">
+                              Phase: {init.phase} · Priority: {init.priority}
+                            </span>
+                          </div>
+                          <Badge tone="success">{init.status}</Badge>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </Card>
+              </TabsContent>
+            </Tabs>
+
+            <Sheet
+              open={editingSheetOpen}
+              onOpenChange={setEditingSheetOpen}
+              size="lg"
+              title="Edit opportunity"
+              description="Update problem definition, benefits, or delivery priority."
+            >
+              <OpportunityForm
+                key={opportunity.updatedAt}
+                opportunity={opportunity}
+                onSaved={() => setEditingSheetOpen(false)}
+              />
+            </Sheet>
+
+            <Sheet
+              open={actionSheetOpen}
+              onOpenChange={setActionSheetOpen}
+              size="md"
+              title="Add action item"
+              description="Create a task linked directly to this opportunity."
+            >
+              <form
+                className="entity-form"
+                onSubmit={(e) => void addAction(e, opportunity)}
+              >
+                <Field label="Action title">
+                  <input
+                    required
+                    value={actionTitle}
+                    onChange={(e) => setActionTitle(e.target.value)}
+                  />
+                </Field>
+                <Field label="Description">
+                  <textarea
+                    rows={3}
+                    value={actionDescription}
+                    onChange={(e) => setActionDescription(e.target.value)}
+                  />
+                </Field>
+                {actionError && (
+                  <p className="form-error" role="alert">
+                    {actionError}
+                  </p>
+                )}
+                <Button type="submit">Create action item</Button>
+              </form>
+            </Sheet>
+
+            <Sheet
+              open={initiativeSheetOpen}
+              onOpenChange={setInitiativeSheetOpen}
+              size="lg"
+              title="Create delivery initiative"
+              description="Promote this approved opportunity into a scheduled roadmap initiative."
+            >
+              <InitiativeForm
+                opportunity={opportunity}
+                onSaved={() => setInitiativeSheetOpen(false)}
+              />
+            </Sheet>
           </>
         );
       }}
