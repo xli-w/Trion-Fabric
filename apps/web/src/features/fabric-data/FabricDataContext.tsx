@@ -4,6 +4,7 @@ import {
   useContext,
   useEffect,
   useMemo,
+  useRef,
   useState,
 } from 'react';
 import type { ReactNode } from 'react';
@@ -57,6 +58,7 @@ import {
   assertUserCanPerformAcrossEngagements,
   canUserPerform,
   createEngagementAccessProjection,
+  createEngagementWorkspaceProjection,
   createMethodologyRun,
   createLandscapeVersionSnapshot,
   createOutputReportSnapshot,
@@ -81,10 +83,16 @@ import {
 
 interface FabricDataContextValue {
   dataset: FabricDataset | null;
+  activeDataset: FabricDataset | null;
+  activeEngagementId: EntityId | null;
+  activeEngagement: Engagement | null;
+  activeClient: Client | null;
+  activeSites: Site[];
   error: string | null;
   isLoading: boolean;
   currentUser: User | null;
   setCurrentUserId: (userId: EntityId) => void;
+  setActiveEngagementId: (engagementId: EntityId | null) => void;
   canPerform: (
     permission: WorkspacePermission,
     engagementId?: EntityId,
@@ -200,6 +208,10 @@ interface FabricDataContextValue {
 const FabricDataContext = createContext<FabricDataContextValue | undefined>(
   undefined,
 );
+
+function activeEngagementStorageKey(userId: EntityId) {
+  return `trion-fabric:active-engagement:${userId}`;
+}
 
 interface FabricDataProviderProps {
   children: ReactNode;
@@ -1123,6 +1135,9 @@ export function FabricDataProvider({
   const [error, setError] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [selectedUserId, setSelectedUserId] = useState<EntityId | null>(null);
+  const [activeEngagementId, setActiveEngagementIdState] =
+    useState<EntityId | null>(null);
+  const activeEngagementUserIdRef = useRef<EntityId | null>(null);
   const currentUser = dataset
     ? (dataset.users.find((user) => user.id === selectedUserId) ??
       dataset.users[0] ??
@@ -1141,6 +1156,44 @@ export function FabricDataProvider({
         : null,
     [actingUser, dataset],
   );
+  const activeEngagement = useMemo(
+    () =>
+      activeEngagementId
+        ? (scopedDataset?.engagements.find(
+            (engagement) => engagement.id === activeEngagementId,
+          ) ?? null)
+        : null,
+    [activeEngagementId, scopedDataset],
+  );
+  const activeClient = useMemo(
+    () =>
+      activeEngagement
+        ? (scopedDataset?.clients.find(
+            (client) => client.id === activeEngagement.clientId,
+          ) ?? null)
+        : null,
+    [activeEngagement, scopedDataset],
+  );
+  const activeSites = useMemo(
+    () =>
+      activeEngagement
+        ? (scopedDataset?.sites.filter((site) =>
+            activeEngagement.siteIds.includes(site.id),
+          ) ?? [])
+        : [],
+    [activeEngagement, scopedDataset],
+  );
+  const activeDataset = useMemo(() => {
+    if (!scopedDataset || !activeEngagement) {
+      return null;
+    }
+
+    const projection = createEngagementWorkspaceProjection(
+      scopedDataset,
+      activeEngagement.id,
+    );
+    return projection ? createImmutableSnapshot(projection) : null;
+  }, [activeEngagement, scopedDataset]);
 
   const loadDataset = useCallback(async () => {
     setIsLoading(true);
@@ -1169,6 +1222,24 @@ export function FabricDataProvider({
       setSelectedUserId(userId);
     },
     [dataset],
+  );
+
+  const setActiveEngagementId = useCallback(
+    (engagementId: EntityId | null) => {
+      if (
+        engagementId &&
+        !scopedDataset?.engagements.some(
+          (engagement) => engagement.id === engagementId,
+        )
+      ) {
+        throw new Error(
+          'Select an engagement available in the current Fabric workspace.',
+        );
+      }
+
+      setActiveEngagementIdState(engagementId);
+    },
+    [scopedDataset],
   );
 
   const canPerform = useCallback(
@@ -3301,14 +3372,75 @@ export function FabricDataProvider({
     void loadDataset();
   }, [loadDataset]);
 
+  useEffect(() => {
+    if (!scopedDataset || !currentUser) {
+      activeEngagementUserIdRef.current = null;
+      setActiveEngagementIdState(null);
+      return;
+    }
+
+    const userChanged = activeEngagementUserIdRef.current !== currentUser.id;
+    const savedEngagementId = window.localStorage.getItem(
+      activeEngagementStorageKey(currentUser.id),
+    );
+    const defaultEngagement =
+      scopedDataset.engagements.find(
+        (engagement) =>
+          engagement.status === 'active' || engagement.status === 'at-risk',
+      ) ?? scopedDataset.engagements[0];
+
+    setActiveEngagementIdState((selectedEngagementId) => {
+      if (
+        !userChanged &&
+        selectedEngagementId &&
+        scopedDataset.engagements.some(
+          (engagement) => engagement.id === selectedEngagementId,
+        )
+      ) {
+        return selectedEngagementId;
+      }
+
+      if (
+        savedEngagementId &&
+        scopedDataset.engagements.some(
+          (engagement) => engagement.id === savedEngagementId,
+        )
+      ) {
+        return savedEngagementId;
+      }
+
+      return defaultEngagement?.id ?? null;
+    });
+    activeEngagementUserIdRef.current = currentUser.id;
+  }, [currentUser, scopedDataset]);
+
+  useEffect(() => {
+    if (!currentUser) {
+      return;
+    }
+
+    const storageKey = activeEngagementStorageKey(currentUser.id);
+    if (activeEngagementId) {
+      window.localStorage.setItem(storageKey, activeEngagementId);
+    } else {
+      window.localStorage.removeItem(storageKey);
+    }
+  }, [activeEngagementId, currentUser]);
+
   return (
     <FabricDataContext.Provider
       value={{
         dataset: scopedDataset,
+        activeDataset,
+        activeEngagementId,
+        activeEngagement,
+        activeClient,
+        activeSites,
         error,
         isLoading,
         currentUser,
         setCurrentUserId,
+        setActiveEngagementId,
         canPerform,
         refresh: loadDataset,
         createClient,

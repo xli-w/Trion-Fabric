@@ -676,3 +676,123 @@ export function createEngagementAccessProjection(
     ),
   };
 }
+
+/**
+ * Narrows an already-authorised dataset to the selected engagement without
+ * changing the richer underlying records. The workbench can therefore stay
+ * context-first without duplicating or flattening the analytical model.
+ */
+export function createEngagementWorkspaceProjection(
+  dataset: FabricDataset,
+  engagementId: EntityId,
+): FabricDataset | undefined {
+  const engagement = dataset.engagements.find(
+    (item) => item.id === engagementId,
+  );
+  if (!engagement) {
+    return undefined;
+  }
+
+  const siteIds = new Set(engagement.siteIds);
+  const siteWalks = dataset.siteWalks.filter(
+    (siteWalk) => siteWalk.engagementId === engagement.id,
+  );
+  const siteWalkIds = new Set(siteWalks.map((siteWalk) => siteWalk.id));
+  const observations = dataset.observations.filter((observation) =>
+    siteWalkIds.has(observation.siteWalkId),
+  );
+  const diagnostics = dataset.diagnostics.filter(
+    (diagnostic) => diagnostic.engagementId === engagement.id,
+  );
+  const diagnosticIds = new Set(diagnostics.map((diagnostic) => diagnostic.id));
+  const opportunities = dataset.opportunities.filter(
+    (opportunity) => opportunity.engagementId === engagement.id,
+  );
+  const opportunityIds = new Set(
+    opportunities.map((opportunity) => opportunity.id),
+  );
+  const initiatives = dataset.initiatives.filter(
+    (initiative) => initiative.engagementId === engagement.id,
+  );
+  const initiativeIds = new Set(initiatives.map((initiative) => initiative.id));
+  const outputs = dataset.outputs.filter(
+    (output) => output.engagementId === engagement.id,
+  );
+  const outputIds = new Set(outputs.map((output) => output.id));
+  const methodologyRuns = dataset.engagementMethodologyRuns.filter(
+    (run) => run.engagementId === engagement.id,
+  );
+  const methodologyRunIds = new Set(methodologyRuns.map((run) => run.id));
+
+  return {
+    ...dataset,
+    clients: dataset.clients.filter(
+      (client) => client.id === engagement.clientId,
+    ),
+    sites: dataset.sites.filter((site) => siteIds.has(site.id)),
+    areas: dataset.areas.filter((area) => siteIds.has(area.siteId)),
+    processes: dataset.processes.filter((process) =>
+      siteIds.has(process.siteId),
+    ),
+    systems: dataset.systems.filter((system) => siteIds.has(system.siteId)),
+    engagements: [engagement],
+    siteWalks,
+    observations,
+    evidence: dataset.evidence.filter((evidence) =>
+      evidenceBelongsToEngagement(dataset, evidence, engagement.id),
+    ),
+    frictionItems: dataset.frictionItems.filter((frictionItem) =>
+      siteWalkIds.has(frictionItem.siteWalkId),
+    ),
+    diagnostics,
+    maturityAssessments: dataset.maturityAssessments.filter((assessment) =>
+      diagnosticIds.has(assessment.diagnosticId),
+    ),
+    findings: dataset.findings.filter((finding) =>
+      diagnosticIds.has(finding.diagnosticId),
+    ),
+    landscapeEntities: dataset.landscapeEntities.filter(
+      (entity) => entity.engagementId === engagement.id,
+    ),
+    landscapeRelationships: dataset.landscapeRelationships.filter(
+      (relationship) => relationship.engagementId === engagement.id,
+    ),
+    landscapeVersions: dataset.landscapeVersions.filter(
+      (version) => version.engagementId === engagement.id,
+    ),
+    opportunities,
+    actionItems: dataset.actionItems.filter(
+      (action) =>
+        (action.opportunityId && opportunityIds.has(action.opportunityId)) ||
+        (action.initiativeId && initiativeIds.has(action.initiativeId)),
+    ),
+    initiatives,
+    roadmaps: dataset.roadmaps.filter(
+      (roadmap) => roadmap.engagementId === engagement.id,
+    ),
+    milestones: dataset.milestones.filter((milestone) =>
+      initiativeIds.has(milestone.initiativeId),
+    ),
+    deliveryActions: dataset.deliveryActions.filter((action) =>
+      initiativeIds.has(action.initiativeId),
+    ),
+    benefitMeasurements: dataset.benefitMeasurements.filter((measurement) =>
+      initiativeIds.has(measurement.initiativeId),
+    ),
+    outputs,
+    outputReviewComments: dataset.outputReviewComments.filter((comment) =>
+      outputIds.has(comment.outputId),
+    ),
+    outputExports: dataset.outputExports.filter((exportReference) =>
+      outputIds.has(exportReference.outputId),
+    ),
+    engagementMethodologyRuns: methodologyRuns,
+    engagementMethodologyActivities:
+      dataset.engagementMethodologyActivities.filter((activity) =>
+        methodologyRunIds.has(activity.runId),
+      ),
+    activityEvents: dataset.activityEvents.filter(
+      (activityEvent) => activityEvent.engagementId === engagement.id,
+    ),
+  };
+}

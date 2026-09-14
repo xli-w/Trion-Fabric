@@ -24,7 +24,8 @@ import {
   MilestoneForm,
   RoadmapForm,
 } from '@app/features/roadmap/DeliveryForms';
-import { FabricDataView } from '@app/features/fabric-data/FabricDataView';
+import { ActiveEngagementDataView } from '@app/features/fabric-data/ActiveEngagementDataView';
+import { useFabricData } from '@app/features/fabric-data/FabricDataContext';
 import { buildRoadmapViewModel } from '@app/features/fabric-data/selectors';
 import {
   Calendar,
@@ -70,10 +71,13 @@ function formatDate(value?: string) {
 
 export function RoadmapPage() {
   const navigate = useNavigate();
+  const { activeEngagementId } = useFabricData();
   const [viewMode, setViewMode] = useState<'timeline' | 'register'>('timeline');
   const [showRoadmapForm, setShowRoadmapForm] = useState(false);
   const [editingRoadmapId, setEditingRoadmapId] = useState<string | null>(null);
-  const [selectedInitiativeId, setSelectedInitiativeId] = useState<string | null>(null);
+  const [selectedInitiativeId, setSelectedInitiativeId] = useState<
+    string | null
+  >(null);
 
   function closeRoadmapForm() {
     setShowRoadmapForm(false);
@@ -86,7 +90,7 @@ export function RoadmapPage() {
   }
 
   return (
-    <FabricDataView
+    <ActiveEngagementDataView
       emptyTitle="Roadmap cannot be loaded"
       loadingDescription="Loading delivery sequencing and benefit measures."
       loadingTitle="Loading roadmap"
@@ -121,10 +125,10 @@ export function RoadmapPage() {
             initMilestones.length > 0
               ? Math.round((completedMilestones / initMilestones.length) * 100)
               : init.status === 'approved'
-              ? 100
-              : init.status === 'in-progress'
-              ? 50
-              : 10;
+                ? 100
+                : init.status === 'in-progress'
+                  ? 50
+                  : 10;
 
           return {
             id: init.id,
@@ -134,7 +138,9 @@ export function RoadmapPage() {
             priority: init.priority,
             status: init.status,
             owner: owner?.displayName,
-            targetDate: init.targetEndDate ? formatDate(init.targetEndDate) : undefined,
+            targetDate: init.targetEndDate
+              ? formatDate(init.targetEndDate)
+              : undefined,
             startDate: init.startDate ? formatDate(init.startDate) : undefined,
             completionPercentage: completionPct,
             milestones: initMilestones.map((m) => ({
@@ -162,9 +168,9 @@ export function RoadmapPage() {
         return (
           <>
             <PageHeader
-              eyebrow="Transformation"
-              title="Transformation roadmap"
-              description="Sequence approved opportunities into owned initiatives, milestones, measurable benefits, and governed delivery."
+              eyebrow="Plan & Output"
+              title="Transformation Roadmap"
+              description="Place approved opportunities into a clear sequence of timing, priority, dependencies, and expected outcomes. Detailed delivery tracking stays within the initiative."
               metadata={[
                 'Simplify → Connect → Optimise → Scale',
                 `${viewModel.activeInitiativeCount} active initiatives`,
@@ -204,10 +210,14 @@ export function RoadmapPage() {
 
             {/* View Mode Toolbar */}
             <Toolbar>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+              <div
+                style={{ display: 'flex', alignItems: 'center', gap: '12px' }}
+              >
                 <ViewToggle
                   value={viewMode}
-                  onChange={(v: string) => setViewMode(v as 'timeline' | 'register')}
+                  onChange={(v: string) =>
+                    setViewMode(v as 'timeline' | 'register')
+                  }
                   options={[
                     {
                       id: 'timeline',
@@ -235,6 +245,7 @@ export function RoadmapPage() {
                 }
               >
                 <RoadmapForm
+                  key={`${editingRoadmap?.id ?? 'new'}-${activeEngagementId ?? 'none'}`}
                   roadmap={editingRoadmap}
                   onSaved={closeRoadmapForm}
                 />
@@ -277,7 +288,9 @@ export function RoadmapPage() {
                   initiatives={timelineInitiatives}
                   phases={['Simplify', 'Connect', 'Optimise', 'Scale']}
                   selectedInitiativeId={selectedInitiativeId}
-                  onSelectInitiative={(init) => setSelectedInitiativeId(init.id)}
+                  onSelectInitiative={(init) =>
+                    setSelectedInitiativeId(init.id)
+                  }
                 />
               </Card>
             )}
@@ -291,8 +304,8 @@ export function RoadmapPage() {
                     description="Create a roadmap only when approved opportunities are ready to be sequenced."
                   >
                     <p className="body-copy">
-                      Unsequenced initiatives remain visible below until they are
-                      assigned to a roadmap.
+                      Unsequenced initiatives remain visible below until they
+                      are assigned to a roadmap.
                     </p>
                   </Card>
                 ) : null}
@@ -313,7 +326,9 @@ export function RoadmapPage() {
                     >
                       <div className="record-stack">
                         <div className="split-heading">
-                          <Badge tone={roadmap.statusTone}>{roadmap.status}</Badge>
+                          <Badge tone={roadmap.statusTone}>
+                            {roadmap.status}
+                          </Badge>
                           <Badge
                             tone={
                               roadmap.reviewStatus === 'Approved'
@@ -324,7 +339,9 @@ export function RoadmapPage() {
                             {roadmap.reviewStatus}
                           </Badge>
                         </div>
-                        <p className="body-copy">{roadmap.sequencingRationale}</p>
+                        <p className="body-copy">
+                          {roadmap.sequencingRationale}
+                        </p>
                         <p className="body-copy body-copy--small">
                           Assumptions: {roadmap.assumptions}
                         </p>
@@ -338,10 +355,15 @@ export function RoadmapPage() {
                         <Card key={phase} title={phase} description={window}>
                           <div className="record-stack">
                             {initiatives.length === 0 ? (
-                              <p className="body-copy">No initiatives assigned.</p>
+                              <p className="body-copy">
+                                No initiatives assigned.
+                              </p>
                             ) : null}
                             {initiatives.map((initiative) => (
-                              <article className="record-item" key={initiative.id}>
+                              <article
+                                className="record-item"
+                                key={initiative.id}
+                              >
                                 <div className="split-heading">
                                   <strong>{initiative.title}</strong>
                                   <Badge tone={initiative.statusTone}>
@@ -403,7 +425,9 @@ export function RoadmapPage() {
               onOpenChange={(open) => {
                 if (!open) setSelectedInitiativeId(null);
               }}
-              title={selectedTimelineInitiative?.title || 'Initiative inspector'}
+              title={
+                selectedTimelineInitiative?.title || 'Initiative inspector'
+              }
               description={
                 selectedTimelineInitiative?.phase
                   ? `Phase: ${selectedTimelineInitiative.phase}`
@@ -412,8 +436,20 @@ export function RoadmapPage() {
               size="lg"
             >
               {selectedTimelineInitiative && (
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <div
+                  style={{
+                    display: 'flex',
+                    flexDirection: 'column',
+                    gap: '20px',
+                  }}
+                >
+                  <div
+                    style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '8px',
+                    }}
+                  >
                     <Badge tone={statusTone(selectedTimelineInitiative.status)}>
                       {selectedTimelineInitiative.status}
                     </Badge>
@@ -427,22 +463,35 @@ export function RoadmapPage() {
                       <TabsTrigger value="overview">Overview</TabsTrigger>
                       <TabsTrigger
                         value="milestones"
-                        badge={String(selectedTimelineInitiative.milestones?.length ?? 0)}
+                        badge={String(
+                          selectedTimelineInitiative.milestones?.length ?? 0,
+                        )}
                       >
                         Milestones
                       </TabsTrigger>
                       <TabsTrigger
                         value="benefits"
-                        badge={String(selectedTimelineInitiative.benefits?.length ?? 0)}
+                        badge={String(
+                          selectedTimelineInitiative.benefits?.length ?? 0,
+                        )}
                       >
                         Benefits
                       </TabsTrigger>
                     </TabsList>
 
                     <TabsContent value="overview">
-                      <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
+                      <div
+                        style={{
+                          display: 'flex',
+                          flexDirection: 'column',
+                          gap: '14px',
+                        }}
+                      >
                         <div>
-                          <span className="body-copy body-copy--small" style={{ fontWeight: 700 }}>
+                          <span
+                            className="body-copy body-copy--small"
+                            style={{ fontWeight: 700 }}
+                          >
                             Objective & scope:
                           </span>
                           <p className="body-copy" style={{ marginTop: '4px' }}>
@@ -450,9 +499,24 @@ export function RoadmapPage() {
                           </p>
                         </div>
 
-                        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
-                          <div style={{ padding: '12px', background: 'var(--fabric-surface-alt)', borderRadius: '6px' }}>
-                            <span className="body-copy body-copy--small" style={{ fontWeight: 700 }}>
+                        <div
+                          style={{
+                            display: 'grid',
+                            gridTemplateColumns: '1fr 1fr',
+                            gap: '12px',
+                          }}
+                        >
+                          <div
+                            style={{
+                              padding: '12px',
+                              background: 'var(--fabric-surface-alt)',
+                              borderRadius: '6px',
+                            }}
+                          >
+                            <span
+                              className="body-copy body-copy--small"
+                              style={{ fontWeight: 700 }}
+                            >
                               Owner:
                             </span>
                             <div style={{ marginTop: '4px', fontWeight: 600 }}>
@@ -460,22 +524,44 @@ export function RoadmapPage() {
                             </div>
                           </div>
 
-                          <div style={{ padding: '12px', background: 'var(--fabric-surface-alt)', borderRadius: '6px' }}>
-                            <span className="body-copy body-copy--small" style={{ fontWeight: 700 }}>
+                          <div
+                            style={{
+                              padding: '12px',
+                              background: 'var(--fabric-surface-alt)',
+                              borderRadius: '6px',
+                            }}
+                          >
+                            <span
+                              className="body-copy body-copy--small"
+                              style={{ fontWeight: 700 }}
+                            >
                               Target date:
                             </span>
                             <div style={{ marginTop: '4px', fontWeight: 600 }}>
-                              {selectedTimelineInitiative.targetDate || 'Not scheduled'}
+                              {selectedTimelineInitiative.targetDate ||
+                                'Not scheduled'}
                             </div>
                           </div>
                         </div>
 
                         {selectedRawInitiative?.risks && (
-                          <div style={{ padding: '12px', background: '#fffbeb', border: '1px solid #fef3c7', borderRadius: '6px' }}>
-                            <strong style={{ fontSize: '12px', color: '#b45309' }}>
+                          <div
+                            style={{
+                              padding: '12px',
+                              background: '#fffbeb',
+                              border: '1px solid #fef3c7',
+                              borderRadius: '6px',
+                            }}
+                          >
+                            <strong
+                              style={{ fontSize: '12px', color: '#b45309' }}
+                            >
                               Risks & prerequisites:
                             </strong>
-                            <p className="body-copy body-copy--small" style={{ marginTop: '4px', color: '#78350f' }}>
+                            <p
+                              className="body-copy body-copy--small"
+                              style={{ marginTop: '4px', color: '#78350f' }}
+                            >
                               {selectedRawInitiative.risks}
                             </p>
                           </div>
@@ -484,10 +570,19 @@ export function RoadmapPage() {
                     </TabsContent>
 
                     <TabsContent value="milestones">
-                      <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-                        {(!selectedTimelineInitiative.milestones ||
-                          selectedTimelineInitiative.milestones.length === 0) ? (
-                          <p className="body-copy" style={{ fontStyle: 'italic' }}>
+                      <div
+                        style={{
+                          display: 'flex',
+                          flexDirection: 'column',
+                          gap: '10px',
+                        }}
+                      >
+                        {!selectedTimelineInitiative.milestones ||
+                        selectedTimelineInitiative.milestones.length === 0 ? (
+                          <p
+                            className="body-copy"
+                            style={{ fontStyle: 'italic' }}
+                          >
                             No milestones defined yet.
                           </p>
                         ) : (
@@ -512,7 +607,9 @@ export function RoadmapPage() {
                                   </div>
                                 )}
                               </div>
-                              <Badge tone={statusTone(m.status)}>{m.status}</Badge>
+                              <Badge tone={statusTone(m.status)}>
+                                {m.status}
+                              </Badge>
                             </div>
                           ))
                         )}
@@ -520,10 +617,19 @@ export function RoadmapPage() {
                     </TabsContent>
 
                     <TabsContent value="benefits">
-                      <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-                        {(!selectedTimelineInitiative.benefits ||
-                          selectedTimelineInitiative.benefits.length === 0) ? (
-                          <p className="body-copy" style={{ fontStyle: 'italic' }}>
+                      <div
+                        style={{
+                          display: 'flex',
+                          flexDirection: 'column',
+                          gap: '10px',
+                        }}
+                      >
+                        {!selectedTimelineInitiative.benefits ||
+                        selectedTimelineInitiative.benefits.length === 0 ? (
+                          <p
+                            className="body-copy"
+                            style={{ fontStyle: 'italic' }}
+                          >
                             No benefit measures linked yet.
                           </p>
                         ) : (
@@ -539,7 +645,14 @@ export function RoadmapPage() {
                             >
                               <strong>{b.description}</strong>
                               {b.targetValue && (
-                                <div className="body-copy body-copy--small" style={{ marginTop: '2px', color: '#059669', fontWeight: 600 }}>
+                                <div
+                                  className="body-copy body-copy--small"
+                                  style={{
+                                    marginTop: '2px',
+                                    color: '#059669',
+                                    fontWeight: 600,
+                                  }}
+                                >
                                   Target: {b.targetValue} {b.unit || ''}
                                 </div>
                               )}
@@ -550,7 +663,14 @@ export function RoadmapPage() {
                     </TabsContent>
                   </Tabs>
 
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '16px' }}>
+                  <div
+                    style={{
+                      display: 'flex',
+                      justifyContent: 'space-between',
+                      alignItems: 'center',
+                      marginTop: '16px',
+                    }}
+                  >
                     <Button
                       variant="primary"
                       onClick={() => {
@@ -560,7 +680,10 @@ export function RoadmapPage() {
                     >
                       Open full initiative workspace →
                     </Button>
-                    <Button variant="secondary" onClick={() => setSelectedInitiativeId(null)}>
+                    <Button
+                      variant="secondary"
+                      onClick={() => setSelectedInitiativeId(null)}
+                    >
                       Close
                     </Button>
                   </div>
@@ -570,7 +693,7 @@ export function RoadmapPage() {
           </>
         );
       }}
-    </FabricDataView>
+    </ActiveEngagementDataView>
   );
 }
 
@@ -622,7 +745,7 @@ export function InitiativeDetailPage() {
   }
 
   return (
-    <FabricDataView
+    <ActiveEngagementDataView
       emptyTitle="Initiative cannot be loaded"
       loadingDescription="Loading initiative context, milestones, actions, and benefits."
       loadingTitle="Loading initiative"
@@ -635,7 +758,7 @@ export function InitiativeDetailPage() {
           return (
             <>
               <PageHeader
-                eyebrow="Transformation"
+                eyebrow="Plan & Output"
                 title="Initiative not found"
                 description="The requested initiative is not available."
               />
@@ -1024,6 +1147,6 @@ export function InitiativeDetailPage() {
           </>
         );
       }}
-    </FabricDataView>
+    </ActiveEngagementDataView>
   );
 }

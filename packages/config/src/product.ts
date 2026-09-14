@@ -1,7 +1,13 @@
 export const productInfo = {
   name: 'Fabric',
   fullName: 'Trion Fabric',
-  strapline: 'Transformation operating environment',
+  strapline: 'Transformation analysis workbench',
 };
 
-export const transformationLifecycle = ['Discover', 'Diagnose', 'Design', 'Deliver', 'Measure'] as const;
+export const transformationLifecycle = [
+  'Discover',
+  'Diagnose',
+  'Design',
+  'Deliver',
+  'Measure',
+] as const;

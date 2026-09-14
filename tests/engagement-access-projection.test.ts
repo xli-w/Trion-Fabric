@@ -1,6 +1,9 @@
 import { describe, expect, it } from 'vitest';
 
-import { createEngagementAccessProjection } from '@domain';
+import {
+  createEngagementAccessProjection,
+  createEngagementWorkspaceProjection,
+} from '@domain';
 import { fabricFixtures } from '@app/data/development/fabric-fixtures';
 
 function fixtureUser(id: string) {
@@ -56,5 +59,49 @@ describe('engagement access projection', () => {
       fabricFixtures.engagements.length,
     );
     expect(projection.outputs).toHaveLength(fabricFixtures.outputs.length);
+  });
+
+  it('creates a single-engagement workbench projection without losing connected records', () => {
+    const projection = createEngagementWorkspaceProjection(
+      fabricFixtures,
+      'engagement-northbank-diagnostic',
+    );
+
+    if (!projection) {
+      throw new Error('Expected an active engagement projection.');
+    }
+
+    expect(projection.engagements.map((item) => item.id)).toEqual([
+      'engagement-northbank-diagnostic',
+    ]);
+    expect(projection.clients.map((item) => item.id)).toEqual([
+      'client-northbank-precision',
+    ]);
+    expect(
+      projection.siteWalks.every(
+        (siteWalk) =>
+          siteWalk.engagementId === 'engagement-northbank-diagnostic',
+      ),
+    ).toBe(true);
+    expect(
+      projection.opportunities.every(
+        (opportunity) =>
+          opportunity.engagementId === 'engagement-northbank-diagnostic',
+      ),
+    ).toBe(true);
+    expect(
+      projection.outputs.some(
+        (output) => output.id === 'output-airedale-discovery-brief',
+      ),
+    ).toBe(false);
+  });
+
+  it('returns no projection for an unknown engagement', () => {
+    expect(
+      createEngagementWorkspaceProjection(
+        fabricFixtures,
+        'engagement-does-not-exist',
+      ),
+    ).toBeUndefined();
   });
 });

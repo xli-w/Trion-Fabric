@@ -2,7 +2,11 @@
 
 ## System Intent
 
-Fabric is being established as Trion's internal transformation operating environment. The platform is not a static dashboard and it is not a document generator with forms attached. It is a structured knowledge system for connected transformation work across discovery, diagnosis, design, delivery, and measurement.
+Fabric is Trion's internal transformation analysis workbench. It is not a
+static dashboard, a document generator with forms attached, or an enterprise
+consultancy platform. It is a structured knowledge system for one or two
+consultants to carry connected transformation work through understanding,
+analysis, planning, and controlled outputs.
 
 ## Architectural Shape
 
@@ -16,12 +20,39 @@ The current repository is a modular monolith with explicit boundaries:
 
 This structure keeps domain logic out of route components while avoiding premature distributed-system overhead.
 
+## Workspace-Centred Interaction Model
+
+The user-facing architecture is deliberately smaller than the domain model:
+
+```text
+Clients
+Active engagement
+  Workspace
+  Understand
+  Analyse
+  Plan & Output
+```
+
+The selected active engagement is persisted per development user and resolves
+the active client and site context. An engagement workspace projection narrows
+the authorised dataset for normal workbench pages without changing or
+denormalising the source model. Direct links to a site walk, opportunity,
+initiative, output, evidence, finding, or landscape item restore the related
+active engagement.
+
+Site walks, evidence, systems, findings, actions, milestones, methodology, AI,
+knowledge, and configuration remain valuable concepts, but are contextual
+records or utility settings rather than primary product modules. This lets the
+application retain analytical depth without forcing consultants through
+enterprise navigation or workflow sequences.
+
 ## Data Flow
 
 The current flow is deliberate:
 
 ```text
 Page
+  -> active-engagement projection, where appropriate
   -> feature selector
   -> repository-backed data context
   -> repository contract
@@ -73,11 +104,21 @@ This avoids the common mistake of treating all captured information as publishab
 
 ## Workspace Activity And Access
 
-The internal workbench records important changes as reusable activity events with an actor, timestamp, affected entity, action, and metadata. The repository-backed data context applies the domain access policy before saving changes, so a button is not the sole permission boundary. It exposes immutable UI snapshots and keeps the authorization actor separate from those snapshots. The standard workspace view also projects data to the selected actor's accessible engagements, preventing normal route enumeration from exposing another engagement's records.
+The internal workbench records important changes as reusable activity events
+with an actor, timestamp, affected entity, action, and metadata. The
+repository-backed data context applies the domain access policy before saving
+changes, so a button is not the sole permission boundary. It exposes immutable
+UI snapshots and keeps the authorization actor separate from those snapshots.
+The standard workspace view projects data to the selected actor's accessible
+engagements, then the active-engagement projection narrows normal workbench
+views to one connected client context. This prevents normal route enumeration
+from exposing another engagement's records and keeps the consultant from
+repeatedly reselecting context.
 
-The current development workspace can switch between Administrator, Engagement
-Lead, Consultant, Analyst, Reviewer, and Read-only internal user contexts to
-exercise these constraints. That selector is not authentication. A production
+The visible product vocabulary is intentionally lightweight: Trion User and
+Trion Admin, with possible future read-only client access to approved outputs.
+The current development workspace retains granular simulated roles to exercise
+the enforcement boundary; that selector is not authentication. A production
 repository must bind the actor to a server-authenticated session and enforce the
 same engagement boundary for every read and write.
 

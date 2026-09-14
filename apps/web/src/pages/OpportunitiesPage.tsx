@@ -37,7 +37,7 @@ import {
   ToolbarGroup,
   ViewToggle,
 } from '@ui';
-import { FabricDataView } from '@app/features/fabric-data/FabricDataView';
+import { ActiveEngagementDataView } from '@app/features/fabric-data/ActiveEngagementDataView';
 import { useFabricData } from '@app/features/fabric-data/FabricDataContext';
 import { buildOpportunitiesViewModel } from '@app/features/fabric-data/selectors';
 import {
@@ -138,10 +138,14 @@ function OpportunityForm({
   opportunity?: Opportunity;
   onSaved?: (opportunity: Opportunity) => void;
 }) {
-  const { dataset, createOpportunity, updateOpportunity } = useFabricData();
+  const { activeEngagementId, createOpportunity, dataset, updateOpportunity } =
+    useFabricData();
   const [error, setError] = useState<string | null>(null);
   const [engagementId, setEngagementId] = useState(
-    opportunity?.engagementId ?? dataset?.engagements[0]?.id ?? '',
+    opportunity?.engagementId ??
+      activeEngagementId ??
+      dataset?.engagements[0]?.id ??
+      '',
   );
   const [title, setTitle] = useState(opportunity?.title ?? '');
   const [areaId, setAreaId] = useState(opportunity?.areaId ?? '');
@@ -314,13 +318,14 @@ function OpportunityForm({
         <p className="body-copy body-copy--small">
           Saving substantive changes creates an internal draft revision and
           removes its current client-facing approval. Create a new opportunity
-          instead when this record is already a source for an approved output
-          or delivery initiative.
+          instead when this record is already a source for an approved output or
+          delivery initiative.
         </p>
       ) : null}
       <div className="form-grid">
         <Field label="Engagement">
           <select
+            disabled={Boolean(activeEngagementId)}
             required
             value={engagementId}
             onChange={(event) => {
@@ -608,6 +613,7 @@ function OpportunityForm({
 
 export function OpportunitiesPage() {
   const navigate = useNavigate();
+  const { activeEngagementId } = useFabricData();
   const [query, setQuery] = useState('');
   const [typeFilter, setTypeFilter] = useState('');
   const [priorityFilter, setPriorityFilter] = useState('');
@@ -617,10 +623,12 @@ export function OpportunitiesPage() {
 
   // Sheet states
   const [createSheetOpen, setCreateSheetOpen] = useState(false);
-  const [selectedOpportunityId, setSelectedOpportunityId] = useState<string | null>(null);
+  const [selectedOpportunityId, setSelectedOpportunityId] = useState<
+    string | null
+  >(null);
 
   return (
-    <FabricDataView
+    <ActiveEngagementDataView
       emptyTitle="Opportunities cannot be loaded"
       loadingDescription="Loading evidence-linked opportunities and approval status."
       loadingTitle="Loading opportunities"
@@ -630,11 +638,13 @@ export function OpportunitiesPage() {
 
         // Filter
         let filteredRows = viewModel.rows.filter((row) => {
-          const matchesQuery = `${row.title} ${row.engagementName} ${row.type} ${row.priority} ${row.category ?? ''}`
-            .toLowerCase()
-            .includes(query.toLowerCase());
+          const matchesQuery =
+            `${row.title} ${row.engagementName} ${row.type} ${row.priority} ${row.category ?? ''}`
+              .toLowerCase()
+              .includes(query.toLowerCase());
           const matchesType = !typeFilter || row.type === typeFilter;
-          const matchesPriority = !priorityFilter || row.priority === priorityFilter;
+          const matchesPriority =
+            !priorityFilter || row.priority === priorityFilter;
           return matchesQuery && matchesType && matchesPriority;
         });
 
@@ -689,8 +699,8 @@ export function OpportunitiesPage() {
         return (
           <>
             <PageHeader
-              eyebrow="Transformation"
-              title="Problem-led opportunity register"
+              eyebrow="Analyse"
+              title="Opportunity Register"
               description="Move from operational landscape and evidence to a current situation, issue, improvement, benefits, priority, and a sequenced next step."
               metadata={[
                 'Landscape-informed',
@@ -767,8 +777,16 @@ export function OpportunitiesPage() {
                   value={viewMode}
                   onChange={setViewMode}
                   options={[
-                    { id: 'table', label: 'Table', icon: <TableIcon size={14} /> },
-                    { id: 'matrix', label: 'Matrix', icon: <LayoutGrid size={14} /> },
+                    {
+                      id: 'table',
+                      label: 'Table',
+                      icon: <TableIcon size={14} />,
+                    },
+                    {
+                      id: 'matrix',
+                      label: 'Matrix',
+                      icon: <LayoutGrid size={14} />,
+                    },
                   ]}
                 />
               </ToolbarGroup>
@@ -795,7 +813,12 @@ export function OpportunitiesPage() {
                       sortable: true,
                       render: (row) => (
                         <div>
-                          <div style={{ fontWeight: 700, color: 'var(--fabric-text)' }}>
+                          <div
+                            style={{
+                              fontWeight: 700,
+                              color: 'var(--fabric-text)',
+                            }}
+                          >
                             {row.title}
                           </div>
                           <div className="body-copy body-copy--small">
@@ -810,7 +833,9 @@ export function OpportunitiesPage() {
                       header: 'Type',
                       sortable: true,
                       render: (row) => (
-                        <span style={{ textTransform: 'capitalize', fontSize: 13 }}>
+                        <span
+                          style={{ textTransform: 'capitalize', fontSize: 13 }}
+                        >
                           {row.type}
                         </span>
                       ),
@@ -836,7 +861,8 @@ export function OpportunitiesPage() {
                       render: (row) => (
                         <Badge
                           tone={
-                            row.status === 'approved' || row.status === 'in-delivery'
+                            row.status === 'approved' ||
+                            row.status === 'in-delivery'
                               ? 'success'
                               : 'neutral'
                           }
@@ -878,7 +904,11 @@ export function OpportunitiesPage() {
                           to={`/opportunities/${row.id}`}
                           onClick={(e) => e.stopPropagation()}
                           className="table-link"
-                          style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}
+                          style={{
+                            display: 'inline-flex',
+                            alignItems: 'center',
+                            gap: 4,
+                          }}
                         >
                           <span>Full view</span> <ChevronRight size={14} />
                         </Link>
@@ -898,16 +928,26 @@ export function OpportunitiesPage() {
                   opportunities={dataset.opportunities
                     .filter((op) => op.visibility !== 'archived')
                     .map((op) => ({
-                    id: op.id,
-                    title: op.title,
-                    type: op.type,
-                    businessImpact: op.businessImpact ?? op.priority,
-                    implementationEffort: op.implementationEffort ?? op.estimatedEffort,
-                    priorityCategory: op.priorityCategory,
-                    priorityScore: op.priority === 'critical' ? 95 : op.priority === 'high' ? 80 : op.priority === 'medium' ? 60 : 40,
-                    approvalStatus: op.approvalState,
-                    estimatedSaving: op.potentialBenefits ? op.potentialBenefits.slice(0, 30) : undefined,
-                    rationale: op.whyItMatters || op.description,
+                      id: op.id,
+                      title: op.title,
+                      type: op.type,
+                      businessImpact: op.businessImpact ?? op.priority,
+                      implementationEffort:
+                        op.implementationEffort ?? op.estimatedEffort,
+                      priorityCategory: op.priorityCategory,
+                      priorityScore:
+                        op.priority === 'critical'
+                          ? 95
+                          : op.priority === 'high'
+                            ? 80
+                            : op.priority === 'medium'
+                              ? 60
+                              : 40,
+                      approvalStatus: op.approvalState,
+                      estimatedSaving: op.potentialBenefits
+                        ? op.potentialBenefits.slice(0, 30)
+                        : undefined,
+                      rationale: op.whyItMatters || op.description,
                     }))}
                   selectedOpportunityId={selectedOpportunityId}
                   onSelectOpportunity={(op) => setSelectedOpportunityId(op.id)}
@@ -920,11 +960,12 @@ export function OpportunitiesPage() {
               open={createSheetOpen}
               onOpenChange={setCreateSheetOpen}
               size="lg"
-              eyebrow="Transformation"
+              eyebrow="Analyse"
               title="Create opportunity"
               description="Capture problem statement, proposed improvement, and target value."
             >
               <OpportunityForm
+                key={activeEngagementId ?? 'none'}
                 onSaved={() => {
                   setCreateSheetOpen(false);
                 }}
@@ -955,29 +996,36 @@ export function OpportunitiesPage() {
                         navigate(`/opportunities/${selectedOpp.id}`);
                       }}
                     >
-                      Open full detail workspace <ExternalLink size={14} style={{ marginLeft: 6 }} />
+                      Open full detail workspace{' '}
+                      <ExternalLink size={14} style={{ marginLeft: 6 }} />
                     </Button>
                   </div>
                 )
               }
             >
               {selectedOpp && (
-                <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
+                <div
+                  style={{ display: 'flex', flexDirection: 'column', gap: 20 }}
+                >
                   <div className="detail-badges">
                     <Badge tone="accent">{selectedOpp.type}</Badge>
                     <Badge
                       tone={
-                        selectedOpp.priority === 'critical' || selectedOpp.priority === 'high'
+                        selectedOpp.priority === 'critical' ||
+                        selectedOpp.priority === 'high'
                           ? 'warning'
                           : 'neutral'
                       }
                     >
                       {selectedOpp.priority} priority
                     </Badge>
-                    <Badge tone="neutral">Effort: {selectedOpp.estimatedEffort}</Badge>
+                    <Badge tone="neutral">
+                      Effort: {selectedOpp.estimatedEffort}
+                    </Badge>
                     <Badge
                       tone={
-                        selectedOpp.status === 'approved' || selectedOpp.status === 'in-delivery'
+                        selectedOpp.status === 'approved' ||
+                        selectedOpp.status === 'in-delivery'
                           ? 'success'
                           : 'neutral'
                       }
@@ -1002,20 +1050,32 @@ export function OpportunitiesPage() {
                     <TabsContent value="overview">
                       <dl className="detail-list" style={{ marginTop: 12 }}>
                         <dt>Current situation</dt>
-                        <dd>{selectedOpp.currentSituation || 'Not documented'}</dd>
+                        <dd>
+                          {selectedOpp.currentSituation || 'Not documented'}
+                        </dd>
                         <dt>Recommended improvement</dt>
-                        <dd>{selectedOpp.recommendedImprovement || selectedOpp.description}</dd>
+                        <dd>
+                          {selectedOpp.recommendedImprovement ||
+                            selectedOpp.description}
+                        </dd>
                         <dt>Suggested next step</dt>
-                        <dd>{selectedOpp.suggestedNextStep || 'None recorded'}</dd>
+                        <dd>
+                          {selectedOpp.suggestedNextStep || 'None recorded'}
+                        </dd>
                         <dt>Recommended timing</dt>
-                        <dd>{selectedOpp.recommendedTiming || 'Not specified'}</dd>
+                        <dd>
+                          {selectedOpp.recommendedTiming || 'Not specified'}
+                        </dd>
                       </dl>
                     </TabsContent>
 
                     <TabsContent value="problem">
                       <dl className="detail-list" style={{ marginTop: 12 }}>
                         <dt>Identified issue</dt>
-                        <dd>{selectedOpp.identifiedIssue || selectedOpp.problemStatement}</dd>
+                        <dd>
+                          {selectedOpp.identifiedIssue ||
+                            selectedOpp.problemStatement}
+                        </dd>
                         <dt>Root cause</dt>
                         <dd>{selectedOpp.rootCause || 'Not specified'}</dd>
                         <dt>Why it matters</dt>
@@ -1026,9 +1086,14 @@ export function OpportunitiesPage() {
                     <TabsContent value="benefits">
                       <dl className="detail-list" style={{ marginTop: 12 }}>
                         <dt>Potential benefits</dt>
-                        <dd>{selectedOpp.potentialBenefits || selectedOpp.expectedImpact}</dd>
+                        <dd>
+                          {selectedOpp.potentialBenefits ||
+                            selectedOpp.expectedImpact}
+                        </dd>
                         <dt>Value assumptions</dt>
-                        <dd>{selectedOpp.valueAssumptions || 'None recorded'}</dd>
+                        <dd>
+                          {selectedOpp.valueAssumptions || 'None recorded'}
+                        </dd>
                         <dt>Investment band</dt>
                         <dd>{selectedOpp.investment || 'Unknown'}</dd>
                       </dl>
@@ -1066,7 +1131,7 @@ export function OpportunitiesPage() {
           </>
         );
       }}
-    </FabricDataView>
+    </ActiveEngagementDataView>
   );
 }
 export function OpportunityDetailPage() {
@@ -1110,7 +1175,7 @@ export function OpportunityDetailPage() {
   }
 
   return (
-    <FabricDataView
+    <ActiveEngagementDataView
       emptyTitle="Opportunity cannot be loaded"
       loadingDescription="Loading opportunity workspace."
       loadingTitle="Loading opportunity"
@@ -1122,7 +1187,7 @@ export function OpportunityDetailPage() {
         if (!opportunity) {
           return (
             <PageHeader
-              eyebrow="Transformation"
+              eyebrow="Analyse"
               title="Opportunity not found"
               description="The requested opportunity is not available."
             />
@@ -1151,7 +1216,7 @@ export function OpportunityDetailPage() {
         return (
           <>
             <PageHeader
-              eyebrow="Transformation"
+              eyebrow="Analyse"
               title={opportunity.title}
               description={opportunity.clientSummary ?? opportunity.description}
               metadata={[
@@ -1174,9 +1239,7 @@ export function OpportunityDetailPage() {
                     + Action item
                   </Button>
                   {canCreateInitiative ? (
-                    <Button
-                      onClick={() => setInitiativeSheetOpen(true)}
-                    >
+                    <Button onClick={() => setInitiativeSheetOpen(true)}>
                       Convert to delivery initiative
                     </Button>
                   ) : null}
@@ -1188,18 +1251,24 @@ export function OpportunityDetailPage() {
               <Badge tone="accent">{opportunity.type}</Badge>
               <Badge
                 tone={
-                  opportunity.priority === 'critical' || opportunity.priority === 'high'
+                  opportunity.priority === 'critical' ||
+                  opportunity.priority === 'high'
                     ? 'warning'
                     : 'neutral'
                 }
               >
                 {opportunity.priority} priority
               </Badge>
-              <Badge tone="neutral">Effort: {opportunity.estimatedEffort}</Badge>
-              <Badge tone="neutral">Investment: {opportunity.investment ?? '£'}</Badge>
+              <Badge tone="neutral">
+                Effort: {opportunity.estimatedEffort}
+              </Badge>
+              <Badge tone="neutral">
+                Investment: {opportunity.investment ?? '£'}
+              </Badge>
               <Badge
                 tone={
-                  opportunity.status === 'approved' || opportunity.status === 'in-delivery'
+                  opportunity.status === 'approved' ||
+                  opportunity.status === 'in-delivery'
                     ? 'success'
                     : 'neutral'
                 }
@@ -1208,10 +1277,19 @@ export function OpportunityDetailPage() {
               </Badge>
             </div>
 
-            <Tabs defaultValue="transformation" variant="pills" style={{ marginTop: 16 }}>
+            <Tabs
+              defaultValue="transformation"
+              variant="pills"
+              style={{ marginTop: 16 }}
+            >
               <TabsList>
-                <TabsTrigger value="transformation">Problem & transformation</TabsTrigger>
-                <TabsTrigger value="evidence" badge={linkedEvidence.length + linkedObservations.length}>
+                <TabsTrigger value="transformation">
+                  Problem & transformation
+                </TabsTrigger>
+                <TabsTrigger
+                  value="evidence"
+                  badge={linkedEvidence.length + linkedObservations.length}
+                >
                   Evidence & lineage
                 </TabsTrigger>
                 <TabsTrigger value="actions" badge={actions.length}>
@@ -1228,14 +1306,25 @@ export function OpportunityDetailPage() {
                     <dl className="detail-list">
                       <dt>Area / Process / System</dt>
                       <dd>
-                        {dataset.areas.find((item) => item.id === opportunity.areaId)?.name ?? '—'} ·{' '}
-                        {dataset.processes.find((item) => item.id === opportunity.processId)?.name ?? '—'} ·{' '}
-                        {dataset.systems.find((item) => item.id === opportunity.systemId)?.name ?? '—'}
+                        {dataset.areas.find(
+                          (item) => item.id === opportunity.areaId,
+                        )?.name ?? '—'}{' '}
+                        ·{' '}
+                        {dataset.processes.find(
+                          (item) => item.id === opportunity.processId,
+                        )?.name ?? '—'}{' '}
+                        ·{' '}
+                        {dataset.systems.find(
+                          (item) => item.id === opportunity.systemId,
+                        )?.name ?? '—'}
                       </dd>
                       <dt>Current situation</dt>
                       <dd>{opportunity.currentSituation || 'Not recorded'}</dd>
                       <dt>Identified issue</dt>
-                      <dd>{opportunity.identifiedIssue || opportunity.problemStatement}</dd>
+                      <dd>
+                        {opportunity.identifiedIssue ||
+                          opportunity.problemStatement}
+                      </dd>
                       <dt>Root cause</dt>
                       <dd>{opportunity.rootCause || 'Not recorded'}</dd>
                       <dt>Why it matters</dt>
@@ -1246,13 +1335,21 @@ export function OpportunityDetailPage() {
                   <Card title="Target improvement & benefits">
                     <dl className="detail-list">
                       <dt>Improvement</dt>
-                      <dd>{opportunity.recommendedImprovement || opportunity.description}</dd>
+                      <dd>
+                        {opportunity.recommendedImprovement ||
+                          opportunity.description}
+                      </dd>
                       <dt>Expected benefits</dt>
-                      <dd>{opportunity.potentialBenefits || opportunity.expectedImpact}</dd>
+                      <dd>
+                        {opportunity.potentialBenefits ||
+                          opportunity.expectedImpact}
+                      </dd>
                       <dt>Assumptions</dt>
                       <dd>{opportunity.valueAssumptions || 'None'}</dd>
                       <dt>Next step</dt>
-                      <dd>{opportunity.suggestedNextStep || 'None recorded'}</dd>
+                      <dd>
+                        {opportunity.suggestedNextStep || 'None recorded'}
+                      </dd>
                     </dl>
                   </Card>
                 </section>
@@ -1260,7 +1357,9 @@ export function OpportunityDetailPage() {
 
               <TabsContent value="evidence">
                 <section className="content-grid content-grid--two">
-                  <Card title={`Linked evidence records (${linkedEvidence.length})`}>
+                  <Card
+                    title={`Linked evidence records (${linkedEvidence.length})`}
+                  >
                     <DataTable
                       rows={linkedEvidence}
                       getRowKey={(row) => row.id}
@@ -1282,20 +1381,29 @@ export function OpportunityDetailPage() {
                     />
                   </Card>
 
-                  <Card title={`Linked observations (${linkedObservations.length})`}>
+                  <Card
+                    title={`Linked observations (${linkedObservations.length})`}
+                  >
                     <div className="record-stack">
                       {linkedObservations.length === 0 ? (
-                        <div className="ui-table-empty">No linked fieldwork observations.</div>
+                        <div className="ui-table-empty">
+                          No linked fieldwork observations.
+                        </div>
                       ) : (
                         linkedObservations.map((obs) => (
-                          <div key={obs.id} className="record-item record-item--note">
+                          <div
+                            key={obs.id}
+                            className="record-item record-item--note"
+                          >
                             <div>
                               <strong>{obs.title ?? obs.summary}</strong>
                               <p className="body-copy body-copy--small">
                                 {obs.description ?? obs.detail}
                               </p>
                             </div>
-                            <Badge tone="neutral">{obs.status ?? obs.assurance}</Badge>
+                            <Badge tone="neutral">
+                              {obs.status ?? obs.assurance}
+                            </Badge>
                           </div>
                         ))
                       )}
@@ -1309,7 +1417,10 @@ export function OpportunityDetailPage() {
                   title={`Action items (${actions.length})`}
                   description="Immediate tasks required before or during transformation."
                   actions={
-                    <Button variant="ghost" onClick={() => setActionSheetOpen(true)}>
+                    <Button
+                      variant="ghost"
+                      onClick={() => setActionSheetOpen(true)}
+                    >
                       + Add action
                     </Button>
                   }
@@ -1325,11 +1436,15 @@ export function OpportunityDetailPage() {
                       },
                       {
                         header: 'Status',
-                        render: (row) => <Badge tone="neutral">{row.status}</Badge>,
+                        render: (row) => (
+                          <Badge tone="neutral">{row.status}</Badge>
+                        ),
                       },
                       {
                         header: 'Priority',
-                        render: (row) => <Badge tone="warning">{row.priority}</Badge>,
+                        render: (row) => (
+                          <Badge tone="warning">{row.priority}</Badge>
+                        ),
                       },
                       {
                         header: 'Owner',
@@ -1359,9 +1474,15 @@ export function OpportunityDetailPage() {
                   ) : (
                     <div className="record-stack">
                       {initiatives.map((init) => (
-                        <div key={init.id} className="record-item record-item--note">
+                        <div
+                          key={init.id}
+                          className="record-item record-item--note"
+                        >
                           <div>
-                            <Link to={`/roadmap/${init.id}`} className="table-link">
+                            <Link
+                              to={`/roadmap/${init.id}`}
+                              className="table-link"
+                            >
                               <strong>{init.title}</strong>
                             </Link>
                             <p className="body-copy">{init.description}</p>
@@ -1441,6 +1562,6 @@ export function OpportunityDetailPage() {
           </>
         );
       }}
-    </FabricDataView>
+    </ActiveEngagementDataView>
   );
 }

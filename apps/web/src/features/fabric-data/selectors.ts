@@ -438,7 +438,7 @@ export function buildWorkspaceSnapshot(
       clientName:
         maps.clients.get(engagement.clientId)?.name ?? 'Unknown client',
       reasons: engagementNeedsAttention(engagement.id),
-      path: `/engagements/${engagement.id}`,
+      path: `/workspace/${engagement.id}`,
     }))
     .filter((engagement) => engagement.reasons.length > 0);
 
@@ -496,7 +496,7 @@ export function buildWorkspaceSnapshot(
     detail: currentUserId
       ? 'The shared work queues remain visible, but none of their current actions match your role permissions.'
       : 'There are no open review, approval, opportunity, or fieldwork actions in the current workspace.',
-    path: '/engagements',
+    path: '/workspace',
   };
 
   return {
@@ -542,7 +542,7 @@ export function buildWorkspaceSnapshot(
         ? formatDate(engagement.targetDate)
         : 'TBC',
       teamSize: engagement.teamUserIds.length,
-      path: `/engagements/${engagement.id}`,
+      path: `/workspace/${engagement.id}`,
     })),
     myEngagements: assignedEngagements.map((engagement) => ({
       id: engagement.id,
@@ -554,7 +554,7 @@ export function buildWorkspaceSnapshot(
       targetDate: engagement.targetDate
         ? formatDate(engagement.targetDate)
         : 'TBC',
-      path: `/engagements/${engagement.id}`,
+      path: `/workspace/${engagement.id}`,
     })),
     upcomingSiteWalks,
     priorityOpportunities,
@@ -566,6 +566,175 @@ export function buildWorkspaceSnapshot(
     nextAction,
     reviewCount:
       observationsNeedingReview.length + outputsAwaitingApproval.length,
+  };
+}
+
+export interface CurrentUnderstandingItem {
+  id: EntityId;
+  title: string;
+  detail: string;
+  path: string;
+}
+
+export interface CurrentUnderstandingViewModel {
+  known: CurrentUnderstandingItem[];
+  patterns: CurrentUnderstandingItem[];
+  uncertainties: CurrentUnderstandingItem[];
+  friction: CurrentUnderstandingItem[];
+  strengths: CurrentUnderstandingItem[];
+  priorityOpportunities: CurrentUnderstandingItem[];
+}
+
+/**
+ * Builds a grounded view of the engagement's current state. It deliberately
+ * separates verified records, interpreted findings, and unresolved work so the
+ * workspace never presents a synthesis as established fact.
+ */
+export function buildCurrentUnderstanding(
+  dataset: FabricDataset,
+  engagementId: EntityId,
+): CurrentUnderstandingViewModel | undefined {
+  const context = buildEngagementContext(dataset, engagementId);
+  const internal = context?.internal;
+  if (!internal) {
+    return undefined;
+  }
+
+  const siteWalkById = new Map(
+    internal.siteWalks.map((siteWalk) => [siteWalk.id, siteWalk]),
+  );
+  const dimensionById = new Map(
+    dataset.diagnosticDimensions.map((dimension) => [dimension.id, dimension]),
+  );
+  const known: CurrentUnderstandingItem[] = [
+    ...internal.observations
+      .filter((observation) => observation.status === 'verified')
+      .map((observation) => ({
+        id: observation.id,
+        title: observation.title ?? observation.summary,
+        detail: observation.description ?? observation.detail,
+        path: `/site-walks/${observation.siteWalkId}#observation-${observation.id}`,
+      })),
+    ...internal.evidence
+      .filter((evidence) => evidence.approvalState === 'approved')
+      .map((evidence) => ({
+        id: evidence.id,
+        title: evidence.title,
+        detail: evidence.summary,
+        path: `/evidence?evidence=${evidence.id}`,
+      })),
+  ].slice(0, 4);
+
+  const patterns: CurrentUnderstandingItem[] = internal.findings
+    .filter(
+      (finding) =>
+        finding.reviewStatus === 'reviewed' ||
+        finding.reviewStatus === 'approved',
+    )
+    .map((finding) => ({
+      id: finding.id,
+      title: finding.title,
+      detail: finding.recommendedDirection || finding.whyItMatters,
+      path: `/diagnosis?finding=${finding.id}`,
+    }))
+    .slice(0, 4);
+
+  const assessedDimensionIds = new Set(
+    internal.maturityAssessments
+      .filter(
+        (assessment) =>
+          assessment.score !== undefined && Boolean(assessment.rationale),
+      )
+      .map((assessment) => assessment.dimensionId),
+  );
+  const uncertainties: CurrentUnderstandingItem[] = [
+    ...internal.observations
+      .filter((observation) => observation.status !== 'verified')
+      .map((observation) => ({
+        id: observation.id,
+        title: `Review ${observation.title ?? observation.summary}`,
+        detail:
+          'This observation remains internal working material until verified.',
+        path: `/site-walks/${observation.siteWalkId}#observation-${observation.id}`,
+      })),
+    ...internal.evidence
+      .filter((evidence) => evidence.approvalState !== 'approved')
+      .map((evidence) => ({
+        id: evidence.id,
+        title: `Validate ${evidence.title}`,
+        detail:
+          'This evidence has not been approved as an evidence-backed conclusion.',
+        path: `/evidence?evidence=${evidence.id}`,
+      })),
+    ...dataset.diagnosticDimensions
+      .filter((dimension) => !assessedDimensionIds.has(dimension.id))
+      .map((dimension) => ({
+        id: dimension.id,
+        title: `Assess ${dimension.name}`,
+        detail:
+          'No scored assessment with recorded rationale is available yet.',
+        path: '/diagnosis',
+      })),
+  ].slice(0, 5);
+
+  const friction: CurrentUnderstandingItem[] = internal.frictionItems
+    .map((item) => ({
+      id: item.id,
+      title: item.frictionPoint,
+      detail: `${item.stationOrLine}: ${item.category} friction (${item.confidence} confidence).`,
+      path: siteWalkById.has(item.siteWalkId)
+        ? `/site-walks/${item.siteWalkId}`
+        : '/site-walks',
+    }))
+    .slice(0, 4);
+
+  const strengths: CurrentUnderstandingItem[] = internal.maturityAssessments
+    .filter((assessment) => (assessment.score ?? 0) >= 3)
+    .sort((left, right) => (right.score ?? 0) - (left.score ?? 0))
+    .flatMap((assessment) => {
+      const dimension = dimensionById.get(assessment.dimensionId);
+      if (!dimension) {
+        return [];
+      }
+
+      return [
+        {
+          id: assessment.id,
+          title: `${dimension.name}: ${assessment.score?.toFixed(1)} / 5`,
+          detail:
+            assessment.rationale ??
+            'A completed maturity assessment indicates an established capability.',
+          path: '/diagnosis',
+        },
+      ];
+    })
+    .slice(0, 4);
+
+  const priorityOpportunities: CurrentUnderstandingItem[] =
+    internal.opportunities
+      .filter((opportunity) => opportunity.visibility !== 'archived')
+      .sort(
+        (left, right) =>
+          priorityWeight[left.priority] - priorityWeight[right.priority],
+      )
+      .map((opportunity) => ({
+        id: opportunity.id,
+        title: opportunity.title,
+        detail:
+          opportunity.recommendedImprovement ??
+          opportunity.clientSummary ??
+          opportunity.description,
+        path: `/opportunities/${opportunity.id}`,
+      }))
+      .slice(0, 4);
+
+  return {
+    known,
+    patterns,
+    uncertainties,
+    friction,
+    strengths,
+    priorityOpportunities,
   };
 }
 
@@ -1002,7 +1171,7 @@ function engagementBreadcrumbs(
   }
   breadcrumbs.push({
     label: engagement.name,
-    path: `/engagements/${engagement.id}`,
+    path: `/workspace/${engagement.id}`,
   });
 
   return breadcrumbs;
@@ -2255,7 +2424,7 @@ function globalSearchPath(
     case 'site':
       return `/sites/${sourceId}`;
     case 'engagement':
-      return `/engagements/${sourceId}`;
+      return `/workspace/${sourceId}`;
     case 'site-walk':
       return `/site-walks/${sourceId}`;
     case 'observation': {
@@ -2323,6 +2492,77 @@ export function buildGlobalSearchResults(
   }));
 }
 
+/**
+ * Resolves the engagement implied by a contextual route so direct links retain
+ * the same active workspace context as normal in-app navigation.
+ */
+export function resolveEngagementIdForPath(
+  dataset: FabricDataset,
+  pathname: string,
+  search = '',
+): EntityId | undefined {
+  const [area, recordId] = pathname.split('/').filter(Boolean);
+  const searchParams = new URLSearchParams(search);
+
+  if (
+    (area === 'workspace' || area === 'engagements') &&
+    recordId &&
+    dataset.engagements.some((engagement) => engagement.id === recordId)
+  ) {
+    return recordId;
+  }
+
+  if (area === 'site-walks' && recordId) {
+    return dataset.siteWalks.find((siteWalk) => siteWalk.id === recordId)
+      ?.engagementId;
+  }
+
+  if (area === 'opportunities' && recordId) {
+    return dataset.opportunities.find(
+      (opportunity) => opportunity.id === recordId,
+    )?.engagementId;
+  }
+
+  if (area === 'roadmap' && recordId) {
+    return dataset.initiatives.find((initiative) => initiative.id === recordId)
+      ?.engagementId;
+  }
+
+  if (area === 'outputs' && recordId) {
+    return dataset.outputs.find((output) => output.id === recordId)
+      ?.engagementId;
+  }
+
+  if (area === 'diagnosis') {
+    const findingId = searchParams.get('finding');
+    const diagnosticId = findingId
+      ? dataset.findings.find((finding) => finding.id === findingId)
+          ?.diagnosticId
+      : undefined;
+    return dataset.diagnostics.find(
+      (diagnostic) => diagnostic.id === diagnosticId,
+    )?.engagementId;
+  }
+
+  if (area === 'evidence') {
+    const evidenceId = searchParams.get('evidence');
+    const evidence = evidenceId
+      ? dataset.evidence.find((item) => item.id === evidenceId)
+      : undefined;
+    return evidence ? getEvidenceEngagementId(dataset, evidence) : undefined;
+  }
+
+  if (area === 'landscape') {
+    const entityId = searchParams.get('entity');
+    return entityId
+      ? dataset.landscapeEntities.find((entity) => entity.id === entityId)
+          ?.engagementId
+      : undefined;
+  }
+
+  return undefined;
+}
+
 export function buildBreadcrumbs(
   dataset: FabricDataset,
   pathname: string,
@@ -2332,7 +2572,14 @@ export function buildBreadcrumbs(
   const [area, recordId] = pathname.split('/').filter(Boolean);
 
   if (area === 'workspace') {
-    return root;
+    return recordId &&
+      dataset.engagements.some((engagement) => engagement.id === recordId)
+      ? [
+          ...root,
+          ...engagementBreadcrumbs(dataset, recordId),
+          { label: 'Workspace' },
+        ]
+      : root;
   }
 
   if (area === 'clients' && recordId) {
@@ -2358,8 +2605,12 @@ export function buildBreadcrumbs(
     return [
       ...root,
       ...engagementBreadcrumbs(dataset, recordId),
-      { label: 'Overview' },
+      { label: 'Workspace' },
     ];
+  }
+
+  if (area === 'understand' || area === 'analyse' || area === 'plan-output') {
+    return [...root, { label: currentArea }];
   }
 
   if (area === 'site-walks' && recordId) {

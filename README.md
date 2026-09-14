@@ -7,7 +7,8 @@ than disconnected forms or static reports.
 
 ## What Fabric Includes
 
-- A runnable TypeScript workspace for internal Trion teams.
+- A runnable TypeScript workbench for Trion consultants working in an active
+  client engagement.
 - Typed, runtime-validated domain models for clients, sites, engagements, site
   walks, evidence, diagnostics, opportunities, initiatives, roadmaps, benefits,
   outputs, reusable knowledge, and users.
@@ -19,14 +20,44 @@ than disconnected forms or static reports.
   opportunity, roadmap, and benefit records; Markdown and AI-ingestible JSON
   downloads; review comments; source freshness; version lineage; and export
   audit records.
-- Permission checks at the repository persistence seam, engagement-scoped
-  workspace projections, activity events, retry states, and destructive-action
-  confirmation.
+- Permission checks at the repository persistence seam, persistent active
+  engagement selection, engagement-scoped workbench projections, activity
+  events, retry states, and destructive-action confirmation.
 - Reusable UI primitives, design tokens, focused Vitest coverage, and CI checks
   for lint, tests, and build.
 
 See the [production-readiness review](docs/operations/production-readiness.md)
 for the current operating boundary, known limitations, and release gates.
+
+## Workspace-Centred Product Model
+
+Fabric is intentionally designed for one or two consultants working deeply
+with one active client engagement, not for a high-volume consultancy operation.
+The selected client, site, and engagement persist while the consultant moves
+through the primary workbench areas:
+
+```text
+Clients
+Active engagement
+  Workspace
+  Understand
+  Analyse
+  Plan & Output
+```
+
+- **Workspace** surfaces the current position, Current Understanding, and the
+  next action derived from real incomplete work.
+- **Understand** brings together site walks, observations, contextual evidence,
+  and the digital landscape.
+- **Analyse** connects maturity assessment, findings, evidence, and the
+  opportunity register.
+- **Plan & Output** sequences approved recommendations into the roadmap,
+  benefit measures, and the five controlled outputs.
+
+Underlying records remain connected and rich even when they are not primary
+navigation concepts. Evidence, systems, findings, actions, milestones,
+methodology, AI, knowledge, and configuration are accessed contextually or in
+settings rather than as standalone workstreams.
 
 ## Chosen Stack
 
@@ -72,6 +103,8 @@ tests/
 - One source of truth for connected transformation knowledge.
 - Human-reviewed AI outputs, never silent fact fabrication.
 - Internal working data and approved client-facing outputs are deliberately separate.
+- One engagement, one workspace, and one connected body of evidence.
+- Contextual workbenches over enterprise-style navigation and workflow ceremony.
 - Modular monolith structure before distributed complexity.
 
 ## Run The Project
@@ -88,11 +121,17 @@ tests/
 
 ## How Future Features Should Be Added
 
-1. Start in the relevant domain boundary under `packages/domain` and `packages/validation`.
-2. Extend the repository interface or add a new repository-backed service rather than putting data logic in pages.
-3. Shape page view models in feature selectors under `apps/web/src/features`.
-4. Keep client-facing states and approval states explicit in the domain model.
-5. Add focused tests around the new selector, repository, or validation slice before widening UI work.
+1. Identify the active-engagement workbench the capability belongs to before
+   adding a route or a page.
+2. Start in the relevant domain boundary under `packages/domain` and
+   `packages/validation`.
+3. Extend the repository interface or add a new repository-backed service
+   rather than putting data logic in pages.
+4. Shape page view models in feature selectors under `apps/web/src/features`;
+   use an engagement projection rather than duplicating connected data.
+5. Keep client-facing states and approval states explicit in the domain model.
+6. Add focused tests around the new selector, repository, validation, or
+   active-context slice before widening UI work.
 
 ## Intentionally Deferred
 

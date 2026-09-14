@@ -1,319 +1,119 @@
-import { useMemo, useState } from 'react';
-import {
-  Badge,
-  Button,
-  Card,
-  PageHeader,
-  StatCard,
-  useTheme,
-  type ThemeMode,
-} from '@ui';
+import { Laptop, Moon, RefreshCw, Sun } from 'lucide-react';
+
+import { Badge, Button, Card, PageHeader, type ThemeMode, useTheme } from '@ui';
+
 import { useFabricData } from '@app/features/fabric-data/FabricDataContext';
-import {
-  Sun,
-  Moon,
-  Laptop,
-  Check,
-  RefreshCw,
-  Palette,
-  Layers,
-  Database,
-  Cpu,
-} from 'lucide-react';
+
+const themeOptions: Array<{
+  id: ThemeMode;
+  label: string;
+  description: string;
+  icon: typeof Sun;
+}> = [
+  {
+    id: 'dark',
+    label: 'Pure black dark',
+    description: 'Dark workbench surfaces with the Trion purple accent.',
+    icon: Moon,
+  },
+  {
+    id: 'light',
+    label: 'Light precision',
+    description: 'High-clarity light surfaces with the Trion pine accent.',
+    icon: Sun,
+  },
+  {
+    id: 'system',
+    label: 'System preference',
+    description: 'Follow the operating-system appearance setting.',
+    icon: Laptop,
+  },
+];
 
 export function SettingsPage() {
   const { theme, resolvedTheme, setTheme } = useTheme();
-  const { isLoading, refresh, repositorySource, dataset } = useFabricData();
-  const [resetFeedback, setResetFeedback] = useState<string | null>(null);
+  const { dataset, isLoading, refresh, repositorySource } = useFabricData();
 
-  const oppsCount = dataset?.opportunities.length ?? 0;
-  const initiativesCount = dataset?.initiatives.length ?? 0;
-  const clientsCount = dataset?.clients.length ?? 0;
-  const sitesCount = dataset?.sites.length ?? 0;
-  const walksCount = dataset?.siteWalks.length ?? 0;
-
-  const themeOptions: {
-    id: ThemeMode;
-    label: string;
-    description: string;
-    icon: typeof Sun;
-    previewClass: string;
-  }[] = [
-    {
-      id: 'dark',
-      label: 'Pure black dark mode',
-      description:
-        'Pure black canvas (#000000) with dark Trion purple accent (#8b5cf6) and crisp white/grey typography.',
-      icon: Moon,
-      previewClass: 'theme-preview--dark',
-    },
-    {
-      id: 'light',
-      label: 'Light precision',
-      description:
-        'High-clarity light canvas (#edf0f3) with Trion pine accent (#1d7f73) and subtle slate borders.',
-      icon: Sun,
-      previewClass: 'theme-preview--light',
-    },
-    {
-      id: 'system',
-      label: 'System preference',
-      description:
-        'Automatically synchronises with your operating system color scheme.',
-      icon: Laptop,
-      previewClass: 'theme-preview--system',
-    },
-  ];
-
-  const paletteColors = useMemo(() => {
-    if (resolvedTheme === 'dark') {
-      return [
-        { name: 'Pure Canvas', hex: '#000000', role: 'Main background' },
-        { name: 'Dark Surface', hex: '#0a0a0f', role: 'Card / panel surface' },
-        { name: 'Surface Alt', hex: '#12121a', role: 'Elevated surface' },
-        { name: 'Trion Purple', hex: '#8b5cf6', role: 'Primary brand accent' },
-        { name: 'Purple Glow', hex: '#7c3aed', role: 'Hover accent' },
-        { name: 'Emerald', hex: '#34d399', role: 'Success / low risk' },
-        { name: 'Amber', hex: '#fbbf24', role: 'Warning / review' },
-        { name: 'Coral', hex: '#f87171', role: 'Danger / critical' },
-      ];
-    }
-    return [
-      { name: 'Light Canvas', hex: '#edf0f3', role: 'Main background' },
-      { name: 'Pure White', hex: '#ffffff', role: 'Card / panel surface' },
-      { name: 'Surface Alt', hex: '#f6f8fa', role: 'Elevated surface' },
-      { name: 'Trion Pine', hex: '#1d7f73', role: 'Primary brand accent' },
-      { name: 'Pine Deep', hex: '#16695f', role: 'Hover accent' },
-      { name: 'Forest Green', hex: '#218a57', role: 'Success / low risk' },
-      { name: 'Warm Ochre', hex: '#b17318', role: 'Warning / review' },
-      { name: 'Crimson', hex: '#ba4d4d', role: 'Danger / critical' },
-    ];
-  }, [resolvedTheme]);
-
-  const handleReset = () => {
+  function refreshWorkspace() {
     void refresh();
-    setResetFeedback('Workspace data and fixtures reloaded successfully.');
-    setTimeout(() => setResetFeedback(null), 3000);
-  };
+  }
 
   return (
-    <div className="settings-container">
+    <>
       <PageHeader
-        eyebrow="System & preferences"
-        title="Settings & appearance"
-        description="Customise the visual appearance, theme mode, design token palette, and local workspace data repositories."
-        actions={
-          <Badge tone="accent">
-            Active: {resolvedTheme === 'dark' ? 'Pure Black' : 'Light Precision'}
-          </Badge>
-        }
+        eyebrow="Settings"
+        title="Personal and workspace settings"
+        description="Keep everyday consulting work in the active engagement. This utility area holds only personal appearance and local development data controls."
+        metadata={[
+          resolvedTheme === 'dark' ? 'Pure black dark' : 'Light precision',
+          repositorySource.label,
+        ]}
       />
 
-      {/* Theme Selection */}
-      <section className="settings-card">
-        <div className="settings-card-header">
-          <div>
-            <h3 className="settings-card-title">Theme & color appearance</h3>
-            <p className="settings-card-desc">
-              Select your preferred visual theme. Dark mode provides a pure black canvas with Trion purple accents.
-            </p>
+      <section className="content-grid content-grid--two">
+        <Card
+          title="Appearance"
+          description="Choose the visual mode that makes fieldwork and analysis comfortable to use."
+        >
+          <div className="settings-theme-options">
+            {themeOptions.map((option) => {
+              const Icon = option.icon;
+              return (
+                <Button
+                  key={option.id}
+                  onClick={() => setTheme(option.id)}
+                  variant={theme === option.id ? 'primary' : 'secondary'}
+                >
+                  <Icon size={15} />
+                  {option.label}
+                </Button>
+              );
+            })}
           </div>
-          <Palette size={20} color="var(--fabric-accent)" />
-        </div>
+          <p className="body-copy body-copy--small">
+            Active mode:{' '}
+            <strong>
+              {resolvedTheme === 'dark' ? 'Pure black dark' : 'Light precision'}
+            </strong>
+            .
+          </p>
+        </Card>
 
-        <div className="theme-mode-grid">
-          {themeOptions.map((opt) => {
-            const Icon = opt.icon;
-            const isActive = theme === opt.id;
-            return (
-              <button
-                key={opt.id}
-                type="button"
-                className={`theme-mode-card ${isActive ? 'is-active' : ''}`}
-                onClick={() => setTheme(opt.id)}
+        <Card
+          title="Development workspace data"
+          description="Reload the validated fixture dataset when working locally. Production deployments require an authenticated repository."
+          actions={<Badge tone="neutral">{repositorySource.label}</Badge>}
+        >
+          <div className="record-stack">
+            <p className="body-copy">
+              {dataset
+                ? `${dataset.clients.length} clients and ${dataset.engagements.length} accessible engagements are loaded.`
+                : 'No workspace data is currently loaded.'}
+            </p>
+            <div>
+              <Button
+                disabled={isLoading}
+                onClick={refreshWorkspace}
+                variant="secondary"
               >
-                <div className={`theme-mode-preview ${opt.previewClass}`}>
-                  <div className="preview-topbar">
-                    <div className="preview-dot" />
-                    <span>Fabric</span>
-                  </div>
-                  <div className="preview-content">
-                    <span className="preview-badge">Active</span>
-                    <span className="preview-pill">Workbench</span>
-                  </div>
-                </div>
-
-                <div className="theme-mode-info">
-                  <div className="theme-mode-name">
-                    <span style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                      <Icon size={16} />
-                      {opt.label}
-                    </span>
-                    {isActive && <Check size={16} color="var(--fabric-accent)" />}
-                  </div>
-                  <p className="theme-mode-desc">{opt.description}</p>
-                </div>
-              </button>
-            );
-          })}
-        </div>
-      </section>
-
-      {/* Live Visual Token Preview */}
-      <section className="settings-card">
-        <div className="settings-card-header">
-          <div>
-            <h3 className="settings-card-title">Live design tokens & components</h3>
-            <p className="settings-card-desc">
-              Visual preview of active typography, interactive controls, badges, and card elevations in{' '}
-              <strong>{resolvedTheme === 'dark' ? 'Pure Black Dark Mode' : 'Light Precision Mode'}</strong>.
-            </p>
-          </div>
-          <Layers size={20} color="var(--fabric-accent)" />
-        </div>
-
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: 16 }}>
-          <Card title="Interactive controls" description="Primary, secondary, and ghost button states">
-            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 10 }}>
-              <Button variant="primary">Primary Action</Button>
-              <Button variant="secondary">Secondary</Button>
-              <Button variant="ghost">Ghost Button</Button>
+                <RefreshCw size={15} />
+                {isLoading ? 'Reloading...' : 'Reload fixture data'}
+              </Button>
             </div>
-            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, marginTop: 12 }}>
-              <Badge tone="accent">Accent</Badge>
-              <Badge tone="success">Success</Badge>
-              <Badge tone="warning">Warning</Badge>
-              <Badge tone="danger">Danger</Badge>
-              <Badge tone="neutral">Neutral</Badge>
-            </div>
-          </Card>
-
-          <StatCard
-            tone="accent"
-            label="Live accent stat"
-            value="£2.4M"
-            detail="Annualised recurring value under active tracking"
-            footer={
-              <Badge tone="accent">Trion purple token active</Badge>
-            }
-          />
-        </div>
+          </div>
+        </Card>
       </section>
 
-      {/* Palette Color Reference */}
-      <section className="settings-card">
-        <div className="settings-card-header">
-          <div>
-            <h3 className="settings-card-title">Active palette tokens</h3>
-            <p className="settings-card-desc">
-              Design tokens currently bound to the CSS theme variables.
-            </p>
-          </div>
-          <Palette size={20} color="var(--fabric-accent)" />
-        </div>
-
-        <div className="palette-chips">
-          {paletteColors.map((color) => (
-            <div key={color.name} className="palette-chip">
-              <div
-                className="palette-swatch"
-                style={{ backgroundColor: color.hex }}
-              />
-              <div>
-                <div className="palette-chip-label">{color.name}</div>
-                <div className="palette-chip-hex">{color.hex} • {color.role}</div>
-              </div>
-            </div>
-          ))}
-        </div>
-      </section>
-
-      {/* Data & Repository Diagnostics */}
-      <section className="settings-card">
-        <div className="settings-card-header">
-          <div>
-            <h3 className="settings-card-title">Data source & workspace diagnostics</h3>
-            <p className="settings-card-desc">
-              Repository backend status, record counts, and fixture reload controls.
-            </p>
-          </div>
-          <Database size={20} color="var(--fabric-accent)" />
-        </div>
-
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: 16 }}>
-          <div className="record-item--note">
-            <span style={{ fontSize: 11, fontWeight: 700, textTransform: 'uppercase', color: 'var(--fabric-text-soft)' }}>
-              Repository source
-            </span>
-            <h4 style={{ margin: '4px 0', fontSize: 16 }}>{repositorySource.label}</h4>
-            <p className="body-copy--small">Kind: {repositorySource.kind} • Local in-memory storage</p>
-          </div>
-
-          <div className="record-item--note">
-            <span style={{ fontSize: 11, fontWeight: 700, textTransform: 'uppercase', color: 'var(--fabric-text-soft)' }}>
-              Loaded entities
-            </span>
-            <h4 style={{ margin: '4px 0', fontSize: 16 }}>
-              {oppsCount} Opps • {initiativesCount} Initiatives
-            </h4>
-            <p className="body-copy--small">
-              {clientsCount} Clients • {sitesCount} Sites • {walksCount} Walks
-            </p>
-          </div>
-        </div>
-
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 16, paddingTop: 8 }}>
-          <div>
-            {resetFeedback ? (
-              <span className="form-success">{resetFeedback}</span>
-            ) : (
-              <span className="body-copy--small">
-                Reload all seed fixtures and reset local in-memory modifications.
-              </span>
-            )}
-          </div>
-          <Button
-            variant="secondary"
-            disabled={isLoading}
-            onClick={handleReset}
-          >
-            <RefreshCw size={14} style={{ marginRight: 6 }} className={isLoading ? 'animate-spin' : ''} />
-            {isLoading ? 'Reloading...' : 'Reload seed fixtures'}
-          </Button>
-        </div>
-      </section>
-
-      {/* Engineering Metadata */}
-      <section className="settings-card">
-        <div className="settings-card-header">
-          <div>
-            <h3 className="settings-card-title">Platform architecture</h3>
-            <p className="settings-card-desc">
-              Technology stack specifications and active capabilities.
-            </p>
-          </div>
-          <Cpu size={20} color="var(--fabric-accent)" />
-        </div>
-
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: 12 }}>
-          <div className="record-item--note">
-            <strong style={{ display: 'block', fontSize: 13 }}>UI primitive engine</strong>
-            <span className="body-copy--small">Radix UI Primitives + Pure CSS Tokens</span>
-          </div>
-          <div className="record-item--note">
-            <strong style={{ display: 'block', fontSize: 13 }}>Visual workbenches</strong>
-            <span className="body-copy--small">React Flow v12 + Recharts 2.x</span>
-          </div>
-          <div className="record-item--note">
-            <strong style={{ display: 'block', fontSize: 13 }}>Table & grid system</strong>
-            <span className="body-copy--small">TanStack Table v8</span>
-          </div>
-          <div className="record-item--note">
-            <strong style={{ display: 'block', fontSize: 13 }}>Theme architecture</strong>
-            <span className="body-copy--small">Pure Black (#000000) + Trion Purple Accent</span>
-          </div>
-        </div>
-      </section>
-    </div>
+      <Card
+        title="Internal configuration"
+        description="Methodology templates, output templates, AI provider settings, and system configuration remain controlled internal capabilities. They are intentionally not part of the everyday engagement workflow."
+      >
+        <p className="body-copy">
+          The active workspace provides contextual guidance and safe controls
+          without exposing a workflow engine or permission matrix to the
+          consultant doing the work.
+        </p>
+      </Card>
+    </>
   );
 }

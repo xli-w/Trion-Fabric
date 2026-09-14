@@ -18,11 +18,46 @@ export const fabricNavigation: NavigationItem[] = [
     label: 'Workspace',
     path: '/workspace',
     description:
-      'Your active transformation work, review queue, reusable internal knowledge, and next useful action.',
+      'The active engagement: current understanding, priority work, and the next useful action.',
     routePrefixes: ['/workspace', '/knowledge'],
+    sections: [{ label: 'Active workspace', path: '/workspace' }],
+  },
+  {
+    key: 'understand',
+    label: 'Understand',
+    path: '/understand',
+    description:
+      'Investigate the operating environment through site walks, contextual evidence, and the digital landscape.',
+    routePrefixes: ['/understand', '/site-walks', '/landscape', '/evidence'],
     sections: [
-      { label: 'Work queue', path: '/workspace' },
-      { label: 'Reusable knowledge', path: '/knowledge' },
+      { label: 'Site walk', path: '/site-walks' },
+      { label: 'Evidence', path: '/evidence' },
+      { label: 'Landscape', path: '/landscape' },
+    ],
+  },
+  {
+    key: 'analyse',
+    label: 'Analyse',
+    path: '/analyse',
+    description:
+      'Assess maturity, review evidence and findings, and develop evidence-led transformation opportunities.',
+    routePrefixes: ['/analyse', '/diagnosis', '/opportunities'],
+    sections: [
+      { label: 'Diagnostic', path: '/diagnosis' },
+      { label: 'Opportunities', path: '/opportunities' },
+    ],
+  },
+  {
+    key: 'plan-output',
+    label: 'Plan & Output',
+    path: '/plan-output',
+    description:
+      'Sequence recommendations, understand expected benefits, and prepare controlled client outputs.',
+    routePrefixes: ['/plan-output', '/roadmap', '/benefits', '/outputs'],
+    sections: [
+      { label: 'Roadmap', path: '/roadmap' },
+      { label: 'Benefits', path: '/benefits' },
+      { label: 'Outputs', path: '/outputs' },
     ],
   },
   {
@@ -30,40 +65,9 @@ export const fabricNavigation: NavigationItem[] = [
     label: 'Clients',
     path: '/clients',
     description:
-      'Client organisations, scoped transformation engagements, and operating manufacturing sites.',
-    routePrefixes: ['/clients', '/engagements', '/sites'],
-    sections: [
-      { label: 'Clients', path: '/clients' },
-      { label: 'Engagements', path: '/engagements' },
-      { label: 'Sites', path: '/sites' },
-    ],
-  },
-  {
-    key: 'diagnosis',
-    label: 'Diagnosis',
-    path: '/diagnosis',
-    description:
-      'Operational maturity assessment, factory site walks, traceable evidence, digital landscape mapping, and diagnostic findings.',
-    routePrefixes: ['/diagnosis', '/site-walks', '/landscape', '/evidence'],
-    sections: [
-      { label: 'Diagnosis', path: '/diagnosis' },
-      { label: 'Site walks', path: '/site-walks' },
-      { label: 'Evidence library', path: '/evidence' },
-      { label: 'Landscape', path: '/landscape' },
-    ],
-  },
-  {
-    key: 'transformation',
-    label: 'Transformation',
-    path: '/opportunities',
-    description:
-      'Prioritised transformation opportunities, sequenced roadmap delivery, and controlled client deliverables.',
-    routePrefixes: ['/opportunities', '/roadmap', '/outputs'],
-    sections: [
-      { label: 'Opportunities', path: '/opportunities' },
-      { label: 'Roadmap', path: '/roadmap' },
-      { label: 'Outputs', path: '/outputs' },
-    ],
+      'A lightweight library of client context, sites, and engagement history.',
+    routePrefixes: ['/clients', '/sites', '/engagements'],
+    sections: [{ label: 'Client library', path: '/clients' }],
   },
 ];
 
@@ -82,6 +86,10 @@ export const utilityNavigation: NavigationItem[] = [
 export function findNavigationItem(
   pathname: string,
 ): NavigationItem | undefined {
+  if (pathname.startsWith('/engagements/')) {
+    return fabricNavigation.find((item) => item.key === 'workspace');
+  }
+
   const allItems = [...fabricNavigation, ...utilityNavigation];
   return allItems.find((item) =>
     item.routePrefixes.some(

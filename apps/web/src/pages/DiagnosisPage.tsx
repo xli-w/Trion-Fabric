@@ -35,7 +35,7 @@ import {
   Search,
   ShieldAlert,
 } from 'lucide-react';
-import { FabricDataView } from '@app/features/fabric-data/FabricDataView';
+import { ActiveEngagementDataView } from '@app/features/fabric-data/ActiveEngagementDataView';
 import { useFabricData } from '@app/features/fabric-data/FabricDataContext';
 
 const levels: MaturityLevel[] = [
@@ -51,9 +51,8 @@ function levelFor(score?: number): MaturityLevel | undefined {
 }
 
 export function DiagnosisPage() {
-  const { saveMaturityAssessment } = useFabricData();
+  const { activeEngagement, saveMaturityAssessment } = useFabricData();
   const [searchParams] = useSearchParams();
-  const [diagnosticId, setDiagnosticId] = useState('');
   const [viewMode, setViewMode] = useState<'visual' | 'table' | 'findings'>(
     searchParams.has('finding') ? 'findings' : 'visual',
   );
@@ -63,7 +62,7 @@ export function DiagnosisPage() {
   const [message, setMessage] = useState<string | null>(null);
 
   return (
-    <FabricDataView
+    <ActiveEngagementDataView
       emptyTitle="Diagnostics cannot be loaded"
       loadingDescription="Loading scorecard dimensions and assessment evidence."
       loadingTitle="Loading diagnostics"
@@ -74,16 +73,21 @@ export function DiagnosisPage() {
           ? dataset.findings.find((item) => item.id === highlightedFindingId)
               ?.diagnosticId
           : undefined;
+        const selectedDiagnosticId =
+          findingDiagnosticId ??
+          (activeEngagement
+            ? dataset.diagnostics.find(
+                (candidate) => candidate.engagementId === activeEngagement.id,
+              )?.id
+            : dataset.diagnostics[0]?.id);
         const diagnostic = dataset.diagnostics.find(
-          (item) =>
-            item.id ===
-            (diagnosticId || findingDiagnosticId || dataset.diagnostics[0]?.id),
+          (item) => item.id === selectedDiagnosticId,
         );
         if (!diagnostic)
           return (
             <>
               <PageHeader
-                eyebrow="Diagnosis"
+                eyebrow="Analyse"
                 title="Digital and operational maturity"
                 description="Create a diagnostic from a client engagement to assess fit-for-purpose maturity and prepare controlled engagement outputs."
               />
@@ -174,27 +178,15 @@ export function DiagnosisPage() {
         return (
           <>
             <PageHeader
-              eyebrow="Diagnosis"
-              title={diagnostic.title}
-              description={`${diagnostic.description} Approved diagnostic records flow into controlled engagement outputs.`}
+              eyebrow="Analyse"
+              title="Diagnostic workspace"
+              description={`${diagnostic.description} Select a maturity dimension to inspect its evidence, reasoning, gap, and potential opportunity.`}
               metadata={[
                 diagnostic.methodologyVersion,
                 diagnostic.status,
                 diagnostic.scope,
               ]}
-              actions={
-                <select
-                  className="diagnostic-select"
-                  value={diagnostic.id}
-                  onChange={(event) => setDiagnosticId(event.target.value)}
-                >
-                  {dataset.diagnostics.map((item) => (
-                    <option key={item.id} value={item.id}>
-                      {item.title}
-                    </option>
-                  ))}
-                </select>
-              }
+              actions={<Badge tone="accent">Active engagement</Badge>}
             />
 
             {message ? (
@@ -775,6 +767,6 @@ export function DiagnosisPage() {
           </>
         );
       }}
-    </FabricDataView>
+    </ActiveEngagementDataView>
   );
 }

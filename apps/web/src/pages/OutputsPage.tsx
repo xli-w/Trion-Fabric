@@ -7,6 +7,7 @@ import type {
   OutputExportAudience,
   OutputExportFormat,
   OutputStatus,
+  OutputType,
 } from '@domain';
 import {
   serializeOutputReportAsAiPackage,
@@ -21,7 +22,7 @@ import {
   Sheet,
   StatCard,
 } from '@ui';
-import { FabricDataView } from '@app/features/fabric-data/FabricDataView';
+import { ActiveEngagementDataView } from '@app/features/fabric-data/ActiveEngagementDataView';
 import { useFabricData } from '@app/features/fabric-data/FabricDataContext';
 import {
   CreateOutputForm,
@@ -35,6 +36,13 @@ import {
 } from '@app/features/fabric-data/selectors';
 
 const coreDeliverableCount = 5;
+const coreOutputTypes: OutputType[] = [
+  'landscape-map',
+  'maturity-scorecard',
+  'opportunity-action-register',
+  'transformation-roadmap',
+  'executive-summary',
+];
 
 const governanceNotes = [
   'Every report is a versioned projection of structured engagement records, never a disconnected document store.',
@@ -55,17 +63,36 @@ function reportStatusTone(status: OutputStatus) {
 
 export function OutputsPage() {
   const navigate = useNavigate();
-  const { canPerform, createOutput } = useFabricData();
+  const { activeEngagementId, canPerform, createOutput } = useFabricData();
   const [createSheetOpen, setCreateSheetOpen] = useState(false);
 
   return (
-    <FabricDataView
+    <ActiveEngagementDataView
       emptyTitle="Outputs cannot be loaded"
       loadingDescription="Loading controlled output states and report readiness."
       loadingTitle="Loading outputs"
     >
       {(dataset) => {
         const viewModel = buildOutputsViewModel(dataset);
+        const coreOutputs = dataset.outputs.filter((output) =>
+          coreOutputTypes.includes(output.outputType),
+        );
+        const coreOutputIds = new Set(coreOutputs.map((output) => output.id));
+        const coreOutputTypeCount = new Set(
+          coreOutputs.map((output) => output.outputType),
+        ).size;
+        const coreOutputRows = viewModel.rows.filter((row) =>
+          coreOutputIds.has(row.id),
+        );
+        const coreReadyToShareCount = coreOutputs.filter(
+          (output) =>
+            (output.status === 'approved' || output.status === 'published') &&
+            output.visibility === 'approved-client-facing',
+        ).length;
+        const coreReviewQueueCount = coreOutputs.filter(
+          (output) =>
+            output.status === 'draft' || output.status === 'internal-review',
+        ).length;
         const creatableEngagements = dataset.engagements
           .filter((engagement) => canPerform('output:write', engagement.id))
           .map((engagement) => ({
@@ -76,9 +103,9 @@ export function OutputsPage() {
         return (
           <>
             <PageHeader
-              eyebrow="Transformation"
-              title="Controlled delivery outputs"
-              description="Build coherent, client-ready reports from the same approved diagnostic, landscape, opportunity, and roadmap records used across the engagement."
+              eyebrow="Plan & Output"
+              title="Controlled outputs"
+              description="Review, approve, and export the five core outputs from the same approved diagnostic, landscape, opportunity, and roadmap records used across this engagement."
               metadata={[
                 'Versioned report snapshots',
                 'Approved source data',
@@ -98,19 +125,19 @@ export function OutputsPage() {
                 detail="Approved or published report snapshots with approved source data."
                 label="Ready to share"
                 tone="success"
-                value={String(viewModel.readyToShareCount)}
+                value={String(coreReadyToShareCount)}
               />
               <StatCard
                 detail="Outputs still in draft or internal-review states."
                 label="Review queue"
                 tone="warning"
-                value={String(viewModel.reviewQueueCount)}
+                value={String(coreReviewQueueCount)}
               />
               <StatCard
                 detail="The five core diagnostic report types represented in the register."
                 label="Core deliverables"
                 tone="accent"
-                value={`${viewModel.coreOutputCount} / ${coreDeliverableCount}`}
+                value={`${coreOutputTypeCount} / ${coreDeliverableCount}`}
               />
             </section>
 
@@ -176,7 +203,7 @@ export function OutputsPage() {
                     },
                   ]}
                   getRowKey={(row) => row.id}
-                  rows={viewModel.rows}
+                  rows={coreOutputRows}
                 />
               </Card>
 
@@ -208,18 +235,20 @@ export function OutputsPage() {
               <CreateOutputForm
                 dataset={dataset}
                 engagements={creatableEngagements}
+                key={activeEngagementId ?? 'none'}
                 onCancel={() => setCreateSheetOpen(false)}
                 onCreate={createOutput}
                 onCreated={(output) => {
                   setCreateSheetOpen(false);
                   navigate(`/outputs/${output.id}`);
                 }}
+                outputTypes={coreOutputTypes}
               />
             </Sheet>
           </>
         );
       }}
-    </FabricDataView>
+    </ActiveEngagementDataView>
   );
 }
 
@@ -242,7 +271,7 @@ export function OutputDetailPage() {
   const [message, setMessage] = useState<string | null>(null);
 
   return (
-    <FabricDataView
+    <ActiveEngagementDataView
       emptyTitle="Output cannot be loaded"
       loadingDescription="Loading report snapshot, source provenance, and publication controls."
       loadingTitle="Loading output report"
@@ -863,6 +892,6 @@ export function OutputDetailPage() {
           </>
         );
       }}
-    </FabricDataView>
+    </ActiveEngagementDataView>
   );
 }

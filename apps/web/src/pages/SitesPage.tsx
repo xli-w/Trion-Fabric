@@ -256,7 +256,7 @@ export function SiteDetailPage() {
                       <Link
                         className="record-item table-link"
                         key={engagement.id}
-                        to={`/engagements/${engagement.id}`}
+                        to={`/workspace/${engagement.id}`}
                       >
                         {engagement.name}
                         <span>

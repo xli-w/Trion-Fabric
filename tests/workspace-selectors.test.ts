@@ -5,6 +5,7 @@ import { fabricDatasetSchema } from '@validation';
 import {
   buildClientsViewModel,
   buildBreadcrumbs,
+  buildCurrentUnderstanding,
   buildEngagementCommandCentre,
   buildGlobalSearchResults,
   buildOpportunitiesViewModel,
@@ -12,6 +13,7 @@ import {
   buildOutputsViewModel,
   buildRoadmapViewModel,
   buildWorkspaceSnapshot,
+  resolveEngagementIdForPath,
 } from '@app/features/fabric-data/selectors';
 
 describe('workspace selectors', () => {
@@ -131,6 +133,48 @@ describe('workspace selectors', () => {
       'Northbank digital diagnostic',
       'Output',
     ]);
+  });
+
+  it('builds a current understanding that keeps facts, interpretation, and uncertainty separate', () => {
+    const understanding = buildCurrentUnderstanding(
+      fabricFixtures,
+      'engagement-northbank-diagnostic',
+    );
+
+    expect(understanding).toBeDefined();
+    expect(understanding?.known).toEqual(expect.any(Array));
+    expect(understanding?.patterns).toEqual(expect.any(Array));
+    expect(understanding?.uncertainties.length).toBeGreaterThan(0);
+    expect(understanding?.priorityOpportunities[0]?.path).toMatch(
+      /^\/opportunities\//,
+    );
+  });
+
+  it('restores active engagement context from workspace and contextual record links', () => {
+    expect(
+      resolveEngagementIdForPath(
+        fabricFixtures,
+        '/workspace/engagement-northbank-diagnostic',
+      ),
+    ).toBe('engagement-northbank-diagnostic');
+    expect(
+      resolveEngagementIdForPath(
+        fabricFixtures,
+        '/site-walks/walk-northbank-machine-shop-01',
+      ),
+    ).toBe('engagement-northbank-diagnostic');
+    expect(
+      resolveEngagementIdForPath(
+        fabricFixtures,
+        '/outputs/output-northbank-transformation-roadmap',
+      ),
+    ).toBe('engagement-northbank-diagnostic');
+    expect(
+      resolveEngagementIdForPath(
+        fabricFixtures,
+        '/workspace/engagement-does-not-exist',
+      ),
+    ).toBeUndefined();
   });
 
   it('builds client rows with site and engagement counts', () => {

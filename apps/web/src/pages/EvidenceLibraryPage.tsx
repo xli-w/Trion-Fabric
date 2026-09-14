@@ -15,7 +15,7 @@ import {
   Toolbar,
   ToolbarGroup,
 } from '@ui';
-import { FabricDataView } from '@app/features/fabric-data/FabricDataView';
+import { ActiveEngagementDataView } from '@app/features/fabric-data/ActiveEngagementDataView';
 import { useFabricData } from '@app/features/fabric-data/FabricDataContext';
 import {
   buildEvidenceLibrary,
@@ -51,7 +51,7 @@ function visibilityTone(visibility: string) {
 }
 
 export function EvidenceLibraryPage() {
-  const { currentUser } = useFabricData();
+  const { activeEngagement, currentUser } = useFabricData();
   const [searchParams, setSearchParams] = useSearchParams();
   const [selectedEvidenceId, setSelectedEvidenceId] = useState<string | null>(
     searchParams.get('evidence'),
@@ -59,7 +59,6 @@ export function EvidenceLibraryPage() {
   const [query, setQuery] = useState('');
   const [clientId, setClientId] = useState('');
   const [siteId, setSiteId] = useState('');
-  const [engagementId, setEngagementId] = useState('');
   const [areaId, setAreaId] = useState('');
   const [processId, setProcessId] = useState('');
   const [systemId, setSystemId] = useState('');
@@ -78,7 +77,6 @@ export function EvidenceLibraryPage() {
     setQuery('');
     setClientId('');
     setSiteId('');
-    setEngagementId('');
     setAreaId('');
     setProcessId('');
     setSystemId('');
@@ -96,7 +94,7 @@ export function EvidenceLibraryPage() {
   }
 
   return (
-    <FabricDataView
+    <ActiveEngagementDataView
       emptyTitle="Evidence library cannot be loaded"
       loadingDescription="Loading traceable fieldwork evidence and connected transformation records."
       loadingTitle="Loading evidence library"
@@ -106,11 +104,12 @@ export function EvidenceLibraryPage() {
           return null;
         }
 
+        const engagementId = activeEngagement?.id ?? dataset.engagements[0]?.id;
         const filters: EvidenceLibraryFilters = {
           query: query || undefined,
           clientId: clientId || undefined,
           siteId: siteId || undefined,
-          engagementId: engagementId || undefined,
+          engagementId,
           areaId: areaId || undefined,
           processId: processId || undefined,
           systemId: systemId || undefined,
@@ -133,14 +132,27 @@ export function EvidenceLibraryPage() {
               (evidence) => evidence.id === selectedEvidenceId,
             )
           : undefined;
-        const hasFilters = Object.values(filters).some(Boolean);
+        const hasFilters = [
+          query,
+          clientId,
+          siteId,
+          areaId,
+          processId,
+          systemId,
+          evidenceType,
+          source,
+          reviewStatus,
+          visibility,
+          capturedDate,
+          recordedByUserId,
+        ].some(Boolean);
 
         return (
           <>
             <PageHeader
-              eyebrow="Diagnosis"
-              title="Evidence library"
-              description="Search fieldwork evidence in operational language, retain its provenance, and follow every record into the observation, finding, opportunity, delivery, or output it supports."
+              eyebrow="Understand"
+              title="Contextual evidence"
+              description="Search this engagement's fieldwork evidence, retain its provenance, and follow every record into the observation, finding, opportunity, roadmap, or output it supports."
               metadata={[
                 'Permission-filtered',
                 'Traceable source links',
@@ -155,7 +167,7 @@ export function EvidenceLibraryPage() {
 
             <section className="metric-grid metric-grid--compact">
               <StatCard
-                detail="Evidence available to the current internal role."
+                detail="Evidence available in the active engagement."
                 label="Accessible evidence"
                 tone="accent"
                 value={String(library.metrics.total)}
@@ -200,13 +212,6 @@ export function EvidenceLibraryPage() {
                   onChange={setSiteId}
                   options={library.filterOptions.sites}
                   value={siteId}
-                />
-                <FilterSelect
-                  allLabel="All engagements"
-                  label="Engagement"
-                  onChange={setEngagementId}
-                  options={library.filterOptions.engagements}
-                  value={engagementId}
                 />
                 <FilterSelect
                   allLabel="All evidence types"
@@ -463,6 +468,6 @@ export function EvidenceLibraryPage() {
           </>
         );
       }}
-    </FabricDataView>
+    </ActiveEngagementDataView>
   );
 }

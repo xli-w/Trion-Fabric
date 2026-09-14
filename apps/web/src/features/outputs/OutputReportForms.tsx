@@ -292,6 +292,7 @@ export function OutputDraftEditor({
 interface CreateOutputFormProps {
   dataset: FabricDataset;
   engagements: Array<{ id: EntityId; name: string }>;
+  outputTypes?: readonly OutputType[];
   onCancel: () => void;
   onCreate: (input: CreateOutputInput) => Promise<Output>;
   onCreated: (output: Output) => void;
@@ -300,6 +301,7 @@ interface CreateOutputFormProps {
 export function CreateOutputForm({
   dataset,
   engagements,
+  outputTypes: selectableOutputTypes = outputTypes,
   onCancel,
   onCreate,
   onCreated,
@@ -406,7 +408,7 @@ export function CreateOutputForm({
           onChange={(event) => setOutputType(event.target.value as OutputType)}
           value={outputType}
         >
-          {outputTypes.map((type) => (
+          {selectableOutputTypes.map((type) => (
             <option key={type} value={type}>
               {getOutputTemplate(type).label}
             </option>

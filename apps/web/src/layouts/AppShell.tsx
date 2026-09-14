@@ -1,5 +1,11 @@
-import { useState } from 'react';
-import { Link, NavLink, Outlet, useLocation } from 'react-router-dom';
+import { useEffect, useState } from 'react';
+import {
+  Link,
+  NavLink,
+  Outlet,
+  useLocation,
+  useNavigate,
+} from 'react-router-dom';
 import { Bell, Moon, Search, Settings, Sun, UserRound } from 'lucide-react';
 
 import { fabricNavigation, findNavigationItem, productInfo } from '@config';
@@ -10,21 +16,56 @@ import {
   buildBreadcrumbs,
   buildGlobalSearchResults,
   buildWorkspaceSnapshot,
+  resolveEngagementIdForPath,
 } from '@app/features/fabric-data/selectors';
+
+function workspaceRoleLabel(role?: string) {
+  return role === 'administrator' ? 'Trion Admin' : 'Trion User';
+}
 
 export function AppShell() {
   const location = useLocation();
+  const navigate = useNavigate();
   const currentPage = findNavigationItem(location.pathname);
   const {
+    activeClient,
+    activeDataset,
+    activeEngagement,
+    activeEngagementId,
+    activeSites,
     currentUser,
     dataset,
     isLoading,
     refresh,
     repositorySource,
+    setActiveEngagementId,
     setCurrentUserId,
   } = useFabricData();
   const { resolvedTheme, toggleTheme } = useTheme();
   const [searchQuery, setSearchQuery] = useState('');
+  const workspaceDataset = activeDataset ?? dataset;
+
+  useEffect(() => {
+    if (!dataset) {
+      return;
+    }
+
+    const routeEngagementId = resolveEngagementIdForPath(
+      dataset,
+      location.pathname,
+      location.search,
+    );
+    if (routeEngagementId && routeEngagementId !== activeEngagementId) {
+      setActiveEngagementId(routeEngagementId);
+    }
+  }, [
+    activeEngagementId,
+    dataset,
+    location.pathname,
+    location.search,
+    setActiveEngagementId,
+  ]);
+
   const breadcrumbs = dataset
     ? buildBreadcrumbs(
         dataset,
@@ -32,14 +73,24 @@ export function AppShell() {
         currentPage?.label ?? productInfo.fullName,
       )
     : [{ label: 'Fabric' }];
-  const searchResults = dataset
+  const searchResults = workspaceDataset
     ? currentUser
-      ? buildGlobalSearchResults(dataset, searchQuery, currentUser)
+      ? buildGlobalSearchResults(workspaceDataset, searchQuery, currentUser)
       : []
     : [];
-  const reviewCount = dataset
-    ? buildWorkspaceSnapshot(dataset, currentUser?.id).reviewCount
+  const reviewCount = workspaceDataset
+    ? buildWorkspaceSnapshot(workspaceDataset, currentUser?.id).reviewCount
     : 0;
+  const activeSiteLabel =
+    activeSites.length > 0
+      ? activeSites.map((site) => site.name).join(', ')
+      : 'No site selected';
+
+  function selectActiveEngagement(value: string) {
+    const engagementId = value || null;
+    setActiveEngagementId(engagementId);
+    navigate(engagementId ? `/workspace/${engagementId}` : '/clients');
+  }
 
   return (
     <div className="app-shell">
@@ -126,6 +177,42 @@ export function AppShell() {
               {currentPage?.label ?? productInfo.fullName}
             </h2>
             <p className="topbar-description">{currentPage?.description}</p>
+            <div className="active-engagement-context">
+              <div>
+                <span className="active-engagement-context__label">
+                  Active engagement
+                </span>
+                <strong>
+                  {activeEngagement?.name ?? 'Choose an engagement'}
+                </strong>
+                <small>
+                  {activeClient
+                    ? `${activeClient.name} · ${activeSiteLabel}`
+                    : 'Choose a client engagement to begin focused work.'}
+                </small>
+              </div>
+              <label className="sr-only" htmlFor="active-engagement">
+                Active client engagement
+              </label>
+              <select
+                disabled={!dataset}
+                id="active-engagement"
+                onChange={(event) => selectActiveEngagement(event.target.value)}
+                value={activeEngagementId ?? ''}
+              >
+                <option value="">Choose engagement</option>
+                {dataset?.engagements.map((engagement) => {
+                  const client = dataset.clients.find(
+                    (item) => item.id === engagement.clientId,
+                  );
+                  return (
+                    <option key={engagement.id} value={engagement.id}>
+                      {client?.name ?? 'Unknown client'} · {engagement.name}
+                    </option>
+                  );
+                })}
+              </select>
+            </div>
           </div>
 
           <div className="topbar-actions">
@@ -138,7 +225,11 @@ export function AppShell() {
                 autoComplete="off"
                 id="global-search"
                 onChange={(event) => setSearchQuery(event.target.value)}
-                placeholder="Search evidence, work, and knowledge..."
+                placeholder={
+                  activeEngagement
+                    ? 'Search this engagement...'
+                    : 'Search accessible work...'
+                }
                 type="search"
                 value={searchQuery}
               />
@@ -184,14 +275,7 @@ export function AppShell() {
               <UserRound aria-hidden="true" size={17} />
               <div>
                 <strong>{currentUser?.displayName ?? 'Loading user'}</strong>
-                <span>
-                  {currentUser?.role
-                    ? currentUser.role
-                        .split('-')
-                        .map((w) => w.charAt(0).toUpperCase() + w.slice(1))
-                        .join(' ')
-                    : 'Internal user'}
-                </span>
+                <span>{workspaceRoleLabel(currentUser?.role)}</span>
               </div>
               <label className="sr-only" htmlFor="current-user">
                 Current internal user
@@ -204,12 +288,7 @@ export function AppShell() {
               >
                 {dataset?.users.map((user) => (
                   <option key={user.id} value={user.id}>
-                    {user.displayName} (
-                    {user.role
-                      .split('-')
-                      .map((w) => w.charAt(0).toUpperCase() + w.slice(1))
-                      .join(' ')}
-                    )
+                    {user.displayName} ({workspaceRoleLabel(user.role)})
                   </option>
                 ))}
               </select>

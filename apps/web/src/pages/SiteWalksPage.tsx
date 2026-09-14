@@ -19,7 +19,7 @@ import {
   Toolbar,
   ToolbarGroup,
 } from '@ui';
-import { FabricDataView } from '@app/features/fabric-data/FabricDataView';
+import { ActiveEngagementDataView } from '@app/features/fabric-data/ActiveEngagementDataView';
 import { useFabricData } from '@app/features/fabric-data/FabricDataContext';
 import {
   EvidenceForm,
@@ -32,6 +32,7 @@ import { buildSiteWalksViewModel } from '@app/features/fabric-data/selectors';
 
 export function SiteWalksPage() {
   const navigate = useNavigate();
+  const { activeEngagementId } = useFabricData();
   const [createSheetOpen, setCreateSheetOpen] = useState(false);
   const [selectedWalkId, setSelectedWalkId] = useState<string | null>(null);
   const [query, setQuery] = useState('');
@@ -40,7 +41,7 @@ export function SiteWalksPage() {
   const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('desc');
 
   return (
-    <FabricDataView
+    <ActiveEngagementDataView
       emptyTitle="Site walks cannot be loaded"
       loadingDescription="Loading structured site walk data and evidence capture status."
       loadingTitle="Loading site walks"
@@ -102,10 +103,14 @@ export function SiteWalksPage() {
         return (
           <>
             <PageHeader
-              eyebrow="Diagnosis"
-              title="Structured fieldwork & investigation"
-              description="A flexible investigation workspace for preliminary walks and deeper diagnostic visits. Capture context, findings, evidence, friction, and next steps without turning the checklist into the product."
-              metadata={['Fast capture', 'Traceable evidence', 'Review-ready']}
+              eyebrow="Understand"
+              title="Site Walk Workbench"
+              description="Brief the visit, capture what is seen, investigate questions and friction, recap what was learned, and agree the next step."
+              metadata={[
+                'Brief to recap',
+                'Traceable evidence',
+                'Review-ready',
+              ]}
               actions={
                 <Button onClick={() => setCreateSheetOpen(true)}>
                   <Plus size={16} style={{ marginRight: 6 }} /> Plan site walk
@@ -258,7 +263,11 @@ export function SiteWalksPage() {
               title="Plan a site walk"
               description="Schedule a factory tour, define focus areas, and record participants."
             >
-              <SiteWalkForm onSaved={() => setCreateSheetOpen(false)} />
+              <SiteWalkForm
+                engagementId={activeEngagementId ?? undefined}
+                key={activeEngagementId ?? 'none'}
+                onSaved={() => setCreateSheetOpen(false)}
+              />
             </Sheet>
 
             {/* Quick Inspector Sheet */}
@@ -410,7 +419,7 @@ export function SiteWalksPage() {
           </>
         );
       }}
-    </FabricDataView>
+    </ActiveEngagementDataView>
   );
 }
 
@@ -429,7 +438,7 @@ export function SiteWalkWorkspacePage() {
     try {
       const promotedEngagement =
         await promotePreliminarySiteWalk(siteWalkIdToPromote);
-      navigate(`/engagements/${promotedEngagement.id}`);
+      navigate(`/workspace/${promotedEngagement.id}`);
     } catch (caughtError) {
       setPromotionError(
         caughtError instanceof Error
@@ -440,7 +449,7 @@ export function SiteWalkWorkspacePage() {
   }
 
   return (
-    <FabricDataView
+    <ActiveEngagementDataView
       emptyTitle="Site walk cannot be loaded"
       loadingDescription="Loading investigation workspace."
       loadingTitle="Loading site walk"
@@ -479,9 +488,9 @@ export function SiteWalkWorkspacePage() {
         return (
           <>
             <PageHeader
-              eyebrow="Fieldwork investigation"
+              eyebrow="Site Walk Workbench"
               title={walk.title}
-              description={`${site?.name ?? 'Unknown site'} · ${engagement?.name ?? 'Unknown engagement'}`}
+              description={`${site?.name ?? 'Unknown site'} · ${engagement?.name ?? 'Unknown engagement'}. Brief the visit, capture the operation, investigate evidence and friction, then recap the next step.`}
               metadata={[walk.walkType, walk.status]}
               actions={
                 <div style={{ display: 'flex', gap: 8 }}>
@@ -539,17 +548,17 @@ export function SiteWalkWorkspacePage() {
               style={{ marginTop: 16 }}
             >
               <TabsList>
+                <TabsTrigger value="briefing">Brief</TabsTrigger>
                 <TabsTrigger value="findings" badge={observations.length}>
-                  Observations & findings
+                  Walk & capture
                 </TabsTrigger>
                 <TabsTrigger value="evidence" badge={evidence.length}>
-                  Evidence & media
+                  Investigate evidence
                 </TabsTrigger>
                 <TabsTrigger value="friction" badge={friction.length}>
-                  Friction & loss points
+                  Friction
                 </TabsTrigger>
-                <TabsTrigger value="briefing">Pre-tour & guidance</TabsTrigger>
-                <TabsTrigger value="recap">Post-tour recap</TabsTrigger>
+                <TabsTrigger value="recap">Recap & next step</TabsTrigger>
               </TabsList>
 
               {/* Tab 1: Observations */}
@@ -664,7 +673,7 @@ export function SiteWalkWorkspacePage() {
               {/* Tab 3: Friction */}
               <TabsContent value="friction">
                 <Card
-                  title={`Friction & loss-aversion (${friction.length})`}
+                  title={`Friction and loss points (${friction.length})`}
                   description="All time, hours, and cost values are indicative until assumptions are validated."
                   actions={
                     <Button
@@ -845,6 +854,6 @@ export function SiteWalkWorkspacePage() {
           </>
         );
       }}
-    </FabricDataView>
+    </ActiveEngagementDataView>
   );
 }

@@ -420,10 +420,14 @@ export function RoadmapForm({
   roadmap?: Roadmap;
   onSaved?: (roadmap: Roadmap) => void;
 }) {
-  const { dataset, createRoadmap, updateRoadmap } = useFabricData();
+  const { activeEngagementId, createRoadmap, dataset, updateRoadmap } =
+    useFabricData();
   const [error, setError] = useState<string | null>(null);
   const [engagementId, setEngagementId] = useState(
-    roadmap?.engagementId ?? dataset?.engagements[0]?.id ?? '',
+    roadmap?.engagementId ??
+      activeEngagementId ??
+      dataset?.engagements[0]?.id ??
+      '',
   );
   const [diagnosticId, setDiagnosticId] = useState(roadmap?.diagnosticId ?? '');
   const [title, setTitle] = useState(roadmap?.title ?? '');
@@ -561,6 +565,7 @@ export function RoadmapForm({
       <div className="form-grid">
         <Field label="Engagement">
           <select
+            disabled={Boolean(activeEngagementId)}
             required
             value={engagementId}
             onChange={(event) => {

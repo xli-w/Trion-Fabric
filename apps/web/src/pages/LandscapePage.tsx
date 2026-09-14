@@ -48,7 +48,7 @@ import {
   Workflow,
 } from 'lucide-react';
 
-import { FabricDataView } from '@app/features/fabric-data/FabricDataView';
+import { ActiveEngagementDataView } from '@app/features/fabric-data/ActiveEngagementDataView';
 import { useFabricData } from '@app/features/fabric-data/FabricDataContext';
 import {
   buildLandscapeWorkbench,
@@ -133,8 +133,7 @@ function linkedNames(
 }
 
 export function LandscapePage() {
-  const { canPerform } = useFabricData();
-  const [selectedEngagementId, setSelectedEngagementId] = useState('');
+  const { activeEngagement, canPerform } = useFabricData();
   const [activeView, setActiveView] = useState<LandscapeView>('process');
   const [displayMode, setDisplayMode] =
     useState<LandscapeDisplayMode>('canvas');
@@ -154,14 +153,14 @@ export function LandscapePage() {
   const [message, setMessage] = useState<string | null>(null);
 
   return (
-    <FabricDataView
+    <ActiveEngagementDataView
       emptyTitle="Landscape cannot be loaded"
       loadingDescription="Loading structured areas, processes, systems, information flow, and version history."
       loadingTitle="Loading digital landscape"
     >
       {(dataset) => {
         const engagementId =
-          selectedEngagementId || dataset.engagements[0]?.id || '';
+          activeEngagement?.id ?? dataset.engagements[0]?.id ?? '';
         const workbench = engagementId
           ? buildLandscapeWorkbench(dataset, engagementId, {
               view: activeView,
@@ -175,7 +174,7 @@ export function LandscapePage() {
           return (
             <>
               <PageHeader
-                eyebrow="Diagnosis"
+                eyebrow="Understand"
                 title="Digital landscape"
                 description="Start an engagement before recording a structured operational landscape."
               />
@@ -262,9 +261,9 @@ export function LandscapePage() {
         return (
           <>
             <PageHeader
-              eyebrow="Diagnosis"
-              title="Digital landscape builder"
-              description="A living current-state model of areas, processes, people, systems, data, machines, and handoffs. Views are filters over the same traceable structure, not separate diagrams."
+              eyebrow="Understand"
+              title="Digital Landscape"
+              description="A living current-state model of areas, processes, people, systems, data, machines, and handoffs. Explore focused views of the same traceable structure."
               metadata={[
                 workbench.clientName,
                 `${workbench.metrics.totalEntities} items`,
@@ -272,24 +271,7 @@ export function LandscapePage() {
                   ? `Version ${workbench.currentVersion.version}`
                   : 'No snapshot yet',
               ]}
-              actions={
-                <select
-                  className="diagnostic-select"
-                  aria-label="Landscape engagement"
-                  value={workbench.engagement.id}
-                  onChange={(event) => {
-                    setSelectedEngagementId(event.target.value);
-                    setSelectedEntityId(null);
-                    setEditorMode(null);
-                  }}
-                >
-                  {dataset.engagements.map((engagement) => (
-                    <option key={engagement.id} value={engagement.id}>
-                      {engagement.name}
-                    </option>
-                  ))}
-                </select>
-              }
+              actions={<Badge tone="accent">Active engagement</Badge>}
             />
 
             {message ? (
@@ -301,11 +283,11 @@ export function LandscapePage() {
             {!canEdit ? (
               <Card
                 eyebrow="Read-only"
-                title="Landscape editing is unavailable for this role"
-                description="This workbench can be reviewed, but structured landscape changes require diagnostic write permission for the selected engagement."
+                title="Landscape editing is unavailable"
+                description="This workbench can be reviewed, but structured landscape changes require permission for the active engagement."
               >
                 <p className="body-copy">
-                  Select an engagement lead, analyst, or administrator to add
+                  Switch to a Trion user with workspace access to add
                   current-state items, relationships, or snapshots.
                 </p>
               </Card>
@@ -974,6 +956,6 @@ export function LandscapePage() {
           </>
         );
       }}
-    </FabricDataView>
+    </ActiveEngagementDataView>
   );
 }

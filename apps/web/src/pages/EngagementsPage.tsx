@@ -37,7 +37,9 @@ export function EngagementsPage() {
   const [statusFilter, setStatusFilter] = useState('');
   const [showEngagementSheet, setShowEngagementSheet] = useState(false);
   const [showClientSheet, setShowClientSheet] = useState(false);
-  const [selectedEngagementId, setSelectedEngagementId] = useState<string | null>(null);
+  const [selectedEngagementId, setSelectedEngagementId] = useState<
+    string | null
+  >(null);
 
   const [sortColumn, setSortColumn] = useState<string>('Engagement');
   const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('asc');
@@ -60,9 +62,10 @@ export function EngagementsPage() {
         ).size;
 
         let filteredRows = rows.filter((row) => {
-          const matchesQuery = `${row.name} ${row.clientName} ${row.type} ${row.leadName}`
-            .toLowerCase()
-            .includes(query.toLowerCase());
+          const matchesQuery =
+            `${row.name} ${row.clientName} ${row.type} ${row.leadName}`
+              .toLowerCase()
+              .includes(query.toLowerCase());
           const matchesStage = !stageFilter || row.stage === stageFilter;
           const matchesStatus = !statusFilter || row.status === statusFilter;
           return matchesQuery && matchesStage && matchesStatus;
@@ -114,9 +117,9 @@ export function EngagementsPage() {
           <>
             <PageHeader
               eyebrow="Clients"
-              title="Client and engagement workspace"
-              description="Start with the client context, then define scoped transformation assignments, delivery teams, and the work that follows."
-              metadata={['Client context', 'Scoped engagements', 'Stage-aware']}
+              title="Engagement library"
+              description="Review current and previous client engagements, then open the active workspace where the consulting work happens."
+              metadata={['Client context', 'Engagement history', 'Active work']}
               actions={
                 <div style={{ display: 'flex', gap: 8 }}>
                   <Button
@@ -140,7 +143,7 @@ export function EngagementsPage() {
                 value={String(clients.length)}
               />
               <StatCard
-                detail="Active or at-risk consulting assignments."
+                detail="Active or at-risk client engagements."
                 label="Current engagements"
                 tone="success"
                 value={String(activeEngagementCount)}
@@ -192,7 +195,7 @@ export function EngagementsPage() {
             <section className="content-grid content-grid--two">
               <Card
                 title="Engagement register"
-                description="Click any row to inspect details or jump straight into the full engagement space."
+                description="Open the active workspace for an engagement, or inspect its lightweight client context."
               >
                 <DataTable
                   columns={[
@@ -202,7 +205,12 @@ export function EngagementsPage() {
                       sortable: true,
                       render: (row) => (
                         <div>
-                          <div style={{ fontWeight: 700, color: 'var(--fabric-text)' }}>
+                          <div
+                            style={{
+                              fontWeight: 700,
+                              color: 'var(--fabric-text)',
+                            }}
+                          >
                             {row.name}
                           </div>
                           <div className="body-copy body-copy--small">
@@ -241,10 +249,14 @@ export function EngagementsPage() {
                       align: 'right',
                       render: (row) => (
                         <Link
-                          to={`/engagements/${row.id}`}
+                          to={`/workspace/${row.id}`}
                           onClick={(e) => e.stopPropagation()}
                           className="table-link"
-                          style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}
+                          style={{
+                            display: 'inline-flex',
+                            alignItems: 'center',
+                            gap: 4,
+                          }}
                         >
                           <span>Workspace</span> <ChevronRight size={14} />
                         </Link>
@@ -263,7 +275,7 @@ export function EngagementsPage() {
               </Card>
 
               <Card
-                title="Client portfolio"
+                title="Client library"
                 description="Open a client to see its operational footprint and the transformation work connected to it."
                 actions={
                   <Link className="table-link" to="/clients">
@@ -339,17 +351,20 @@ export function EngagementsPage() {
                     </Button>
                     <Button
                       onClick={() => {
-                        navigate(`/engagements/${selectedEng.id}`);
+                        navigate(`/workspace/${selectedEng.id}`);
                       }}
                     >
-                      Open full workspace <ExternalLink size={14} style={{ marginLeft: 6 }} />
+                      Open full workspace{' '}
+                      <ExternalLink size={14} style={{ marginLeft: 6 }} />
                     </Button>
                   </div>
                 )
               }
             >
               {selectedEng && (
-                <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
+                <div
+                  style={{ display: 'flex', flexDirection: 'column', gap: 20 }}
+                >
                   <div className="detail-badges">
                     <Badge tone="accent">{selectedEng.stage}</Badge>
                     <Badge
