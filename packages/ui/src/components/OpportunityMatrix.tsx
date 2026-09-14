@@ -1,6 +1,5 @@
 import { useMemo, useState } from 'react';
-import { Badge } from './Badge';
-import { Zap, Target, Sliders, AlertTriangle, ArrowUpRight, Search, Check } from 'lucide-react';
+import { Zap, Target, Sliders, AlertTriangle, Search } from 'lucide-react';
 
 export interface MatrixOpportunity {
   id: string;
@@ -36,7 +35,8 @@ export function OpportunityMatrix({
       const matchesSearch =
         !searchQuery ||
         op.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        (op.rationale && op.rationale.toLowerCase().includes(searchQuery.toLowerCase()));
+        (op.rationale &&
+          op.rationale.toLowerCase().includes(searchQuery.toLowerCase()));
       return matchesSearch;
     });
   }, [opportunities, searchQuery]);
@@ -68,9 +68,15 @@ export function OpportunityMatrix({
 
       if (category.includes('quick win') || (isHighImpact && !isHighEffort)) {
         quickWins.push(op);
-      } else if (category.includes('strategic') || (isHighImpact && isHighEffort)) {
+      } else if (
+        category.includes('strategic') ||
+        (isHighImpact && isHighEffort)
+      ) {
         strategicProjects.push(op);
-      } else if (category.includes('reconsider') || (!isHighImpact && isHighEffort)) {
+      } else if (
+        category.includes('reconsider') ||
+        (!isHighImpact && isHighEffort)
+      ) {
         reconsider.push(op);
       } else {
         incrementalGains.push(op);
@@ -177,7 +183,8 @@ export function OpportunityMatrix({
 
         <div className="fabric-matrix-grid">
           {/* Quadrant 1: Quick Wins (High Impact, Low Effort) */}
-          {(selectedQuadrant === 'all' || selectedQuadrant === 'quick-wins') && (
+          {(selectedQuadrant === 'all' ||
+            selectedQuadrant === 'quick-wins') && (
             <div className="matrix-quadrant matrix-quadrant--quick-wins">
               <div className="matrix-quadrant-header">
                 <div className="quadrant-title-group">
@@ -190,7 +197,9 @@ export function OpportunityMatrix({
               </div>
               <div className="matrix-quadrant-items">
                 {categorized.quickWins.length === 0 ? (
-                  <div className="quadrant-empty">No quick win opportunities</div>
+                  <div className="quadrant-empty">
+                    No quick win opportunities
+                  </div>
                 ) : (
                   categorized.quickWins.map(renderOpportunityPill)
                 )}
@@ -212,7 +221,9 @@ export function OpportunityMatrix({
               </div>
               <div className="matrix-quadrant-items">
                 {categorized.strategicProjects.length === 0 ? (
-                  <div className="quadrant-empty">No strategic project opportunities</div>
+                  <div className="quadrant-empty">
+                    No strategic project opportunities
+                  </div>
                 ) : (
                   categorized.strategicProjects.map(renderOpportunityPill)
                 )}
@@ -221,7 +232,8 @@ export function OpportunityMatrix({
           )}
 
           {/* Quadrant 3: Incremental Gains (Low Impact, Low Effort) */}
-          {(selectedQuadrant === 'all' || selectedQuadrant === 'incremental') && (
+          {(selectedQuadrant === 'all' ||
+            selectedQuadrant === 'incremental') && (
             <div className="matrix-quadrant matrix-quadrant--incremental">
               <div className="matrix-quadrant-header">
                 <div className="quadrant-title-group">
@@ -234,7 +246,9 @@ export function OpportunityMatrix({
               </div>
               <div className="matrix-quadrant-items">
                 {categorized.incrementalGains.length === 0 ? (
-                  <div className="quadrant-empty">No incremental opportunities</div>
+                  <div className="quadrant-empty">
+                    No incremental opportunities
+                  </div>
                 ) : (
                   categorized.incrementalGains.map(renderOpportunityPill)
                 )}
@@ -243,7 +257,8 @@ export function OpportunityMatrix({
           )}
 
           {/* Quadrant 4: Reconsider / Defer (Low Impact, High Effort) */}
-          {(selectedQuadrant === 'all' || selectedQuadrant === 'reconsider') && (
+          {(selectedQuadrant === 'all' ||
+            selectedQuadrant === 'reconsider') && (
             <div className="matrix-quadrant matrix-quadrant--reconsider">
               <div className="matrix-quadrant-header">
                 <div className="quadrant-title-group">
@@ -256,7 +271,9 @@ export function OpportunityMatrix({
               </div>
               <div className="matrix-quadrant-items">
                 {categorized.reconsider.length === 0 ? (
-                  <div className="quadrant-empty">No deferred opportunities</div>
+                  <div className="quadrant-empty">
+                    No deferred opportunities
+                  </div>
                 ) : (
                   categorized.reconsider.map(renderOpportunityPill)
                 )}

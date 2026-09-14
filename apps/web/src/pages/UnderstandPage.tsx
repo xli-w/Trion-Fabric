@@ -4,9 +4,11 @@ import { Badge, Card, PageHeader, StatCard } from '@ui';
 
 import { ActiveEngagementDataView } from '@app/features/fabric-data/ActiveEngagementDataView';
 import { useFabricData } from '@app/features/fabric-data/FabricDataContext';
+import { withEngagementContext } from '@app/features/fabric-data/engagement-paths';
 
 export function UnderstandPage() {
-  const { activeClient, activeEngagement, activeSites } = useFabricData();
+  const { activeClient, activeEngagement, activeEngagementId, activeSites } =
+    useFabricData();
 
   return (
     <ActiveEngagementDataView
@@ -83,7 +85,13 @@ export function UnderstandPage() {
                 title="Site Walk"
                 description="Brief, walk, capture, investigate, identify friction, recap, and agree the next step."
                 actions={
-                  <Link className="table-link" to="/site-walks">
+                  <Link
+                    className="table-link"
+                    to={withEngagementContext(
+                      '/site-walks',
+                      activeEngagementId,
+                    )}
+                  >
                     Open Site Walk
                   </Link>
                 }
@@ -126,7 +134,10 @@ export function UnderstandPage() {
                 title="Evidence"
                 description="Review photos, documents, interviews, extracts, and observations where they support the current work."
                 actions={
-                  <Link className="table-link" to="/evidence">
+                  <Link
+                    className="table-link"
+                    to={withEngagementContext('/evidence', activeEngagementId)}
+                  >
                     Open Evidence
                   </Link>
                 }
@@ -143,7 +154,10 @@ export function UnderstandPage() {
                 title="Digital Landscape"
                 description="Model the processes, systems, people, data, equipment, and handoffs that make up the current operation."
                 actions={
-                  <Link className="table-link" to="/landscape">
+                  <Link
+                    className="table-link"
+                    to={withEngagementContext('/landscape', activeEngagementId)}
+                  >
                     Open Landscape
                   </Link>
                 }

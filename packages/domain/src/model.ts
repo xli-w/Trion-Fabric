@@ -804,8 +804,10 @@ export interface MaturityAssessment extends BaseEntity {
   diagnosticId: EntityId;
   dimensionId: EntityId;
   score?: number;
+  targetScore?: number;
   level?: MaturityLevel;
   rationale?: string;
+  targetRationale?: string;
   currentState?: string;
   desiredState?: string;
   gap?: string;

@@ -24,6 +24,7 @@ import {
 } from '@ui';
 import { ActiveEngagementDataView } from '@app/features/fabric-data/ActiveEngagementDataView';
 import { useFabricData } from '@app/features/fabric-data/FabricDataContext';
+import { withEngagementContext } from '@app/features/fabric-data/engagement-paths';
 import {
   CreateOutputForm,
   OutputDraftEditor,
@@ -256,6 +257,7 @@ export function OutputDetailPage() {
   const { outputId } = useParams();
   const navigate = useNavigate();
   const {
+    activeEngagementId,
     canPerform,
     createOutputRevision,
     createOutputReviewComment,
@@ -290,7 +292,10 @@ export function OutputDetailPage() {
                 title="Output not found"
                 description="The requested controlled output is not available."
               />
-              <Link className="text-link" to="/outputs">
+              <Link
+                className="text-link"
+                to={withEngagementContext('/outputs', activeEngagementId)}
+              >
                 Return to outputs
               </Link>
             </>

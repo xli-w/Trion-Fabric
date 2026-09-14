@@ -438,6 +438,15 @@
   padding: 24px 32px 40px;
 }
 
+.route-loading {
+  display: grid;
+  min-height: 100vh;
+  place-items: center;
+  background: var(--fabric-main-bg);
+  color: var(--fabric-text-soft);
+  font-weight: 700;
+}
+
 .metric-grid {
   display: grid;
   grid-template-columns: repeat(4, minmax(0, 1fr));
@@ -459,6 +468,94 @@
 
 .content-grid--three {
   grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.diagnostic-visual-grid {
+  display: grid;
+  grid-template-columns: minmax(340px, 460px) minmax(0, 1fr);
+  gap: 24px;
+}
+
+.assessment-detail-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.assessment-target-editor {
+  display: grid;
+  gap: 12px;
+  padding: 16px;
+  border: 1px solid var(--fabric-border);
+  border-radius: var(--fabric-radius-md);
+  background: var(--fabric-surface-alt);
+}
+
+.assessment-target-editor__header p {
+  margin: 4px 0 0;
+}
+
+.opportunity-source-picker {
+  display: grid;
+  gap: 12px;
+  margin: 0;
+  padding: 16px;
+  border: 1px solid var(--fabric-border);
+  border-radius: var(--fabric-radius-md);
+  background: var(--fabric-surface-alt);
+}
+
+.opportunity-source-picker > legend {
+  padding: 0 4px;
+  color: var(--fabric-text);
+  font-weight: 700;
+}
+
+.opportunity-source-picker > .body-copy {
+  margin: 0;
+}
+
+.opportunity-source-picker__group {
+  display: grid;
+  gap: 8px;
+}
+
+.opportunity-source-picker__option {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 10px 12px;
+  border: 1px solid var(--fabric-border);
+  border-radius: var(--fabric-radius-sm);
+  background: var(--fabric-surface);
+  cursor: pointer;
+}
+
+.opportunity-source-picker__option:focus-within {
+  border-color: var(--fabric-accent);
+  box-shadow: 0 0 0 3px var(--fabric-accent-soft);
+}
+
+.opportunity-source-picker__option input {
+  flex: 0 0 auto;
+  margin: 3px 0 0;
+}
+
+.opportunity-source-picker__option span {
+  display: grid;
+  gap: 2px;
+}
+
+.opportunity-source-picker__option small {
+  color: var(--fabric-text-soft);
+}
+
+.detail-action-group,
+.record-item__actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
 }
 
 .workspace-focus-grid {
@@ -1124,6 +1221,29 @@
 
   .form-grid {
     grid-template-columns: 1fr;
+  }
+
+  .assessment-detail-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .diagnostic-visual-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .maturity-scorecard-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .detail-action-group,
+  .record-item__actions {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .detail-action-group .ui-button,
+  .record-item__actions .table-link {
+    width: 100%;
   }
 
   .detail-list {

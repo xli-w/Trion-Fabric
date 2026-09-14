@@ -13,7 +13,6 @@ import { Badge } from './Badge';
 import { useTheme } from '../theme/ThemeContext';
 
 export interface MaturityDimensionScore {
-
   id: string;
   name: string;
   shortName?: string;
@@ -39,7 +38,7 @@ interface MaturityRadarDatum {
   dimension: string;
   fullName: string;
   currentScore: number;
-  targetScore: number;
+  targetScore?: number;
   level: string;
   confidence: string;
   reviewStatus: string;
@@ -56,12 +55,20 @@ interface MaturityRadarClickEvent {
   activePayload?: Array<{ payload?: { raw?: MaturityDimensionScore } }>;
 }
 
-const levelNames = ['Reactive', 'Developing', 'Controlled', 'Integrated', 'Optimised'];
+const levelNames = [
+  'Reactive',
+  'Developing',
+  'Controlled',
+  'Integrated',
+  'Optimised',
+];
 
 function isMaturityRadarClickEvent(
   event: unknown,
 ): event is MaturityRadarClickEvent {
-  return typeof event === 'object' && event !== null && 'activePayload' in event;
+  return (
+    typeof event === 'object' && event !== null && 'activePayload' in event
+  );
 }
 
 export function MaturityRadar({
@@ -85,7 +92,7 @@ export function MaturityRadar({
         dimension: shortLabel,
         fullName: d.name,
         currentScore: d.score ?? 0,
-        targetScore: d.targetScore ?? 4,
+        targetScore: d.targetScore,
         level: d.level ?? (d.score ? levelNames[d.score - 1] : 'Unscored'),
         confidence: d.confidence ?? 'medium',
         reviewStatus: d.reviewStatus ?? 'draft',
@@ -94,6 +101,9 @@ export function MaturityRadar({
       };
     });
   }, [dimensions]);
+  const hasTargetBenchmark = chartData.some(
+    (dimension) => dimension.targetScore !== undefined,
+  );
 
   const CustomTooltip = ({ active, payload }: MaturityTooltipProps) => {
     const data = payload?.[0]?.payload;
@@ -103,7 +113,9 @@ export function MaturityRadar({
           <div className="radar-tooltip-title">{data.fullName}</div>
           <div className="radar-tooltip-metric">
             <span className="radar-tooltip-label">Current Score:</span>
-            <strong>{data.currentScore > 0 ? `${data.currentScore} / 5` : 'Unscored'}</strong>
+            <strong>
+              {data.currentScore > 0 ? `${data.currentScore} / 5` : 'Unscored'}
+            </strong>
           </div>
           {data.currentScore > 0 && (
             <div className="radar-tooltip-metric">
@@ -111,7 +123,7 @@ export function MaturityRadar({
               <span className="radar-tooltip-badge">{data.level}</span>
             </div>
           )}
-          {showTargetBenchmark && (
+          {showTargetBenchmark && data.targetScore !== undefined && (
             <div className="radar-tooltip-metric">
               <span className="radar-tooltip-label">Target State:</span>
               <span>{data.targetScore} / 5</span>
@@ -126,7 +138,9 @@ export function MaturityRadar({
     return null;
   };
 
-  const gridColor = isDark ? 'rgba(255, 255, 255, 0.15)' : 'rgba(16, 22, 29, 0.12)';
+  const gridColor = isDark
+    ? 'rgba(255, 255, 255, 0.15)'
+    : 'rgba(16, 22, 29, 0.12)';
   const labelColor = isDark ? '#e2e8f0' : '#334155';
   const radiusStroke = isDark ? 'rgba(255, 255, 255, 0.25)' : '#94a3b8';
   const radiusTick = isDark ? '#94a3b8' : '#64748b';
@@ -167,9 +181,9 @@ export function MaturityRadar({
             <Legend
               wrapperStyle={{ paddingTop: 10, fontSize: 12, fontWeight: 600 }}
             />
-            {showTargetBenchmark && (
+            {showTargetBenchmark && hasTargetBenchmark && (
               <Radar
-                name="Target Benchmark"
+                name="Agreed target"
                 dataKey="targetScore"
                 stroke="#94a3b8"
                 fill="#94a3b8"
@@ -185,8 +199,18 @@ export function MaturityRadar({
               fill={accentColor}
               fillOpacity={0.4}
               strokeWidth={2.5}
-              dot={{ r: 4, fill: accentColor, stroke: isDark ? '#000000' : '#ffffff', strokeWidth: 2 }}
-              activeDot={{ r: 6, fill: accentHover, stroke: isDark ? '#000000' : '#ffffff', strokeWidth: 2 }}
+              dot={{
+                r: 4,
+                fill: accentColor,
+                stroke: isDark ? '#000000' : '#ffffff',
+                strokeWidth: 2,
+              }}
+              activeDot={{
+                r: 6,
+                fill: accentHover,
+                stroke: isDark ? '#000000' : '#ffffff',
+                strokeWidth: 2,
+              }}
             />
           </RadarChart>
         </ResponsiveContainer>
@@ -226,7 +250,15 @@ export function MaturityScorecardVisualizer({
             <div className="maturity-score-card-header">
               <div className="maturity-score-card-title">{dim.name}</div>
               {dim.level ? (
-                <Badge tone={currentScore >= 4 ? 'success' : currentScore >= 2 ? 'accent' : 'warning'}>
+                <Badge
+                  tone={
+                    currentScore >= 4
+                      ? 'success'
+                      : currentScore >= 2
+                        ? 'accent'
+                        : 'warning'
+                  }
+                >
                   {dim.level}
                 </Badge>
               ) : (
@@ -237,7 +269,8 @@ export function MaturityScorecardVisualizer({
             <div className="maturity-bar-track">
               {[1, 2, 3, 4, 5].map((lvl) => {
                 const isFilled = lvl <= currentScore;
-                const isTarget = lvl === (dim.targetScore ?? 4);
+                const isTarget =
+                  dim.targetScore !== undefined && lvl === dim.targetScore;
 
                 let fillClass = '';
                 if (isFilled) {

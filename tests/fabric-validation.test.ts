@@ -22,6 +22,28 @@ describe('Fabric dataset relationship and governance validation', () => {
     expect(fabricDatasetSchema.safeParse(fabricFixtures).success).toBe(true);
   });
 
+  it('requires a rationale for an agreed maturity target', () => {
+    const dataset = copyDataset();
+    const assessment = dataset.maturityAssessments[0];
+    if (!assessment) {
+      throw new Error('Expected a maturity assessment fixture.');
+    }
+
+    assessment.targetScore = 4;
+    let result = fabricDatasetSchema.safeParse(dataset);
+
+    expect(result.success).toBe(false);
+    expect(
+      hasIssueAtPath(result, 'maturityAssessments.0.targetRationale'),
+    ).toBe(true);
+
+    assessment.targetRationale =
+      'The agreed target supports the planned production-control capability.';
+    result = fabricDatasetSchema.safeParse(dataset);
+
+    expect(result.success).toBe(true);
+  });
+
   it('rejects an initiative promoted from an unapproved opportunity', () => {
     const dataset = copyDataset();
     const initiative = dataset.initiatives[0];

@@ -2503,6 +2503,7 @@ export function resolveEngagementIdForPath(
 ): EntityId | undefined {
   const [area, recordId] = pathname.split('/').filter(Boolean);
   const searchParams = new URLSearchParams(search);
+  const selectedEngagementId = searchParams.get('engagement');
 
   if (
     (area === 'workspace' || area === 'engagements') &&
@@ -2539,9 +2540,12 @@ export function resolveEngagementIdForPath(
       ? dataset.findings.find((finding) => finding.id === findingId)
           ?.diagnosticId
       : undefined;
-    return dataset.diagnostics.find(
+    const diagnosticEngagementId = dataset.diagnostics.find(
       (diagnostic) => diagnostic.id === diagnosticId,
     )?.engagementId;
+    if (diagnosticEngagementId) {
+      return diagnosticEngagementId;
+    }
   }
 
   if (area === 'evidence') {
@@ -2549,27 +2553,48 @@ export function resolveEngagementIdForPath(
     const evidence = evidenceId
       ? dataset.evidence.find((item) => item.id === evidenceId)
       : undefined;
-    return evidence ? getEvidenceEngagementId(dataset, evidence) : undefined;
+    const evidenceEngagementId = evidence
+      ? getEvidenceEngagementId(dataset, evidence)
+      : undefined;
+    if (evidenceEngagementId) {
+      return evidenceEngagementId;
+    }
   }
 
   if (area === 'landscape') {
     const entityId = searchParams.get('entity');
-    return entityId
+    const entityEngagementId = entityId
       ? dataset.landscapeEntities.find((entity) => entity.id === entityId)
           ?.engagementId
       : undefined;
+    if (entityEngagementId) {
+      return entityEngagementId;
+    }
   }
 
-  return undefined;
+  return selectedEngagementId &&
+    dataset.engagements.some(
+      (engagement) => engagement.id === selectedEngagementId,
+    )
+    ? selectedEngagementId
+    : undefined;
 }
 
 export function buildBreadcrumbs(
   dataset: FabricDataset,
   pathname: string,
   currentArea: string,
+  engagementId?: EntityId,
 ): WorkspaceBreadcrumb[] {
-  const root: WorkspaceBreadcrumb[] = [{ label: 'Fabric', path: '/workspace' }];
+  const root: WorkspaceBreadcrumb[] = [
+    {
+      label: 'Fabric',
+      path: engagementId ? `/workspace/${engagementId}` : '/workspace',
+    },
+  ];
   const [area, recordId] = pathname.split('/').filter(Boolean);
+  const contextualBreadcrumbs = () =>
+    engagementId ? engagementBreadcrumbs(dataset, engagementId) : [];
 
   if (area === 'workspace') {
     return recordId &&
@@ -2579,7 +2604,9 @@ export function buildBreadcrumbs(
           ...engagementBreadcrumbs(dataset, recordId),
           { label: 'Workspace' },
         ]
-      : root;
+      : engagementId
+        ? [...root, ...contextualBreadcrumbs(), { label: 'Workspace' }]
+        : root;
   }
 
   if (area === 'clients' && recordId) {
@@ -2610,7 +2637,7 @@ export function buildBreadcrumbs(
   }
 
   if (area === 'understand' || area === 'analyse' || area === 'plan-output') {
-    return [...root, { label: currentArea }];
+    return [...root, ...contextualBreadcrumbs(), { label: currentArea }];
   }
 
   if (area === 'site-walks' && recordId) {
@@ -2624,8 +2651,12 @@ export function buildBreadcrumbs(
       : root;
   }
 
+  if (area === 'site-walks') {
+    return [...root, ...contextualBreadcrumbs(), { label: 'Site walks' }];
+  }
+
   if (area === 'evidence') {
-    return [...root, { label: 'Evidence library' }];
+    return [...root, ...contextualBreadcrumbs(), { label: 'Evidence library' }];
   }
 
   if (area === 'knowledge') {
@@ -2645,6 +2676,14 @@ export function buildBreadcrumbs(
       : root;
   }
 
+  if (area === 'opportunities') {
+    return [
+      ...root,
+      ...contextualBreadcrumbs(),
+      { label: 'Opportunity register' },
+    ];
+  }
+
   if (area === 'roadmap' && recordId) {
     const initiative = dataset.initiatives.find((item) => item.id === recordId);
     return initiative
@@ -2656,6 +2695,14 @@ export function buildBreadcrumbs(
       : root;
   }
 
+  if (area === 'roadmap') {
+    return [
+      ...root,
+      ...contextualBreadcrumbs(),
+      { label: 'Transformation roadmap' },
+    ];
+  }
+
   if (area === 'outputs' && recordId) {
     const output = dataset.outputs.find((item) => item.id === recordId);
     return output
@@ -2665,6 +2712,14 @@ export function buildBreadcrumbs(
           { label: 'Output' },
         ]
       : root;
+  }
+
+  if (area === 'outputs') {
+    return [...root, ...contextualBreadcrumbs(), { label: 'Outputs' }];
+  }
+
+  if (area === 'benefits') {
+    return [...root, ...contextualBreadcrumbs(), { label: 'Benefits' }];
   }
 
   return [...root, { label: currentArea }];

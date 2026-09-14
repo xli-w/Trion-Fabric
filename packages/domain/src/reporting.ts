@@ -994,6 +994,7 @@ function maturityProfileBlocks(
     return [
       dimension.name,
       assessment?.score ? String(assessment.score) : 'Not assessed',
+      assessment?.targetScore ? String(assessment.targetScore) : 'Not agreed',
       assessment?.level ?? 'Not assessed',
       assessment?.confidence ?? 'Not rated',
     ];
@@ -1002,7 +1003,13 @@ function maturityProfileBlocks(
   return [
     {
       type: 'table',
-      columns: ['Dimension', 'Score', 'Maturity level', 'Confidence'],
+      columns: [
+        'Dimension',
+        'Score',
+        'Agreed target',
+        'Maturity level',
+        'Confidence',
+      ],
       rows,
     },
   ];
@@ -1030,6 +1037,8 @@ function maturityDetailBlocks(
         'Dimension',
         'Current state',
         'Desired state',
+        'Target score',
+        'Target rationale',
         'Gap',
         'Rationale',
       ],
@@ -1038,6 +1047,8 @@ function maturityDetailBlocks(
           'Maturity assessment',
         assessment.currentState ?? 'Not recorded',
         assessment.desiredState ?? 'Not recorded',
+        assessment.targetScore ? String(assessment.targetScore) : 'Not agreed',
+        assessment.targetRationale ?? 'Not recorded',
         assessment.gap ?? 'Not recorded',
         assessment.rationale ?? 'Not recorded',
       ]),

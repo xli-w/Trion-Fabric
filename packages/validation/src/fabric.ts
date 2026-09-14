@@ -372,8 +372,10 @@ export const maturityAssessmentSchema = baseEntitySchema
     diagnosticId: z.string().min(1),
     dimensionId: z.string().min(1),
     score: z.number().min(1).max(5).optional(),
+    targetScore: z.number().min(1).max(5).optional(),
     level: z.enum(maturityLevels).optional(),
     rationale: z.string().min(1).optional(),
+    targetRationale: z.string().min(1).optional(),
     currentState: z.string().min(1).optional(),
     desiredState: z.string().min(1).optional(),
     gap: z.string().min(1).optional(),
@@ -391,6 +393,13 @@ export const maturityAssessmentSchema = baseEntitySchema
         code: z.ZodIssueCode.custom,
         path: ['rationale'],
         message: 'A scored dimension requires rationale.',
+      });
+    }
+    if (assessment.targetScore !== undefined && !assessment.targetRationale) {
+      context.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ['targetRationale'],
+        message: 'An agreed target score requires a rationale.',
       });
     }
   });

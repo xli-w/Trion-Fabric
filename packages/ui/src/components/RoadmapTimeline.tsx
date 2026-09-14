@@ -1,16 +1,6 @@
 import { useMemo, useState } from 'react';
 import { Badge } from './Badge';
-import {
-  Calendar,
-  CheckCircle2,
-  Clock,
-  AlertCircle,
-  Flag,
-  TrendingUp,
-  User,
-  ChevronRight,
-  Filter,
-} from 'lucide-react';
+import { Calendar, Flag, TrendingUp, User } from 'lucide-react';
 
 export interface TimelineInitiative {
   id: string;
@@ -55,7 +45,8 @@ export function RoadmapTimeline({
   className = '',
 }: RoadmapTimelineProps) {
   const [selectedPhaseFilter, setSelectedPhaseFilter] = useState<string>('all');
-  const [selectedPriorityFilter, setSelectedPriorityFilter] = useState<string>('all');
+  const [selectedPriorityFilter, setSelectedPriorityFilter] =
+    useState<string>('all');
 
   const filteredInitiatives = useMemo(() => {
     return initiatives.filter((init) => {
@@ -75,13 +66,14 @@ export function RoadmapTimeline({
 
     filteredInitiatives.forEach((init) => {
       const key = init.phase.toLowerCase();
-      if (map.has(key)) {
-        map.get(key)!.push(init);
+      const initiativesForPhase = map.get(key);
+      if (initiativesForPhase) {
+        initiativesForPhase.push(init);
       } else {
-        // Fallback to first phase or dynamic phase
         const fallbackKey = phases[0]?.toLowerCase() || 'default';
-        if (!map.has(fallbackKey)) map.set(fallbackKey, []);
-        map.get(fallbackKey)!.push(init);
+        const fallbackInitiatives = map.get(fallbackKey) ?? [];
+        map.set(fallbackKey, fallbackInitiatives);
+        fallbackInitiatives.push(init);
       }
     });
 
@@ -202,7 +194,9 @@ export function RoadmapTimeline({
                       <div
                         key={init.id}
                         className={`timeline-initiative-card ${isSelected ? 'is-selected' : ''}`}
-                        onClick={() => onSelectInitiative && onSelectInitiative(init)}
+                        onClick={() =>
+                          onSelectInitiative && onSelectInitiative(init)
+                        }
                         role="button"
                         tabIndex={0}
                         onKeyDown={(e) => {
@@ -230,25 +224,36 @@ export function RoadmapTimeline({
 
                         <div className="timeline-card-title">{init.title}</div>
                         {init.description && (
-                          <div className="timeline-card-desc">{init.description}</div>
+                          <div className="timeline-card-desc">
+                            {init.description}
+                          </div>
                         )}
 
                         {/* Milestones & Benefits summary */}
                         <div className="timeline-card-meta">
                           {milestones.length > 0 && (
-                            <div className="timeline-meta-pill" title={`${milestones.length} Milestones`}>
+                            <div
+                              className="timeline-meta-pill"
+                              title={`${milestones.length} Milestones`}
+                            >
                               <Flag size={12} />
                               <span>{milestones.length} milestones</span>
                             </div>
                           )}
                           {benefits.length > 0 && (
-                            <div className="timeline-meta-pill" title={`${benefits.length} Benefit Measures`}>
+                            <div
+                              className="timeline-meta-pill"
+                              title={`${benefits.length} Benefit Measures`}
+                            >
                               <TrendingUp size={12} />
                               <span>{benefits.length} benefits</span>
                             </div>
                           )}
                           {init.targetDate && (
-                            <div className="timeline-meta-pill" title="Target Completion">
+                            <div
+                              className="timeline-meta-pill"
+                              title="Target Completion"
+                            >
                               <Calendar size={12} />
                               <span>{init.targetDate}</span>
                             </div>
@@ -260,7 +265,9 @@ export function RoadmapTimeline({
                           <div className="timeline-progress-track">
                             <div
                               className="timeline-progress-bar"
-                              style={{ width: `${Math.min(100, Math.max(0, init.completionPercentage))}%` }}
+                              style={{
+                                width: `${Math.min(100, Math.max(0, init.completionPercentage))}%`,
+                              }}
                             />
                           </div>
                         )}

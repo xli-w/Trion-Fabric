@@ -142,6 +142,7 @@ export interface ApprovedClientFacingEngagementContext {
   maturityAssessments: Array<{
     id: EntityId;
     score?: number;
+    targetScore?: number;
     level?: string;
   }>;
   findings: Array<{
@@ -496,6 +497,7 @@ export function buildEngagementContext(
         .map((item) => ({
           id: item.id,
           score: item.score,
+          targetScore: item.targetScore,
           level: item.level,
         })),
       findings: findings.flatMap((item) =>

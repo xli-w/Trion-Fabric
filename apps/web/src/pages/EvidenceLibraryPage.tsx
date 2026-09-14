@@ -18,6 +18,10 @@ import {
 import { ActiveEngagementDataView } from '@app/features/fabric-data/ActiveEngagementDataView';
 import { useFabricData } from '@app/features/fabric-data/FabricDataContext';
 import {
+  buildOpportunityCreationPath,
+  withEngagementContext,
+} from '@app/features/fabric-data/engagement-paths';
+import {
   buildEvidenceLibrary,
   type EvidenceLibraryFilters,
 } from '@app/features/fabric-data/selectors';
@@ -51,7 +55,8 @@ function visibilityTone(visibility: string) {
 }
 
 export function EvidenceLibraryPage() {
-  const { activeEngagement, currentUser } = useFabricData();
+  const { activeEngagement, activeEngagementId, canPerform, currentUser } =
+    useFabricData();
   const [searchParams, setSearchParams] = useSearchParams();
   const [selectedEvidenceId, setSelectedEvidenceId] = useState<string | null>(
     searchParams.get('evidence'),
@@ -159,7 +164,10 @@ export function EvidenceLibraryPage() {
                 'Internal working material',
               ]}
               actions={
-                <Link className="table-link" to="/site-walks">
+                <Link
+                  className="table-link"
+                  to={withEngagementContext('/site-walks', activeEngagementId)}
+                >
                   Capture through site walks <ExternalLink size={14} />
                 </Link>
               }
@@ -405,6 +413,20 @@ export function EvidenceLibraryPage() {
                       {selectedEvidence.visibility.replace(/-/g, ' ')}
                     </Badge>
                   </div>
+                  {canPerform(
+                    'opportunity:write',
+                    selectedEvidence.engagementId,
+                  ) ? (
+                    <Link
+                      className="table-link"
+                      to={buildOpportunityCreationPath(
+                        selectedEvidence.engagementId,
+                        { type: 'evidence', id: selectedEvidence.id },
+                      )}
+                    >
+                      Develop opportunity from this evidence
+                    </Link>
+                  ) : null}
 
                   <section>
                     <h3>Captured record</h3>

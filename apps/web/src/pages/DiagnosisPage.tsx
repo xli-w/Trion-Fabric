@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
 import type {
   ConfidenceLevel,
@@ -16,27 +16,16 @@ import {
   PageHeader,
   Sheet,
   StatCard,
-  Tabs,
-  TabsContent,
-  TabsList,
-  TabsTrigger,
   Toolbar,
   ViewToggle,
 } from '@ui';
-import {
-  Activity,
-  BarChart2,
-  CheckCircle2,
-  Compass,
-  FileCheck,
-  Layers,
-  Lightbulb,
-  Radar as RadarIcon,
-  Search,
-  ShieldAlert,
-} from 'lucide-react';
+import { BarChart2, Lightbulb, Radar as RadarIcon } from 'lucide-react';
 import { ActiveEngagementDataView } from '@app/features/fabric-data/ActiveEngagementDataView';
 import { useFabricData } from '@app/features/fabric-data/FabricDataContext';
+import {
+  buildOpportunityCreationPath,
+  withEngagementContext,
+} from '@app/features/fabric-data/engagement-paths';
 
 const levels: MaturityLevel[] = [
   'Reactive',
@@ -50,8 +39,122 @@ function levelFor(score?: number): MaturityLevel | undefined {
   return score ? levels[score - 1] : undefined;
 }
 
+function TargetStateEditor({
+  assessment,
+  disabled,
+  onSave,
+}: {
+  assessment: MaturityAssessment;
+  disabled: boolean;
+  onSave: (patch: Partial<MaturityAssessment>) => Promise<void>;
+}) {
+  const [targetScore, setTargetScore] = useState(
+    assessment.targetScore?.toString() ?? '',
+  );
+  const [desiredState, setDesiredState] = useState(
+    assessment.desiredState ?? '',
+  );
+  const [targetRationale, setTargetRationale] = useState(
+    assessment.targetRationale ?? '',
+  );
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    setTargetScore(assessment.targetScore?.toString() ?? '');
+    setDesiredState(assessment.desiredState ?? '');
+    setTargetRationale(assessment.targetRationale ?? '');
+  }, [
+    assessment.desiredState,
+    assessment.id,
+    assessment.targetRationale,
+    assessment.targetScore,
+  ]);
+
+  async function submit(event: React.FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    const nextTargetScore = targetScore ? Number(targetScore) : undefined;
+    const nextTargetRationale = targetRationale.trim();
+
+    if (nextTargetScore !== undefined && !nextTargetRationale) {
+      setError('Explain why this target is appropriate before saving it.');
+      return;
+    }
+
+    setError(null);
+    await onSave({
+      targetScore: nextTargetScore,
+      targetRationale: nextTargetScore
+        ? nextTargetRationale || undefined
+        : undefined,
+      desiredState: desiredState.trim() || undefined,
+    });
+  }
+
+  return (
+    <form className="assessment-target-editor" onSubmit={submit}>
+      <div className="assessment-target-editor__header">
+        <div>
+          <strong>Agreed target state</strong>
+          <p className="body-copy body-copy--small">
+            Targets are optional and must reflect this engagement, not a
+            universal maturity benchmark.
+          </p>
+        </div>
+      </div>
+      <label className="form-field">
+        <span>Target maturity score</span>
+        <select
+          value={targetScore}
+          onChange={(event) => setTargetScore(event.target.value)}
+          disabled={disabled}
+        >
+          <option value="">Not agreed yet</option>
+          {[1, 2, 3, 4, 5].map((score) => (
+            <option key={score} value={score}>
+              Level {score} - {levels[score - 1]}
+            </option>
+          ))}
+        </select>
+      </label>
+      <label className="form-field">
+        <span>Desired operational state</span>
+        <textarea
+          onChange={(event) => setDesiredState(event.target.value)}
+          placeholder="Describe the practical capability this operation needs."
+          rows={2}
+          value={desiredState}
+          disabled={disabled}
+        />
+      </label>
+      <label className="form-field">
+        <span>Why this target is appropriate</span>
+        <textarea
+          onChange={(event) => setTargetRationale(event.target.value)}
+          placeholder="Record the operational need, constraint, or agreed outcome."
+          rows={2}
+          value={targetRationale}
+          disabled={disabled}
+        />
+      </label>
+      {error ? (
+        <p className="form-error" role="alert">
+          {error}
+        </p>
+      ) : null}
+      <Button disabled={disabled} type="submit" variant="secondary">
+        Save target state
+      </Button>
+    </form>
+  );
+}
+
 export function DiagnosisPage() {
-  const { activeEngagement, saveMaturityAssessment } = useFabricData();
+  const {
+    activeEngagement,
+    activeEngagementId,
+    canPerform,
+    saveMaturityAssessment,
+  } = useFabricData();
   const [searchParams] = useSearchParams();
   const [viewMode, setViewMode] = useState<'visual' | 'table' | 'findings'>(
     searchParams.has('finding') ? 'findings' : 'visual',
@@ -60,6 +163,7 @@ export function DiagnosisPage() {
     null,
   );
   const [message, setMessage] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
 
   return (
     <ActiveEngagementDataView
@@ -120,6 +224,7 @@ export function DiagnosisPage() {
           patch: Partial<MaturityAssessment>,
         ) => {
           setMessage(null);
+          setError(null);
           try {
             await saveMaturityAssessment({
               ...assessment,
@@ -129,7 +234,7 @@ export function DiagnosisPage() {
             });
             setMessage('Assessment saved.');
           } catch (caught) {
-            setMessage(
+            setError(
               caught instanceof Error
                 ? caught.message
                 : 'Assessment could not be saved.',
@@ -137,14 +242,13 @@ export function DiagnosisPage() {
           }
         };
 
-        // Enrich dimensions with current assessment scores
         const enrichedDimensions = dataset.diagnosticDimensions.map((dim) => {
           const assessment = assessments.find((a) => a.dimensionId === dim.id);
           return {
             id: dim.id,
             name: dim.name,
             score: assessment?.score,
-            targetScore: 4, // Industry benchmark target
+            targetScore: assessment?.targetScore,
             level: assessment?.level,
             confidence: assessment?.confidence,
             reviewStatus: assessment?.reviewStatus,
@@ -174,6 +278,18 @@ export function DiagnosisPage() {
         const diagnosticFindings = dataset.findings.filter(
           (item) => item.diagnosticId === diagnostic.id,
         );
+        const canCreateOpportunity = canPerform(
+          'opportunity:write',
+          diagnostic.engagementId,
+        );
+        const canEditDiagnostic = canPerform(
+          'diagnostic:write',
+          diagnostic.engagementId,
+        );
+        const canApproveDiagnostic = canPerform(
+          'diagnostic:approve',
+          diagnostic.engagementId,
+        );
 
         return (
           <>
@@ -192,6 +308,17 @@ export function DiagnosisPage() {
             {message ? (
               <p className="form-success" role="status">
                 {message}
+              </p>
+            ) : null}
+            {error ? (
+              <p className="form-error" role="alert">
+                {error}
+              </p>
+            ) : null}
+            {!canEditDiagnostic ? (
+              <p className="body-copy body-copy--small">
+                You have view-only access to this diagnostic. Assessment changes
+                require diagnostic editing permission.
               </p>
             ) : null}
 
@@ -266,16 +393,10 @@ export function DiagnosisPage() {
                   gap: '24px',
                 }}
               >
-                <div
-                  style={{
-                    display: 'grid',
-                    gridTemplateColumns: 'minmax(340px, 460px) 1fr',
-                    gap: '24px',
-                  }}
-                >
+                <div className="diagnostic-visual-grid">
                   <Card
                     title="Maturity spider / radar"
-                    description="Visual comparison of assessed baseline maturity against target transformation benchmark across all 10 dimensions."
+                    description="Visual comparison of assessed baseline maturity against agreed target states where they have been set."
                   >
                     <MaturityRadar
                       dimensions={enrichedDimensions}
@@ -347,6 +468,7 @@ export function DiagnosisPage() {
                         return (
                           <select
                             aria-label={`Score ${row.name}`}
+                            disabled={!canEditDiagnostic}
                             value={assessment.score ?? ''}
                             onChange={(event) =>
                               update(assessment, {
@@ -388,6 +510,7 @@ export function DiagnosisPage() {
                         return (
                           <select
                             aria-label={`Confidence ${row.name}`}
+                            disabled={!canEditDiagnostic}
                             value={assessment?.confidence ?? 'medium'}
                             onChange={(event) => {
                               if (assessment)
@@ -410,9 +533,13 @@ export function DiagnosisPage() {
                         const assessment = assessments.find(
                           (item) => item.dimensionId === row.id,
                         );
+                        if (assessment?.reviewStatus === 'approved') {
+                          return <Badge tone="success">Approved</Badge>;
+                        }
                         return (
                           <select
                             aria-label={`Review ${row.name}`}
+                            disabled={!canEditDiagnostic}
                             value={assessment?.reviewStatus ?? 'draft'}
                             onChange={(event) => {
                               if (assessment)
@@ -424,7 +551,6 @@ export function DiagnosisPage() {
                           >
                             <option value="draft">Draft</option>
                             <option value="reviewed">Reviewed</option>
-                            <option value="approved">Approved</option>
                           </select>
                         );
                       },
@@ -450,6 +576,7 @@ export function DiagnosisPage() {
                           <div className="assessment-rationale">
                             <input
                               aria-label={`Rationale ${row.name}`}
+                              disabled={!canEditDiagnostic}
                               placeholder="Rationale required for a score"
                               defaultValue={assessment.rationale ?? ''}
                               onBlur={(event) =>
@@ -506,15 +633,28 @@ export function DiagnosisPage() {
                             </div>
                           )}
                         </div>
-                        <Badge
-                          tone={
-                            finding.reviewStatus === 'approved'
-                              ? 'success'
-                              : 'warning'
-                          }
-                        >
-                          {finding.reviewStatus}
-                        </Badge>
+                        <div className="record-item__actions">
+                          <Badge
+                            tone={
+                              finding.reviewStatus === 'approved'
+                                ? 'success'
+                                : 'warning'
+                            }
+                          >
+                            {finding.reviewStatus}
+                          </Badge>
+                          {canCreateOpportunity ? (
+                            <Link
+                              className="table-link"
+                              to={buildOpportunityCreationPath(
+                                diagnostic.engagementId,
+                                { type: 'finding', id: finding.id },
+                              )}
+                            >
+                              Develop opportunity
+                            </Link>
+                          ) : null}
+                        </div>
                       </article>
                     ))}
                     {diagnosticFindings.length === 0 ? (
@@ -550,7 +690,13 @@ export function DiagnosisPage() {
                       </span>
                     </div>
 
-                    <Link className="table-link" to="/opportunities">
+                    <Link
+                      className="table-link"
+                      to={withEngagementContext(
+                        '/opportunities',
+                        activeEngagementId,
+                      )}
+                    >
                       Open opportunity register →
                     </Link>
                   </div>
@@ -612,6 +758,7 @@ export function DiagnosisPage() {
                           minWidth: '200px',
                         }}
                         value={selectedAssessment.score ?? ''}
+                        disabled={!canEditDiagnostic}
                         onChange={(e) =>
                           update(selectedAssessment, {
                             score: e.target.value
@@ -633,13 +780,26 @@ export function DiagnosisPage() {
                     </div>
                   </div>
 
-                  <div
-                    style={{
-                      display: 'grid',
-                      gridTemplateColumns: '1fr 1fr',
-                      gap: '12px',
-                    }}
-                  >
+                  <TargetStateEditor
+                    assessment={selectedAssessment}
+                    disabled={!canEditDiagnostic}
+                    onSave={(patch) => update(selectedAssessment, patch)}
+                  />
+
+                  {selectedAssessment.reviewStatus === 'reviewed' &&
+                  canApproveDiagnostic ? (
+                    <Button
+                      onClick={() =>
+                        void update(selectedAssessment, {
+                          reviewStatus: 'approved',
+                        })
+                      }
+                    >
+                      Approve assessment
+                    </Button>
+                  ) : null}
+
+                  <div className="assessment-detail-grid">
                     <div
                       style={{
                         padding: '12px',
@@ -665,6 +825,7 @@ export function DiagnosisPage() {
                           border: '1px solid var(--fabric-border)',
                         }}
                         value={selectedAssessment.confidence ?? 'medium'}
+                        disabled={!canEditDiagnostic}
                         onChange={(e) =>
                           update(selectedAssessment, {
                             confidence: e.target.value as ConfidenceLevel,
@@ -694,24 +855,28 @@ export function DiagnosisPage() {
                       >
                         Review status:
                       </label>
-                      <select
-                        style={{
-                          width: '100%',
-                          padding: '6px 10px',
-                          borderRadius: '4px',
-                          border: '1px solid var(--fabric-border)',
-                        }}
-                        value={selectedAssessment.reviewStatus ?? 'draft'}
-                        onChange={(e) =>
-                          update(selectedAssessment, {
-                            reviewStatus: e.target.value as ReviewStatus,
-                          })
-                        }
-                      >
-                        <option value="draft">Draft</option>
-                        <option value="reviewed">Reviewed</option>
-                        <option value="approved">Approved</option>
-                      </select>
+                      {selectedAssessment.reviewStatus === 'approved' ? (
+                        <Badge tone="success">Approved</Badge>
+                      ) : (
+                        <select
+                          style={{
+                            width: '100%',
+                            padding: '6px 10px',
+                            borderRadius: '4px',
+                            border: '1px solid var(--fabric-border)',
+                          }}
+                          value={selectedAssessment.reviewStatus ?? 'draft'}
+                          disabled={!canEditDiagnostic}
+                          onChange={(e) =>
+                            update(selectedAssessment, {
+                              reviewStatus: e.target.value as ReviewStatus,
+                            })
+                          }
+                        >
+                          <option value="draft">Draft</option>
+                          <option value="reviewed">Reviewed</option>
+                        </select>
+                      )}
                     </div>
                   </div>
 
@@ -738,6 +903,7 @@ export function DiagnosisPage() {
                       }}
                       placeholder="Detail the operational evidence and observations justifying this score..."
                       defaultValue={selectedAssessment.rationale ?? ''}
+                      disabled={!canEditDiagnostic}
                       onBlur={(e) =>
                         update(selectedAssessment, {
                           rationale: e.target.value || undefined,

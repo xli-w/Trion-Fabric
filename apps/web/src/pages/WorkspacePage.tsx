@@ -4,6 +4,7 @@ import { Badge, Card, EmptyState, PageHeader, StatCard } from '@ui';
 
 import { ActiveEngagementDataView } from '@app/features/fabric-data/ActiveEngagementDataView';
 import { useFabricData } from '@app/features/fabric-data/FabricDataContext';
+import { withEngagementContext } from '@app/features/fabric-data/engagement-paths';
 import {
   buildCurrentUnderstanding,
   buildWorkspaceSnapshot,
@@ -196,15 +197,19 @@ export function WorkspacePage() {
                 description="Use this workspace to move naturally from understanding the operation to analysing evidence, planning improvements, and preparing controlled outputs."
               >
                 <div className="workspace-stage-links">
-                  <Link to="/understand">
+                  <Link
+                    to={withEngagementContext('/understand', engagement.id)}
+                  >
                     <span>Understand</span>
                     <strong>Site walk, evidence, landscape</strong>
                   </Link>
-                  <Link to="/analyse">
+                  <Link to={withEngagementContext('/analyse', engagement.id)}>
                     <span>Analyse</span>
                     <strong>Diagnostic, findings, opportunities</strong>
                   </Link>
-                  <Link to="/plan-output">
+                  <Link
+                    to={withEngagementContext('/plan-output', engagement.id)}
+                  >
                     <span>Plan & Output</span>
                     <strong>Roadmap, benefits, outputs</strong>
                   </Link>
@@ -266,7 +271,10 @@ export function WorkspacePage() {
                 title="Understand"
                 description="Capture what is happening on site and connect it to the landscape."
                 actions={
-                  <Link className="table-link" to="/understand">
+                  <Link
+                    className="table-link"
+                    to={withEngagementContext('/understand', engagement.id)}
+                  >
                     Open Understand
                   </Link>
                 }
@@ -285,7 +293,10 @@ export function WorkspacePage() {
                 title="Analyse"
                 description="Review maturity evidence, findings, and recommendations."
                 actions={
-                  <Link className="table-link" to="/analyse">
+                  <Link
+                    className="table-link"
+                    to={withEngagementContext('/analyse', engagement.id)}
+                  >
                     Open Analyse
                   </Link>
                 }
@@ -305,7 +316,10 @@ export function WorkspacePage() {
                 title="Plan & Output"
                 description="Sequence work and prepare the five controlled outputs."
                 actions={
-                  <Link className="table-link" to="/plan-output">
+                  <Link
+                    className="table-link"
+                    to={withEngagementContext('/plan-output', engagement.id)}
+                  >
                     Open Plan & Output
                   </Link>
                 }

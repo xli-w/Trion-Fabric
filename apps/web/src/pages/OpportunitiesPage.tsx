@@ -1,5 +1,10 @@
-import { useState } from 'react';
-import { Link, useNavigate, useParams } from 'react-router-dom';
+import { useEffect, useState } from 'react';
+import {
+  Link,
+  useNavigate,
+  useParams,
+  useSearchParams,
+} from 'react-router-dom';
 import {
   ChevronRight,
   ExternalLink,
@@ -8,15 +13,17 @@ import {
   Table as TableIcon,
 } from 'lucide-react';
 import type {
-  ApprovalState,
   EffortLevel,
   InvestmentBand,
   Opportunity,
   OpportunityPriority,
   OpportunityPriorityCategory,
   OpportunityType,
-  ReviewStatus,
-  VisibilityScope,
+} from '@domain';
+import {
+  approveOpportunityForClientUse,
+  returnOpportunityToDraft,
+  submitOpportunityForReview,
 } from '@domain';
 import {
   Badge,
@@ -39,7 +46,16 @@ import {
 } from '@ui';
 import { ActiveEngagementDataView } from '@app/features/fabric-data/ActiveEngagementDataView';
 import { useFabricData } from '@app/features/fabric-data/FabricDataContext';
+import {
+  parseOpportunitySourceReference,
+  type OpportunitySourceReference,
+  withEngagementContext,
+} from '@app/features/fabric-data/engagement-paths';
 import { buildOpportunitiesViewModel } from '@app/features/fabric-data/selectors';
+import {
+  buildOpportunitySourceOptions,
+  type OpportunitySourceKind,
+} from '@app/features/opportunities/opportunity-sources';
 import {
   InitiativeForm,
   isOpportunityReadyForDelivery,
@@ -64,57 +80,17 @@ const categories: OpportunityPriorityCategory[] = [
   'Reconsider / Defer',
 ];
 const investments: InvestmentBand[] = ['£', '££', '£££', 'Unknown'];
-const statuses: Opportunity['status'][] = [
-  'identified',
-  'triaged',
-  'approved',
-  'in-delivery',
-  'closed',
-];
-const approvalStates: ApprovalState[] = [
-  'draft',
-  'internal-review',
-  'approved',
-  'rejected',
-];
-const visibilityScopes: VisibilityScope[] = [
-  'internal',
-  'draft-client-facing',
-  'approved-client-facing',
-  'archived',
-];
-const reviewStatuses: ReviewStatus[] = ['draft', 'reviewed', 'approved'];
-const matrixCells: Array<{
-  label: string;
-  impacts: OpportunityPriority[];
-  effort: EffortLevel;
-}> = [
-  {
-    label: 'High impact / low effort',
-    impacts: ['critical', 'high'],
-    effort: 'low',
-  },
-  {
-    label: 'High impact / medium effort',
-    impacts: ['critical', 'high'],
-    effort: 'medium',
-  },
-  {
-    label: 'High impact / high effort',
-    impacts: ['critical', 'high'],
-    effort: 'high',
-  },
-  { label: 'Medium impact / low effort', impacts: ['medium'], effort: 'low' },
-  {
-    label: 'Medium impact / medium effort',
-    impacts: ['medium'],
-    effort: 'medium',
-  },
-  { label: 'Medium impact / high effort', impacts: ['medium'], effort: 'high' },
-  { label: 'Low impact / low effort', impacts: ['low'], effort: 'low' },
-  { label: 'Low impact / medium effort', impacts: ['low'], effort: 'medium' },
-  { label: 'Low impact / high effort', impacts: ['low'], effort: 'high' },
-];
+const sourceKindLabels: Record<OpportunitySourceKind, string> = {
+  evidence: 'Evidence',
+  observation: 'Observation',
+  finding: 'Diagnostic finding',
+};
+
+function toggleIdentifier(ids: string[], id: string, isSelected: boolean) {
+  return isSelected
+    ? [...new Set([...ids, id])]
+    : ids.filter((existingId) => existingId !== id);
+}
 
 function Field({
   label,
@@ -134,9 +110,11 @@ function Field({
 function OpportunityForm({
   opportunity,
   onSaved,
+  initialSource,
 }: {
   opportunity?: Opportunity;
   onSaved?: (opportunity: Opportunity) => void;
+  initialSource?: OpportunitySourceReference;
 }) {
   const { activeEngagementId, createOpportunity, dataset, updateOpportunity } =
     useFabricData();
@@ -187,18 +165,6 @@ function OpportunityForm({
   const [confidence, setConfidence] = useState<'low' | 'medium' | 'high'>(
     opportunity?.confidence ?? 'medium',
   );
-  const [status, setStatus] = useState<Opportunity['status']>(
-    opportunity?.status ?? 'identified',
-  );
-  const [approvalState, setApprovalState] = useState<ApprovalState>(
-    opportunity?.approvalState ?? 'draft',
-  );
-  const [visibility, setVisibility] = useState<VisibilityScope>(
-    opportunity?.visibility ?? 'internal',
-  );
-  const [reviewStatus, setReviewStatus] = useState<ReviewStatus>(
-    opportunity?.reviewStatus ?? 'draft',
-  );
   const [timing, setTiming] = useState(opportunity?.recommendedTiming ?? '');
   const [dependencies, setDependencies] = useState(
     opportunity?.dependencies ?? '',
@@ -215,8 +181,29 @@ function OpportunityForm({
   const [clientSummary, setClientSummary] = useState(
     opportunity?.clientSummary ?? '',
   );
-  const [evidenceIds, setEvidenceIds] = useState(
-    opportunity?.evidenceIds.join(', ') ?? '',
+  const [evidenceIds, setEvidenceIds] = useState<string[]>(() =>
+    initialSource?.type === 'evidence'
+      ? toggleIdentifier(opportunity?.evidenceIds ?? [], initialSource.id, true)
+      : (opportunity?.evidenceIds ?? []),
+  );
+  const [relatedObservationIds, setRelatedObservationIds] = useState<string[]>(
+    () =>
+      initialSource?.type === 'observation'
+        ? toggleIdentifier(
+            opportunity?.relatedObservationIds ?? [],
+            initialSource.id,
+            true,
+          )
+        : (opportunity?.relatedObservationIds ?? []),
+  );
+  const [relatedFindingIds, setRelatedFindingIds] = useState<string[]>(() =>
+    initialSource?.type === 'finding'
+      ? toggleIdentifier(
+          opportunity?.relatedFindingIds ?? [],
+          initialSource.id,
+          true,
+        )
+      : (opportunity?.relatedFindingIds ?? []),
   );
   const engagement = dataset?.engagements.find(
     (item) => item.id === engagementId,
@@ -230,23 +217,49 @@ function OpportunityForm({
   const systems =
     dataset?.systems.filter((item) => scopedSiteIds.includes(item.siteId)) ??
     [];
+  const sourceOptions =
+    dataset && engagementId
+      ? buildOpportunitySourceOptions(dataset, engagementId)
+      : [];
+
+  function isSourceSelected(kind: OpportunitySourceKind, id: string) {
+    if (kind === 'evidence') {
+      return evidenceIds.includes(id);
+    }
+    if (kind === 'observation') {
+      return relatedObservationIds.includes(id);
+    }
+    return relatedFindingIds.includes(id);
+  }
+
+  function toggleSource(
+    kind: OpportunitySourceKind,
+    id: string,
+    isSelected: boolean,
+  ) {
+    if (kind === 'evidence') {
+      setEvidenceIds((ids) => toggleIdentifier(ids, id, isSelected));
+      return;
+    }
+    if (kind === 'observation') {
+      setRelatedObservationIds((ids) => toggleIdentifier(ids, id, isSelected));
+      return;
+    }
+    setRelatedFindingIds((ids) => toggleIdentifier(ids, id, isSelected));
+  }
 
   async function submit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
     setError(null);
-    const parsedEvidenceIds = evidenceIds
-      .split(',')
-      .map((item) => item.trim())
-      .filter(Boolean);
     const requiresApprovedContent =
-      status === 'approved' || status === 'in-delivery' || status === 'closed';
-    const hasExistingReasoningLink =
-      (opportunity?.relatedObservationIds?.length ?? 0) > 0 ||
-      (opportunity?.relatedFindingIds?.length ?? 0) > 0;
+      opportunity?.status === 'approved' ||
+      opportunity?.status === 'in-delivery' ||
+      opportunity?.status === 'closed';
     if (
       requiresApprovedContent &&
-      parsedEvidenceIds.length === 0 &&
-      !hasExistingReasoningLink
+      evidenceIds.length === 0 &&
+      relatedObservationIds.length === 0 &&
+      relatedFindingIds.length === 0
     ) {
       setError(
         'Approved or delivery opportunities need at least one evidence, observation, or finding link.',
@@ -268,11 +281,11 @@ function OpportunityForm({
         estimatedEffort: effort,
         confidence,
         priority,
-        status,
-        evidenceIds: parsedEvidenceIds,
+        status: opportunity?.status ?? 'identified',
+        evidenceIds,
         ownerUserId: opportunity?.ownerUserId,
-        approvalState,
-        visibility,
+        approvalState: opportunity?.approvalState ?? 'draft',
+        visibility: opportunity?.visibility ?? 'internal',
         diagnosticId: opportunity?.diagnosticId,
         currentSituation,
         identifiedIssue,
@@ -288,9 +301,9 @@ function OpportunityForm({
         recommendedTiming: timing || undefined,
         dependencies: dependencies || undefined,
         suggestedNextStep: nextStep || undefined,
-        relatedObservationIds: opportunity?.relatedObservationIds ?? [],
-        relatedFindingIds: opportunity?.relatedFindingIds ?? [],
-        reviewStatus,
+        relatedObservationIds,
+        relatedFindingIds,
+        reviewStatus: opportunity?.reviewStatus ?? 'draft',
         internalNotes: internalNotes || undefined,
         clientSummary: clientSummary || undefined,
       };
@@ -456,54 +469,6 @@ function OpportunityForm({
             <option value="high">High</option>
           </select>
         </Field>
-        <Field label="Status">
-          <select
-            value={status}
-            onChange={(event) =>
-              setStatus(event.target.value as Opportunity['status'])
-            }
-          >
-            {statuses.map((item) => (
-              <option key={item}>{item}</option>
-            ))}
-          </select>
-        </Field>
-        <Field label="Content approval">
-          <select
-            value={approvalState}
-            onChange={(event) =>
-              setApprovalState(event.target.value as ApprovalState)
-            }
-          >
-            {approvalStates.map((item) => (
-              <option key={item}>{item}</option>
-            ))}
-          </select>
-        </Field>
-        <Field label="Visibility">
-          <select
-            value={visibility}
-            onChange={(event) =>
-              setVisibility(event.target.value as VisibilityScope)
-            }
-          >
-            {visibilityScopes.map((item) => (
-              <option key={item}>{item}</option>
-            ))}
-          </select>
-        </Field>
-        <Field label="Review status">
-          <select
-            value={reviewStatus}
-            onChange={(event) =>
-              setReviewStatus(event.target.value as ReviewStatus)
-            }
-          >
-            {reviewStatuses.map((item) => (
-              <option key={item}>{item}</option>
-            ))}
-          </select>
-        </Field>
       </div>
       <Field label="Current situation">
         <textarea
@@ -572,14 +537,54 @@ function OpportunityForm({
             onChange={(event) => setDependencies(event.target.value)}
           />
         </Field>
-        <Field label="Evidence references">
-          <input
-            value={evidenceIds}
-            onChange={(event) => setEvidenceIds(event.target.value)}
-            placeholder="Comma-separated IDs"
-          />
-        </Field>
       </div>
+      <fieldset className="opportunity-source-picker">
+        <legend>Evidence and reasoning links</legend>
+        <p className="body-copy body-copy--small">
+          Select the fieldwork, evidence, or diagnostic finding that supports
+          this recommendation. Internal draft links preserve the reasoning
+          trail; client-facing use still requires approval.
+        </p>
+        {(['evidence', 'observation', 'finding'] as const).map((kind) => {
+          const options = sourceOptions.filter(
+            (option) => option.kind === kind,
+          );
+          return (
+            <div className="opportunity-source-picker__group" key={kind}>
+              <strong>{sourceKindLabels[kind]}</strong>
+              {options.length > 0 ? (
+                options.map((option) => (
+                  <label
+                    className="opportunity-source-picker__option"
+                    key={option.id}
+                  >
+                    <input
+                      checked={isSourceSelected(option.kind, option.id)}
+                      onChange={(event) =>
+                        toggleSource(
+                          option.kind,
+                          option.id,
+                          event.target.checked,
+                        )
+                      }
+                      type="checkbox"
+                    />
+                    <span>
+                      <strong>{option.title}</strong>
+                      <small>{option.detail}</small>
+                    </span>
+                  </label>
+                ))
+              ) : (
+                <span className="body-copy body-copy--small">
+                  No {sourceKindLabels[kind].toLowerCase()} records are
+                  available in this engagement.
+                </span>
+              )}
+            </div>
+          );
+        })}
+      </fieldset>
       <Field label="Value assumptions">
         <textarea
           value={assumptions}
@@ -613,7 +618,8 @@ function OpportunityForm({
 
 export function OpportunitiesPage() {
   const navigate = useNavigate();
-  const { activeEngagementId } = useFabricData();
+  const { activeEngagementId, canPerform } = useFabricData();
+  const [searchParams, setSearchParams] = useSearchParams();
   const [query, setQuery] = useState('');
   const [typeFilter, setTypeFilter] = useState('');
   const [priorityFilter, setPriorityFilter] = useState('');
@@ -626,6 +632,26 @@ export function OpportunitiesPage() {
   const [selectedOpportunityId, setSelectedOpportunityId] = useState<
     string | null
   >(null);
+  const isCreateRequested = searchParams.get('create') === 'opportunity';
+  const initialSource = parseOpportunitySourceReference(
+    searchParams.get('source'),
+  );
+
+  useEffect(() => {
+    if (isCreateRequested) {
+      setCreateSheetOpen(true);
+    }
+  }, [isCreateRequested]);
+
+  function setCreateSheetState(isOpen: boolean) {
+    setCreateSheetOpen(isOpen);
+    if (!isOpen && isCreateRequested) {
+      const nextSearchParams = new URLSearchParams(searchParams);
+      nextSearchParams.delete('create');
+      nextSearchParams.delete('source');
+      setSearchParams(nextSearchParams, { replace: true });
+    }
+  }
 
   return (
     <ActiveEngagementDataView
@@ -691,10 +717,66 @@ export function OpportunitiesPage() {
         const selectedOpp = selectedOpportunityId
           ? dataset.opportunities.find((o) => o.id === selectedOpportunityId)
           : null;
+        const selectedOpportunitySources = selectedOpp
+          ? [
+              ...dataset.evidence
+                .filter((evidence) =>
+                  selectedOpp.evidenceIds.includes(evidence.id),
+                )
+                .map((evidence) => ({
+                  id: evidence.id,
+                  type: 'Evidence',
+                  title: evidence.title,
+                  detail: evidence.summary,
+                  path: withEngagementContext(
+                    `/evidence?evidence=${evidence.id}`,
+                    selectedOpp.engagementId,
+                  ),
+                })),
+              ...dataset.observations
+                .filter((observation) =>
+                  selectedOpp.relatedObservationIds?.includes(observation.id),
+                )
+                .map((observation) => ({
+                  id: observation.id,
+                  type: 'Observation',
+                  title: observation.title ?? observation.summary,
+                  detail: observation.description ?? observation.detail,
+                  path: `/site-walks/${observation.siteWalkId}#observation-${observation.id}`,
+                })),
+              ...dataset.findings
+                .filter((finding) =>
+                  selectedOpp.relatedFindingIds?.includes(finding.id),
+                )
+                .map((finding) => ({
+                  id: finding.id,
+                  type: 'Diagnostic finding',
+                  title: finding.title,
+                  detail: finding.currentSituation,
+                  path: withEngagementContext(
+                    `/diagnosis?finding=${finding.id}`,
+                    selectedOpp.engagementId,
+                  ),
+                })),
+            ]
+          : [];
 
         const categoryCount = dataset.opportunities.filter(
           (item) => item.priorityCategory === 'Foundational Improvement',
         ).length;
+        const canCreateOpportunity =
+          Boolean(activeEngagementId) &&
+          canPerform('opportunity:write', activeEngagementId ?? undefined);
+        const initialSourceIsAvailable =
+          !initialSource ||
+          buildOpportunitySourceOptions(
+            dataset,
+            activeEngagementId ?? dataset.engagements[0]?.id ?? '',
+          ).some(
+            (option) =>
+              option.id === initialSource.id &&
+              option.kind === initialSource.type,
+          );
 
         return (
           <>
@@ -708,7 +790,15 @@ export function OpportunitiesPage() {
                 'Approval-aware',
               ]}
               actions={
-                <Button onClick={() => setCreateSheetOpen(true)}>
+                <Button
+                  disabled={!canCreateOpportunity}
+                  onClick={() => setCreateSheetState(true)}
+                  title={
+                    canCreateOpportunity
+                      ? undefined
+                      : 'Your current role cannot create opportunities in this engagement.'
+                  }
+                >
                   <Plus size={16} style={{ marginRight: 6 }} /> Add opportunity
                 </Button>
               }
@@ -958,18 +1048,38 @@ export function OpportunitiesPage() {
             {/* Create Drawer */}
             <Sheet
               open={createSheetOpen}
-              onOpenChange={setCreateSheetOpen}
+              onOpenChange={setCreateSheetState}
               size="lg"
               eyebrow="Analyse"
               title="Create opportunity"
-              description="Capture problem statement, proposed improvement, and target value."
+              description="Capture an evidence-linked problem statement, proposed improvement, and target value."
             >
-              <OpportunityForm
-                key={activeEngagementId ?? 'none'}
-                onSaved={() => {
-                  setCreateSheetOpen(false);
-                }}
-              />
+              {canCreateOpportunity ? (
+                <>
+                  {!initialSourceIsAvailable ? (
+                    <p className="form-error" role="alert">
+                      The linked source is not available in this active
+                      engagement. Select another source before saving.
+                    </p>
+                  ) : null}
+                  <OpportunityForm
+                    initialSource={
+                      initialSourceIsAvailable ? initialSource : undefined
+                    }
+                    key={`${activeEngagementId ?? 'none'}-${
+                      initialSource?.type ?? 'generic'
+                    }-${initialSource?.id ?? 'new'}`}
+                    onSaved={() => {
+                      setCreateSheetState(false);
+                    }}
+                  />
+                </>
+              ) : (
+                <p className="body-copy">
+                  Your current role can review this evidence but cannot create
+                  an opportunity in this engagement.
+                </p>
+              )}
             </Sheet>
 
             {/* Quick Inspector Drawer */}
@@ -1041,7 +1151,7 @@ export function OpportunitiesPage() {
                       <TabsTrigger value="benefits">Benefits & ROI</TabsTrigger>
                       <TabsTrigger
                         value="evidence"
-                        badge={selectedOpp.evidenceIds.length}
+                        badge={selectedOpportunitySources.length}
                       >
                         Evidence
                       </TabsTrigger>
@@ -1101,24 +1211,27 @@ export function OpportunitiesPage() {
 
                     <TabsContent value="evidence">
                       <div style={{ marginTop: 12 }}>
-                        {selectedOpp.evidenceIds.length === 0 ? (
+                        {selectedOpportunitySources.length === 0 ? (
                           <div className="ui-table-empty">
-                            No direct evidence IDs linked to this opportunity.
+                            No evidence, observation, or diagnostic finding is
+                            linked to this opportunity.
                           </div>
                         ) : (
                           <div className="record-stack">
-                            {selectedOpp.evidenceIds.map((eid) => (
-                              <div
-                                key={eid}
-                                className="record-item record-item--note"
+                            {selectedOpportunitySources.map((source) => (
+                              <Link
+                                className="record-item record-item--note table-link"
+                                key={`${source.type}-${source.id}`}
+                                to={source.path}
                               >
                                 <div>
-                                  <strong>Evidence ID: {eid}</strong>
+                                  <strong>{source.title}</strong>
                                   <p className="body-copy body-copy--small">
-                                    Linked transformation fieldwork item
+                                    {source.detail}
                                   </p>
                                 </div>
-                              </div>
+                                <Badge tone="neutral">{source.type}</Badge>
+                              </Link>
                             ))}
                           </div>
                         )}
@@ -1136,7 +1249,7 @@ export function OpportunitiesPage() {
 }
 export function OpportunityDetailPage() {
   const { opportunityId } = useParams();
-  const { createAction } = useFabricData();
+  const { canPerform, createAction, updateOpportunity } = useFabricData();
   const [editingSheetOpen, setEditingSheetOpen] = useState(false);
   const [actionSheetOpen, setActionSheetOpen] = useState(false);
   const [initiativeSheetOpen, setInitiativeSheetOpen] = useState(false);
@@ -1144,6 +1257,10 @@ export function OpportunityDetailPage() {
   const [actionTitle, setActionTitle] = useState('');
   const [actionDescription, setActionDescription] = useState('');
   const [actionError, setActionError] = useState<string | null>(null);
+  const [governanceError, setGovernanceError] = useState<string | null>(null);
+  const [governanceMessage, setGovernanceMessage] = useState<string | null>(
+    null,
+  );
 
   async function addAction(
     event: React.FormEvent<HTMLFormElement>,
@@ -1200,9 +1317,31 @@ export function OpportunityDetailPage() {
         const initiatives = dataset.initiatives.filter(
           (item) => item.opportunityId === opportunity.id,
         );
+        const canWriteOpportunity = canPerform(
+          'opportunity:write',
+          opportunity.engagementId,
+        );
+        const canSubmitForReview =
+          canWriteOpportunity &&
+          opportunity.visibility === 'internal' &&
+          opportunity.approvalState === 'draft' &&
+          opportunity.reviewStatus === 'draft';
+        const canReturnToDraft =
+          canWriteOpportunity &&
+          opportunity.approvalState === 'internal-review';
+        const canApprove =
+          opportunity.visibility === 'internal' &&
+          opportunity.approvalState === 'internal-review' &&
+          opportunity.reviewStatus === 'reviewed' &&
+          canPerform(
+            'visibility:approve-client-facing',
+            opportunity.engagementId,
+          );
+        const canCreateAction = canWriteOpportunity;
         const canCreateInitiative =
           isOpportunityReadyForDelivery(opportunity) &&
-          initiatives.length === 0;
+          initiatives.length === 0 &&
+          canPerform('delivery:write', opportunity.engagementId);
         const linkedObservations = dataset.observations.filter((item) =>
           opportunity.relatedObservationIds?.includes(item.id),
         );
@@ -1212,6 +1351,25 @@ export function OpportunityDetailPage() {
         const linkedEvidence = dataset.evidence.filter((item) =>
           opportunity.evidenceIds.includes(item.id),
         );
+
+        async function transitionOpportunity(
+          nextOpportunity: Opportunity,
+          message: string,
+        ) {
+          setGovernanceError(null);
+          setGovernanceMessage(null);
+
+          try {
+            await updateOpportunity(nextOpportunity);
+            setGovernanceMessage(message);
+          } catch (caught) {
+            setGovernanceError(
+              caught instanceof Error
+                ? caught.message
+                : 'Unable to update the opportunity governance state.',
+            );
+          }
+        }
 
         return (
           <>
@@ -1225,19 +1383,74 @@ export function OpportunityDetailPage() {
                 opportunity.confidence,
               ]}
               actions={
-                <div style={{ display: 'flex', gap: 8 }}>
+                <div className="detail-action-group">
                   <Button
+                    disabled={
+                      !canWriteOpportunity ||
+                      opportunity.approvalState === 'internal-review'
+                    }
                     variant="ghost"
                     onClick={() => setEditingSheetOpen(true)}
+                    title={
+                      canWriteOpportunity
+                        ? opportunity.approvalState === 'internal-review'
+                          ? 'Return this opportunity to draft before revising it.'
+                          : undefined
+                        : 'Your current role cannot edit this opportunity.'
+                    }
                   >
                     Edit opportunity
                   </Button>
                   <Button
+                    disabled={!canCreateAction}
                     variant="ghost"
                     onClick={() => setActionSheetOpen(true)}
+                    title={
+                      canCreateAction
+                        ? undefined
+                        : 'Your current role cannot add actions to this opportunity.'
+                    }
                   >
                     + Action item
                   </Button>
+                  {canSubmitForReview ? (
+                    <Button
+                      variant="secondary"
+                      onClick={() =>
+                        void transitionOpportunity(
+                          submitOpportunityForReview(opportunity),
+                          'Opportunity submitted for internal review.',
+                        )
+                      }
+                    >
+                      Submit for review
+                    </Button>
+                  ) : null}
+                  {canReturnToDraft ? (
+                    <Button
+                      variant="ghost"
+                      onClick={() =>
+                        void transitionOpportunity(
+                          returnOpportunityToDraft(opportunity),
+                          'Opportunity returned to an internal draft.',
+                        )
+                      }
+                    >
+                      Return to draft
+                    </Button>
+                  ) : null}
+                  {canApprove ? (
+                    <Button
+                      onClick={() =>
+                        void transitionOpportunity(
+                          approveOpportunityForClientUse(opportunity),
+                          'Opportunity approved for client-facing use.',
+                        )
+                      }
+                    >
+                      Approve opportunity
+                    </Button>
+                  ) : null}
                   {canCreateInitiative ? (
                     <Button onClick={() => setInitiativeSheetOpen(true)}>
                       Convert to delivery initiative
@@ -1246,6 +1459,17 @@ export function OpportunityDetailPage() {
                 </div>
               }
             />
+
+            {governanceMessage ? (
+              <p className="form-success" role="status">
+                {governanceMessage}
+              </p>
+            ) : null}
+            {governanceError ? (
+              <p className="form-error" role="alert">
+                {governanceError}
+              </p>
+            ) : null}
 
             <div className="detail-badges">
               <Badge tone="accent">{opportunity.type}</Badge>
@@ -1288,7 +1512,11 @@ export function OpportunityDetailPage() {
                 </TabsTrigger>
                 <TabsTrigger
                   value="evidence"
-                  badge={linkedEvidence.length + linkedObservations.length}
+                  badge={
+                    linkedEvidence.length +
+                    linkedObservations.length +
+                    linkedFindings.length
+                  }
                 >
                   Evidence & lineage
                 </TabsTrigger>
@@ -1356,7 +1584,7 @@ export function OpportunityDetailPage() {
               </TabsContent>
 
               <TabsContent value="evidence">
-                <section className="content-grid content-grid--two">
+                <section className="content-grid content-grid--three">
                   <Card
                     title={`Linked evidence records (${linkedEvidence.length})`}
                   >
@@ -1367,7 +1595,17 @@ export function OpportunityDetailPage() {
                       columns={[
                         {
                           header: 'Title',
-                          render: (row) => <strong>{row.title}</strong>,
+                          render: (row) => (
+                            <Link
+                              className="table-link"
+                              to={withEngagementContext(
+                                `/evidence?evidence=${row.id}`,
+                                opportunity.engagementId,
+                              )}
+                            >
+                              <strong>{row.title}</strong>
+                            </Link>
+                          ),
                         },
                         {
                           header: 'Type',
@@ -1391,9 +1629,10 @@ export function OpportunityDetailPage() {
                         </div>
                       ) : (
                         linkedObservations.map((obs) => (
-                          <div
+                          <Link
                             key={obs.id}
-                            className="record-item record-item--note"
+                            className="record-item record-item--note table-link"
+                            to={`/site-walks/${obs.siteWalkId}#observation-${obs.id}`}
                           >
                             <div>
                               <strong>{obs.title ?? obs.summary}</strong>
@@ -1404,7 +1643,38 @@ export function OpportunityDetailPage() {
                             <Badge tone="neutral">
                               {obs.status ?? obs.assurance}
                             </Badge>
-                          </div>
+                          </Link>
+                        ))
+                      )}
+                    </div>
+                  </Card>
+
+                  <Card
+                    title={`Linked diagnostic findings (${linkedFindings.length})`}
+                  >
+                    <div className="record-stack">
+                      {linkedFindings.length === 0 ? (
+                        <div className="ui-table-empty">
+                          No linked diagnostic findings.
+                        </div>
+                      ) : (
+                        linkedFindings.map((finding) => (
+                          <Link
+                            className="record-item record-item--note table-link"
+                            key={finding.id}
+                            to={withEngagementContext(
+                              `/diagnosis?finding=${finding.id}`,
+                              opportunity.engagementId,
+                            )}
+                          >
+                            <div>
+                              <strong>{finding.title}</strong>
+                              <p className="body-copy body-copy--small">
+                                {finding.currentSituation}
+                              </p>
+                            </div>
+                            <Badge tone="neutral">{finding.reviewStatus}</Badge>
+                          </Link>
                         ))
                       )}
                     </div>
@@ -1418,8 +1688,14 @@ export function OpportunityDetailPage() {
                   description="Immediate tasks required before or during transformation."
                   actions={
                     <Button
+                      disabled={!canCreateAction}
                       variant="ghost"
                       onClick={() => setActionSheetOpen(true)}
+                      title={
+                        canCreateAction
+                          ? undefined
+                          : 'Your current role cannot add actions to this opportunity.'
+                      }
                     >
                       + Add action
                     </Button>

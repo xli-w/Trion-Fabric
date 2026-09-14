@@ -21,6 +21,7 @@ import {
 } from '@ui';
 import { ActiveEngagementDataView } from '@app/features/fabric-data/ActiveEngagementDataView';
 import { useFabricData } from '@app/features/fabric-data/FabricDataContext';
+import { buildOpportunityCreationPath } from '@app/features/fabric-data/engagement-paths';
 import {
   EvidenceForm,
   FrictionForm,
@@ -32,7 +33,7 @@ import { buildSiteWalksViewModel } from '@app/features/fabric-data/selectors';
 
 export function SiteWalksPage() {
   const navigate = useNavigate();
-  const { activeEngagementId } = useFabricData();
+  const { activeEngagementId, canPerform } = useFabricData();
   const [createSheetOpen, setCreateSheetOpen] = useState(false);
   const [selectedWalkId, setSelectedWalkId] = useState<string | null>(null);
   const [query, setQuery] = useState('');
@@ -99,6 +100,9 @@ export function SiteWalksPage() {
         const selectedObservations = selectedWalk
           ? dataset.observations.filter((o) => o.siteWalkId === selectedWalk.id)
           : [];
+        const canPlanSiteWalk =
+          Boolean(activeEngagementId) &&
+          canPerform('fieldwork:write', activeEngagementId ?? undefined);
 
         return (
           <>
@@ -112,7 +116,15 @@ export function SiteWalksPage() {
                 'Review-ready',
               ]}
               actions={
-                <Button onClick={() => setCreateSheetOpen(true)}>
+                <Button
+                  disabled={!canPlanSiteWalk}
+                  onClick={() => setCreateSheetOpen(true)}
+                  title={
+                    canPlanSiteWalk
+                      ? undefined
+                      : 'Your current role cannot plan site walks in this engagement.'
+                  }
+                >
                   <Plus size={16} style={{ marginRight: 6 }} /> Plan site walk
                 </Button>
               }
@@ -485,6 +497,14 @@ export function SiteWalkWorkspacePage() {
           (walk.status === 'completed' || walk.status === 'needs-follow-up') &&
           walk.recommendDiagnostic === true &&
           canPerform('context:write', engagement.id);
+        const canCaptureFieldwork = canPerform(
+          'fieldwork:write',
+          walk.engagementId,
+        );
+        const canCreateOpportunity = canPerform(
+          'opportunity:write',
+          walk.engagementId,
+        );
         return (
           <>
             <PageHeader
@@ -495,17 +515,37 @@ export function SiteWalkWorkspacePage() {
               actions={
                 <div style={{ display: 'flex', gap: 8 }}>
                   <Button
+                    disabled={!canCaptureFieldwork}
                     variant="ghost"
                     onClick={() => setEditingSheetOpen(true)}
+                    title={
+                      canCaptureFieldwork
+                        ? undefined
+                        : 'Your current role cannot edit this site walk.'
+                    }
                   >
                     Edit walk
                   </Button>
-                  <Button onClick={() => setCapture('observation')}>
+                  <Button
+                    disabled={!canCaptureFieldwork}
+                    onClick={() => setCapture('observation')}
+                    title={
+                      canCaptureFieldwork
+                        ? undefined
+                        : 'Your current role cannot capture fieldwork.'
+                    }
+                  >
                     + Capture observation
                   </Button>
                   <Button
+                    disabled={!canCaptureFieldwork}
                     variant="secondary"
                     onClick={() => setCapture('evidence')}
+                    title={
+                      canCaptureFieldwork
+                        ? undefined
+                        : 'Your current role cannot attach evidence.'
+                    }
                   >
                     + Attach evidence
                   </Button>
@@ -567,8 +607,14 @@ export function SiteWalkWorkspacePage() {
                   title={`Observations (${observations.length})`}
                   actions={
                     <Button
+                      disabled={!canCaptureFieldwork}
                       variant="ghost"
                       onClick={() => setCapture('observation')}
+                      title={
+                        canCaptureFieldwork
+                          ? undefined
+                          : 'Your current role cannot capture fieldwork.'
+                      }
                     >
                       + Add observation
                     </Button>
@@ -598,6 +644,20 @@ export function SiteWalkWorkspacePage() {
                               {observation.source ?? observation.origin} ·{' '}
                               {observation.confidence ?? 'unrated'} confidence
                             </span>
+                            {canCreateOpportunity ? (
+                              <Link
+                                className="table-link"
+                                to={buildOpportunityCreationPath(
+                                  walk.engagementId,
+                                  {
+                                    type: 'observation',
+                                    id: observation.id,
+                                  },
+                                )}
+                              >
+                                Develop opportunity
+                              </Link>
+                            ) : null}
                           </div>
                           <Badge
                             tone={
@@ -621,8 +681,14 @@ export function SiteWalkWorkspacePage() {
                   title={`Attached evidence (${evidence.length})`}
                   actions={
                     <Button
+                      disabled={!canCaptureFieldwork}
                       variant="ghost"
                       onClick={() => setCapture('evidence')}
+                      title={
+                        canCaptureFieldwork
+                          ? undefined
+                          : 'Your current role cannot attach evidence.'
+                      }
                     >
                       + Add evidence
                     </Button>
@@ -677,8 +743,14 @@ export function SiteWalkWorkspacePage() {
                   description="All time, hours, and cost values are indicative until assumptions are validated."
                   actions={
                     <Button
+                      disabled={!canCaptureFieldwork}
                       variant="ghost"
                       onClick={() => setCapture('friction')}
+                      title={
+                        canCaptureFieldwork
+                          ? undefined
+                          : 'Your current role cannot capture fieldwork.'
+                      }
                     >
                       + Add friction
                     </Button>

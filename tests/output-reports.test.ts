@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 
 import {
   compareOutputReportSnapshots,
+  createOutputReportSnapshot,
   getOutputSourceCatalog,
   hasOutputReportSourceChanges,
   prepareOutputExportSnapshot,
@@ -50,7 +51,13 @@ describe('controlled output reporting', () => {
       )?.blocks[0],
     ).toMatchObject({
       type: 'table',
-      columns: ['Dimension', 'Score', 'Maturity level', 'Confidence'],
+      columns: [
+        'Dimension',
+        'Score',
+        'Agreed target',
+        'Maturity level',
+        'Confidence',
+      ],
     });
     expect(
       reports[2]?.snapshot.sections.map((section) => section.id),
@@ -130,6 +137,52 @@ describe('controlled output reporting', () => {
 
     expect(hasOutputReportSourceChanges(dataset, output)).toBe(true);
     expect(output.reportSnapshot).toBe(originalSnapshot);
+  });
+
+  it('includes an agreed maturity target in a regenerated scorecard snapshot', () => {
+    const dataset = fabricDatasetSchema.parse(fabricFixtures);
+    const output = dataset.outputs.find(
+      (item) => item.id === 'output-northbank-maturity-scorecard',
+    );
+    if (!output) {
+      throw new Error('Expected a maturity scorecard fixture.');
+    }
+    const assessment = dataset.maturityAssessments.find((item) =>
+      output.sourceReferences.includes(item.id),
+    );
+    if (!assessment) {
+      throw new Error('Expected a selected maturity assessment source.');
+    }
+
+    assessment.targetScore = 4;
+    assessment.targetRationale =
+      'The engagement needs this capability to support controlled production.';
+    const snapshot = createOutputReportSnapshot(
+      dataset,
+      { ...output, reportSnapshot: undefined },
+      '2026-09-14T10:00:00Z',
+    );
+    const maturityProfile = snapshot.sections.find(
+      (section) => section.id === 'maturity-profile',
+    )?.blocks[0];
+    const maturityDetail = snapshot.sections.find(
+      (section) => section.id === 'current-and-desired-state',
+    )?.blocks[0];
+
+    expect(maturityProfile).toMatchObject({
+      type: 'table',
+      columns: [
+        'Dimension',
+        'Score',
+        'Agreed target',
+        'Maturity level',
+        'Confidence',
+      ],
+    });
+    expect(maturityDetail).toMatchObject({
+      type: 'table',
+      columns: expect.arrayContaining(['Target score', 'Target rationale']),
+    });
   });
 
   it('freezes and returns the exact snapshot used for an export', () => {

@@ -4,9 +4,11 @@ import { Badge, Card, PageHeader, StatCard } from '@ui';
 
 import { ActiveEngagementDataView } from '@app/features/fabric-data/ActiveEngagementDataView';
 import { useFabricData } from '@app/features/fabric-data/FabricDataContext';
+import { withEngagementContext } from '@app/features/fabric-data/engagement-paths';
 
 export function AnalysePage() {
-  const { activeClient, activeEngagement } = useFabricData();
+  const { activeClient, activeEngagement, activeEngagementId } =
+    useFabricData();
 
   return (
     <ActiveEngagementDataView
@@ -86,14 +88,20 @@ export function AnalysePage() {
                 title="Diagnostic"
                 description="Open a maturity dimension to see its current state, desired state, gap, evidence, observations, opportunity, and confidence."
                 actions={
-                  <Link className="table-link" to="/diagnosis">
+                  <Link
+                    className="table-link"
+                    to={withEngagementContext('/diagnosis', activeEngagementId)}
+                  >
                     Open Diagnostic
                   </Link>
                 }
               >
                 <div className="record-stack">
                   {dataset.diagnostics.map((diagnostic) => (
-                    <article className="record-item record-item--note" key={diagnostic.id}>
+                    <article
+                      className="record-item record-item--note"
+                      key={diagnostic.id}
+                    >
                       <div>
                         <strong>{diagnostic.title}</strong>
                         <p className="body-copy body-copy--small">
@@ -116,7 +124,13 @@ export function AnalysePage() {
                 title="Opportunity Register"
                 description="Prioritise recommendations by impact, effort, indicative value, confidence, dependencies, timing, and evidence."
                 actions={
-                  <Link className="table-link" to="/opportunities">
+                  <Link
+                    className="table-link"
+                    to={withEngagementContext(
+                      '/opportunities',
+                      activeEngagementId,
+                    )}
+                  >
                     Open Opportunities
                   </Link>
                 }

@@ -52,13 +52,40 @@ export function DataTable<T>({
   }
 
   return (
-    <div className={cx('ui-table-wrap', `ui-table-wrap--${density}`, className)}>
+    <div
+      className={cx('ui-table-wrap', `ui-table-wrap--${density}`, className)}
+    >
       <table className={cx('ui-table', `ui-table--${density}`)}>
         <thead>
           <tr>
             {columns.map((column, index) => {
               const colKey = column.key ?? column.header;
               const isSorted = sortColumn === colKey;
+              const isSortable = Boolean(column.sortable && onSort);
+              const headerContent = (
+                <div
+                  className={cx(
+                    'ui-table__th-content',
+                    column.align === 'right' && 'ui-table__th-content--right',
+                    column.align === 'center' && 'ui-table__th-content--center',
+                  )}
+                >
+                  <span>{column.header}</span>
+                  {column.sortable && (
+                    <span className="ui-table__sort-icon" aria-hidden="true">
+                      {isSorted ? (
+                        sortDirection === 'asc' ? (
+                          <ArrowUp size={14} />
+                        ) : (
+                          <ArrowDown size={14} />
+                        )
+                      ) : (
+                        <ArrowUpDown size={14} />
+                      )}
+                    </span>
+                  )}
+                </div>
+              );
 
               return (
                 <th
@@ -67,47 +94,32 @@ export function DataTable<T>({
                   className={cx(
                     column.align === 'right' && 'ui-table__align-right',
                     column.align === 'center' && 'ui-table__align-center',
-                    column.sortable && 'ui-table__th--sortable',
-                    isSorted && 'ui-table__th--sorted'
+                    isSortable && 'ui-table__th--sortable',
+                    isSorted && 'ui-table__th--sorted',
                   )}
-                  onClick={
-                    column.sortable && onSort ? () => onSort(colKey) : undefined
-                  }
-                  role={column.sortable ? 'button' : undefined}
-                  tabIndex={column.sortable ? 0 : undefined}
-                  onKeyDown={
-                    column.sortable && onSort
-                      ? (e) => {
-                          if (e.key === 'Enter' || e.key === ' ') {
-                            e.preventDefault();
-                            onSort(colKey);
-                          }
-                        }
+                  scope="col"
+                  aria-sort={
+                    isSortable
+                      ? isSorted
+                        ? sortDirection === 'asc'
+                          ? 'ascending'
+                          : 'descending'
+                        : 'none'
                       : undefined
                   }
                 >
-                  <div
-                    className={cx(
-                      'ui-table__th-content',
-                      column.align === 'right' && 'ui-table__th-content--right',
-                      column.align === 'center' && 'ui-table__th-content--center'
-                    )}
-                  >
-                    <span>{column.header}</span>
-                    {column.sortable && (
-                      <span className="ui-table__sort-icon">
-                        {isSorted ? (
-                          sortDirection === 'asc' ? (
-                            <ArrowUp size={14} />
-                          ) : (
-                            <ArrowDown size={14} />
-                          )
-                        ) : (
-                          <ArrowUpDown size={14} />
-                        )}
-                      </span>
-                    )}
-                  </div>
+                  {isSortable ? (
+                    <button
+                      aria-label={`Sort by ${column.header}`}
+                      className="ui-table__sort-button"
+                      onClick={onSort ? () => onSort(colKey) : undefined}
+                      type="button"
+                    >
+                      {headerContent}
+                    </button>
+                  ) : (
+                    headerContent
+                  )}
                 </th>
               );
             })}
@@ -126,7 +138,7 @@ export function DataTable<T>({
                 className={cx(
                   onRowClick && 'ui-table__row--clickable',
                   isSelected && 'ui-table__row--selected',
-                  customClass
+                  customClass,
                 )}
                 tabIndex={onRowClick ? 0 : undefined}
                 onKeyDown={
@@ -145,7 +157,7 @@ export function DataTable<T>({
                     key={column.key ?? `${column.header}-${index}`}
                     className={cx(
                       column.align === 'right' && 'ui-table__align-right',
-                      column.align === 'center' && 'ui-table__align-center'
+                      column.align === 'center' && 'ui-table__align-center',
                     )}
                   >
                     {column.render(row)}

@@ -104,12 +104,12 @@ ul {
 
 .ui-button:disabled {
   opacity: 0.55;
-  cursor: wait;
+  cursor: not-allowed;
 }
 
 .ui-button--primary {
   background: var(--fabric-accent);
-  color: #ffffff;
+  color: var(--fabric-text-inverse);
   border-color: var(--fabric-accent);
 }
 
@@ -359,12 +359,31 @@ ul {
 }
 
 .ui-table__th--sortable {
-  cursor: pointer;
   user-select: none;
 }
 
-.ui-table__th--sortable:hover {
+.ui-table__sort-button {
+  display: block;
+  width: 100%;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  cursor: pointer;
+  font: inherit;
+  letter-spacing: inherit;
+  text-align: inherit;
+  text-transform: inherit;
+}
+
+.ui-table__sort-button:hover {
   color: var(--fabric-text);
+}
+
+.ui-table__sort-button:focus-visible {
+  outline: 2px solid var(--fabric-accent);
+  outline-offset: 3px;
+  border-radius: var(--fabric-radius-sm);
 }
 
 .ui-table__th--sorted {

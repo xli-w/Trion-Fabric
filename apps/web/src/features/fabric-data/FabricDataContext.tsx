@@ -71,6 +71,7 @@ import {
   prepareOutputExportSnapshot,
   preparePreliminarySiteWalkPromotion,
   prepareControlledOutputUpdate,
+  prepareControlledMaturityAssessmentUpdate,
   prepareControlledOpportunityUpdate,
   prepareKnowledgeEntryUpdate,
   synchroniseMethodologyRun,
@@ -746,6 +747,15 @@ function permissionForChange(change: DatasetChange): WorkspacePermission {
       change.previous?.reviewStatus !== 'approved')
   ) {
     return 'visibility:approve-client-facing';
+  }
+
+  if (
+    change.collection === 'maturityAssessments' &&
+    change.previous &&
+    change.previous.reviewStatus !== 'approved' &&
+    change.next?.reviewStatus === 'approved'
+  ) {
+    return 'diagnostic:approve';
   }
 
   if (change.collection === 'clients' || change.collection === 'sites') {
@@ -2588,13 +2598,21 @@ export function FabricDataProvider({
       ) {
         throw new Error('Select a valid diagnostic and scorecard dimension.');
       }
-      const exists = dataset.maturityAssessments.some(
+      const existing = dataset.maturityAssessments.find(
         (item) => item.id === assessment.id,
       );
-      const next = { ...assessment, updatedAt: now() };
+      if (!existing && assessment.reviewStatus === 'approved') {
+        throw new Error(
+          'Create maturity assessment content before submitting it for approval.',
+        );
+      }
+      const candidate = { ...assessment, updatedAt: now() };
+      const next = existing
+        ? prepareControlledMaturityAssessmentUpdate(existing, candidate)
+        : candidate;
       await persist({
         ...dataset,
-        maturityAssessments: exists
+        maturityAssessments: existing
           ? dataset.maturityAssessments.map((item) =>
               item.id === assessment.id ? next : item,
             )

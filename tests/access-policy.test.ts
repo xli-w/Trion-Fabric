@@ -4,10 +4,14 @@ import {
   assertUserCanPerform,
   assertUserCanPerformAcrossEngagements,
   canUserPerform,
+  approveOpportunityForClientUse,
   isOpportunityReadyForDelivery,
   permissionForVisibilityTransition,
+  prepareControlledMaturityAssessmentUpdate,
   prepareControlledOutputUpdate,
   prepareControlledOpportunityUpdate,
+  returnOpportunityToDraft,
+  submitOpportunityForReview,
 } from '@domain';
 import { fabricFixtures } from '@app/data/development/fabric-fixtures';
 
@@ -256,6 +260,63 @@ describe('internal workspace access policy', () => {
         visibility: 'approved-client-facing',
       }),
     ).toThrow('Approval can only confirm the reviewed opportunity content');
+  });
+
+  it('uses explicit opportunity review transitions without changing content', () => {
+    const opportunity = fabricFixtures.opportunities.find(
+      (item) => item.id === 'opportunity-standardise-receipts',
+    );
+    if (!opportunity) {
+      throw new Error('Expected a draft opportunity.');
+    }
+
+    const submitted = submitOpportunityForReview(opportunity);
+    expect(submitted.status).toBe('triaged');
+    expect(submitted.approvalState).toBe('internal-review');
+    expect(submitted.reviewStatus).toBe('reviewed');
+    expect(submitted.visibility).toBe('internal');
+
+    const returned = returnOpportunityToDraft(submitted);
+    expect(returned.status).toBe('identified');
+    expect(returned.approvalState).toBe('draft');
+
+    const approved = approveOpportunityForClientUse(submitted);
+    expect(approved.status).toBe('approved');
+    expect(approved.approvalState).toBe('approved');
+    expect(approved.visibility).toBe('approved-client-facing');
+  });
+
+  it('requires separate review approval and resets maturity assessment revisions', () => {
+    const analyst = fixtureUser('user-james-carter');
+    const reviewer = fixtureUser('user-nadia-khan');
+    const assessment = fabricFixtures.maturityAssessments[0];
+    if (!assessment) {
+      throw new Error('Expected a maturity assessment fixture.');
+    }
+
+    const draft = { ...assessment, reviewStatus: 'draft' as const };
+    const reviewed = { ...draft, reviewStatus: 'reviewed' as const };
+    const approved = prepareControlledMaturityAssessmentUpdate(reviewed, {
+      ...reviewed,
+      reviewStatus: 'approved',
+    });
+    const revision = prepareControlledMaturityAssessmentUpdate(approved, {
+      ...approved,
+      targetScore: 4,
+      targetRationale:
+        'The production-control target reflects the agreed operational need.',
+    });
+
+    expect(canUserPerform(analyst, 'diagnostic:approve')).toBe(false);
+    expect(canUserPerform(reviewer, 'diagnostic:approve')).toBe(true);
+    expect(approved.reviewStatus).toBe('approved');
+    expect(revision.reviewStatus).toBe('draft');
+    expect(() =>
+      prepareControlledMaturityAssessmentUpdate(draft, {
+        ...draft,
+        reviewStatus: 'approved',
+      }),
+    ).toThrow('Only a reviewed maturity assessment can be approved');
   });
 
   it('only approves an existing reviewed opportunity without changing its content', () => {

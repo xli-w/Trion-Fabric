@@ -4,6 +4,7 @@ import { Badge, Card, DataTable, PageHeader, StatCard } from '@ui';
 
 import { ActiveEngagementDataView } from '@app/features/fabric-data/ActiveEngagementDataView';
 import { useFabricData } from '@app/features/fabric-data/FabricDataContext';
+import { withEngagementContext } from '@app/features/fabric-data/engagement-paths';
 
 function benefitTone(status: string) {
   if (status === 'validated') {
@@ -26,7 +27,8 @@ function formatStatus(status: string) {
 }
 
 export function BenefitsPage() {
-  const { activeClient, activeEngagement } = useFabricData();
+  const { activeClient, activeEngagement, activeEngagementId } =
+    useFabricData();
 
   return (
     <ActiveEngagementDataView
@@ -56,9 +58,16 @@ export function BenefitsPage() {
               eyebrow="Plan & Output"
               title="Benefits"
               description={`Keep expected benefits, measurement assumptions, and realised impact clear for ${activeClient?.name ?? 'the active client'}.`}
-              metadata={[engagement.name, 'Expected vs realised', 'Evidence-led']}
+              metadata={[
+                engagement.name,
+                'Expected vs realised',
+                'Evidence-led',
+              ]}
               actions={
-                <Link className="table-link" to="/roadmap">
+                <Link
+                  className="table-link"
+                  to={withEngagementContext('/roadmap', activeEngagementId)}
+                >
                   Open Roadmap
                 </Link>
               }
@@ -116,7 +125,7 @@ export function BenefitsPage() {
                   {
                     header: 'Actual',
                     render: (row) =>
-                      row.actualValue
+                      row.actualValue !== undefined
                         ? `${row.actualValue} ${row.unit}`
                         : 'Not measured',
                   },

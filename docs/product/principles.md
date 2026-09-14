@@ -22,3 +22,5 @@ Fabric should continue to be shaped by the following principles:
 13. Build for the Trion team that exists: lightweight collaboration,
     permissions, and controlled sharing rather than CRM, portfolio, resource,
     or enterprise project-management behaviour.
+14. Treat a maturity target as an engagement-specific, reasoned decision rather
+    than a universal benchmark.

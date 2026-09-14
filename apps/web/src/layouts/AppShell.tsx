@@ -13,6 +13,10 @@ import { Badge, Button, useTheme } from '@ui';
 
 import { useFabricData } from '@app/features/fabric-data/FabricDataContext';
 import {
+  activeWorkspacePath,
+  withEngagementContext,
+} from '@app/features/fabric-data/engagement-paths';
+import {
   buildBreadcrumbs,
   buildGlobalSearchResults,
   buildWorkspaceSnapshot,
@@ -44,33 +48,28 @@ export function AppShell() {
   const { resolvedTheme, toggleTheme } = useTheme();
   const [searchQuery, setSearchQuery] = useState('');
   const workspaceDataset = activeDataset ?? dataset;
+  const isDevelopmentWorkspace =
+    repositorySource.kind === 'development-fixtures';
+  const routeEngagementId = dataset
+    ? resolveEngagementIdForPath(dataset, location.pathname, location.search)
+    : undefined;
 
   useEffect(() => {
     if (!dataset) {
       return;
     }
 
-    const routeEngagementId = resolveEngagementIdForPath(
-      dataset,
-      location.pathname,
-      location.search,
-    );
     if (routeEngagementId && routeEngagementId !== activeEngagementId) {
       setActiveEngagementId(routeEngagementId);
     }
-  }, [
-    activeEngagementId,
-    dataset,
-    location.pathname,
-    location.search,
-    setActiveEngagementId,
-  ]);
+  }, [activeEngagementId, dataset, routeEngagementId, setActiveEngagementId]);
 
   const breadcrumbs = dataset
     ? buildBreadcrumbs(
         dataset,
         location.pathname,
         currentPage?.label ?? productInfo.fullName,
+        routeEngagementId ?? activeEngagementId ?? undefined,
       )
     : [{ label: 'Fabric' }];
   const searchResults = workspaceDataset
@@ -108,7 +107,13 @@ export function AppShell() {
           {fabricNavigation.map((item) => (
             <NavLink
               key={item.key}
-              to={item.path}
+              to={
+                item.key === 'clients'
+                  ? item.path
+                  : item.key === 'workspace'
+                    ? activeWorkspacePath(activeEngagementId)
+                    : withEngagementContext(item.path, activeEngagementId)
+              }
               aria-current={currentPage?.key === item.key ? 'page' : undefined}
               className={({ isActive }) =>
                 [
@@ -263,7 +268,7 @@ export function AppShell() {
             <Link
               aria-label={`${reviewCount} items need review`}
               className="review-indicator"
-              to="/workspace"
+              to={activeWorkspacePath(activeEngagementId)}
             >
               <Bell aria-hidden="true" size={17} />
               <Badge tone={reviewCount > 0 ? 'warning' : 'neutral'}>
@@ -277,21 +282,25 @@ export function AppShell() {
                 <strong>{currentUser?.displayName ?? 'Loading user'}</strong>
                 <span>{workspaceRoleLabel(currentUser?.role)}</span>
               </div>
-              <label className="sr-only" htmlFor="current-user">
-                Current internal user
-              </label>
-              <select
-                disabled={!dataset || !currentUser}
-                id="current-user"
-                onChange={(event) => setCurrentUserId(event.target.value)}
-                value={currentUser?.id ?? ''}
-              >
-                {dataset?.users.map((user) => (
-                  <option key={user.id} value={user.id}>
-                    {user.displayName} ({workspaceRoleLabel(user.role)})
-                  </option>
-                ))}
-              </select>
+              {isDevelopmentWorkspace ? (
+                <>
+                  <label className="sr-only" htmlFor="current-user">
+                    Current internal user
+                  </label>
+                  <select
+                    disabled={!dataset || !currentUser}
+                    id="current-user"
+                    onChange={(event) => setCurrentUserId(event.target.value)}
+                    value={currentUser?.id ?? ''}
+                  >
+                    {dataset?.users.map((user) => (
+                      <option key={user.id} value={user.id}>
+                        {user.displayName} ({workspaceRoleLabel(user.role)})
+                      </option>
+                    ))}
+                  </select>
+                </>
+              ) : null}
             </div>
 
             <button
@@ -315,14 +324,18 @@ export function AppShell() {
                 />
               )}
             </button>
-            <Badge tone="neutral">{repositorySource.label}</Badge>
-            <Button
-              disabled={isLoading}
-              onClick={() => void refresh()}
-              variant="secondary"
-            >
-              {isLoading ? 'Refreshing...' : 'Refresh fixtures'}
-            </Button>
+            {isDevelopmentWorkspace ? (
+              <>
+                <Badge tone="neutral">{repositorySource.label}</Badge>
+                <Button
+                  disabled={isLoading}
+                  onClick={() => void refresh()}
+                  variant="secondary"
+                >
+                  {isLoading ? 'Refreshing...' : 'Refresh fixtures'}
+                </Button>
+              </>
+            ) : null}
           </div>
         </header>
 
@@ -334,7 +347,16 @@ export function AppShell() {
             {currentPage.sections.map((section) => (
               <NavLink
                 key={section.path}
-                to={section.path}
+                to={
+                  section.path === '/workspace'
+                    ? activeWorkspacePath(activeEngagementId)
+                    : withEngagementContext(
+                        section.path,
+                        currentPage.key === 'clients'
+                          ? undefined
+                          : activeEngagementId,
+                      )
+                }
                 className={({ isActive }) =>
                   [
                     'workstream-nav__link',

@@ -2,6 +2,7 @@ import type {
   Engagement,
   EntityId,
   KnowledgeEntry,
+  MaturityAssessment,
   Opportunity,
   Output,
   User,
@@ -13,6 +14,7 @@ export const workspacePermissions = [
   'methodology:write',
   'fieldwork:write',
   'diagnostic:write',
+  'diagnostic:approve',
   'opportunity:write',
   'delivery:write',
   'output:write',
@@ -40,6 +42,7 @@ const engagementScopedPermissions = new Set<WorkspacePermission>([
   'methodology:write',
   'fieldwork:write',
   'diagnostic:write',
+  'diagnostic:approve',
   'opportunity:write',
   'delivery:write',
   'output:write',
@@ -124,6 +127,23 @@ const opportunityContentFields: Array<keyof Opportunity> = [
   'benefitMeasures',
 ];
 
+const maturityAssessmentContentFields: Array<keyof MaturityAssessment> = [
+  'diagnosticId',
+  'dimensionId',
+  'score',
+  'targetScore',
+  'level',
+  'rationale',
+  'targetRationale',
+  'currentState',
+  'desiredState',
+  'gap',
+  'relatedObservationIds',
+  'evidenceReferences',
+  'relatedOpportunityIds',
+  'confidence',
+];
+
 const knowledgeContentFields: Array<
   keyof Pick<
     KnowledgeEntry,
@@ -169,6 +189,16 @@ function opportunityContentChanged(
   );
 }
 
+function maturityAssessmentContentChanged(
+  existing: MaturityAssessment,
+  candidate: MaturityAssessment,
+) {
+  return maturityAssessmentContentFields.some(
+    (field) =>
+      JSON.stringify(existing[field]) !== JSON.stringify(candidate[field]),
+  );
+}
+
 function knowledgeContentChanged(
   existing: KnowledgeEntry,
   candidate: KnowledgeEntry,
@@ -184,6 +214,67 @@ function hasApprovedOpportunityContent(opportunity: Opportunity) {
     opportunity.approvalState === 'approved' &&
     opportunity.reviewStatus === 'approved'
   );
+}
+
+export function submitOpportunityForReview(
+  opportunity: Opportunity,
+): Opportunity {
+  if (
+    opportunity.visibility !== 'internal' ||
+    opportunity.approvalState !== 'draft' ||
+    opportunity.reviewStatus !== 'draft'
+  ) {
+    throw new Error(
+      'Only an internal draft opportunity can be submitted for review.',
+    );
+  }
+
+  return {
+    ...opportunity,
+    status: 'triaged',
+    approvalState: 'internal-review',
+    reviewStatus: 'reviewed',
+  };
+}
+
+export function returnOpportunityToDraft(
+  opportunity: Opportunity,
+): Opportunity {
+  if (opportunity.approvalState !== 'internal-review') {
+    throw new Error(
+      'Only an opportunity in internal review can be returned to draft.',
+    );
+  }
+
+  return {
+    ...opportunity,
+    status: 'identified',
+    approvalState: 'draft',
+    reviewStatus: 'draft',
+    visibility: 'internal',
+  };
+}
+
+export function approveOpportunityForClientUse(
+  opportunity: Opportunity,
+): Opportunity {
+  if (
+    opportunity.approvalState !== 'internal-review' ||
+    opportunity.reviewStatus !== 'reviewed' ||
+    opportunity.visibility !== 'internal'
+  ) {
+    throw new Error(
+      'Only reviewed internal opportunity content can be approved for client use.',
+    );
+  }
+
+  return {
+    ...opportunity,
+    status: 'approved',
+    approvalState: 'approved',
+    reviewStatus: 'approved',
+    visibility: 'approved-client-facing',
+  };
 }
 
 export function isOpportunityReadyForDelivery(opportunity: Opportunity) {
@@ -241,6 +332,7 @@ export function canUserPerform(
 
     if (
       permission === 'output:approve' ||
+      permission === 'diagnostic:approve' ||
       permission === 'visibility:approve-client-facing' ||
       permission === 'knowledge:approve'
     ) {
@@ -278,6 +370,7 @@ export function canUserPerform(
 
   if (user.role === 'reviewer') {
     return (
+      permission === 'diagnostic:approve' ||
       permission === 'output:approve' ||
       permission === 'output:comment' ||
       permission === 'output:export' ||
@@ -287,6 +380,58 @@ export function canUserPerform(
   }
 
   return false;
+}
+
+export function prepareControlledMaturityAssessmentUpdate(
+  existing: MaturityAssessment,
+  candidate: MaturityAssessment,
+): MaturityAssessment {
+  if (
+    existing.id !== candidate.id ||
+    existing.createdAt !== candidate.createdAt ||
+    existing.diagnosticId !== candidate.diagnosticId ||
+    existing.dimensionId !== candidate.dimensionId
+  ) {
+    throw new Error(
+      'A maturity assessment cannot change its identity, diagnostic, or dimension.',
+    );
+  }
+
+  const contentChanged = maturityAssessmentContentChanged(existing, candidate);
+  const isApproval =
+    existing.reviewStatus !== 'approved' &&
+    candidate.reviewStatus === 'approved';
+
+  if (isApproval) {
+    if (existing.reviewStatus !== 'reviewed') {
+      throw new Error('Only a reviewed maturity assessment can be approved.');
+    }
+    if (contentChanged) {
+      throw new Error(
+        'Save maturity assessment revisions before approving the reviewed content.',
+      );
+    }
+    return candidate;
+  }
+
+  if (existing.reviewStatus === 'approved' && contentChanged) {
+    return {
+      ...candidate,
+      reviewStatus: 'draft',
+    };
+  }
+
+  if (
+    existing.reviewStatus === 'reviewed' &&
+    contentChanged &&
+    candidate.reviewStatus !== 'draft'
+  ) {
+    throw new Error(
+      'Return the maturity assessment to draft before revising reviewed content.',
+    );
+  }
+
+  return candidate;
 }
 
 export function prepareKnowledgeEntryUpdate(

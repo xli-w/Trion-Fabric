@@ -12,10 +12,6 @@ import {
   SearchInput,
   Sheet,
   StatCard,
-  Tabs,
-  TabsContent,
-  TabsList,
-  TabsTrigger,
   Toolbar,
   ToolbarGroup,
 } from '@ui';

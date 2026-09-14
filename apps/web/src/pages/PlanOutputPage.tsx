@@ -5,6 +5,7 @@ import { Badge, Card, PageHeader, StatCard } from '@ui';
 
 import { ActiveEngagementDataView } from '@app/features/fabric-data/ActiveEngagementDataView';
 import { useFabricData } from '@app/features/fabric-data/FabricDataContext';
+import { withEngagementContext } from '@app/features/fabric-data/engagement-paths';
 
 const coreOutputTypes = [
   'landscape-map',
@@ -30,7 +31,8 @@ function isCoreOutput(
 }
 
 export function PlanOutputPage() {
-  const { activeClient, activeEngagement } = useFabricData();
+  const { activeClient, activeEngagement, activeEngagementId } =
+    useFabricData();
 
   return (
     <ActiveEngagementDataView
@@ -107,7 +109,10 @@ export function PlanOutputPage() {
                 title="Roadmap"
                 description="Place approved opportunities in Simplify, Connect, Optimise, or Scale with clear timing, priority, dependencies, and expected outcomes."
                 actions={
-                  <Link className="table-link" to="/roadmap">
+                  <Link
+                    className="table-link"
+                    to={withEngagementContext('/roadmap', activeEngagementId)}
+                  >
                     Open Roadmap
                   </Link>
                 }
@@ -122,7 +127,10 @@ export function PlanOutputPage() {
                 title="Benefits"
                 description="Track baseline, target, expected value, actual value, confidence, and validation without conflating plans with realised impact."
                 actions={
-                  <Link className="table-link" to="/benefits">
+                  <Link
+                    className="table-link"
+                    to={withEngagementContext('/benefits', activeEngagementId)}
+                  >
                     Open Benefits
                   </Link>
                 }
@@ -137,7 +145,10 @@ export function PlanOutputPage() {
                 title="Controlled Outputs"
                 description="Prepare the Landscape Map, Maturity Scorecard, Opportunity & Action Register, Roadmap, and Executive Summary."
                 actions={
-                  <Link className="table-link" to="/outputs">
+                  <Link
+                    className="table-link"
+                    to={withEngagementContext('/outputs', activeEngagementId)}
+                  >
                     Open Outputs
                   </Link>
                 }
@@ -160,7 +171,14 @@ export function PlanOutputPage() {
                     <Link
                       className="core-output-list__item"
                       key={type}
-                      to={output ? `/outputs/${output.id}` : '/outputs'}
+                      to={
+                        output
+                          ? `/outputs/${output.id}`
+                          : withEngagementContext(
+                              '/outputs',
+                              activeEngagementId,
+                            )
+                      }
                     >
                       <span>{coreOutputLabels[type]}</span>
                       <Badge

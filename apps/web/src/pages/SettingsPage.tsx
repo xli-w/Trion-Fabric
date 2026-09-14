@@ -33,6 +33,8 @@ const themeOptions: Array<{
 export function SettingsPage() {
   const { theme, resolvedTheme, setTheme } = useTheme();
   const { dataset, isLoading, refresh, repositorySource } = useFabricData();
+  const isDevelopmentWorkspace =
+    repositorySource.kind === 'development-fixtures';
 
   function refreshWorkspace() {
     void refresh();
@@ -79,29 +81,31 @@ export function SettingsPage() {
           </p>
         </Card>
 
-        <Card
-          title="Development workspace data"
-          description="Reload the validated fixture dataset when working locally. Production deployments require an authenticated repository."
-          actions={<Badge tone="neutral">{repositorySource.label}</Badge>}
-        >
-          <div className="record-stack">
-            <p className="body-copy">
-              {dataset
-                ? `${dataset.clients.length} clients and ${dataset.engagements.length} accessible engagements are loaded.`
-                : 'No workspace data is currently loaded.'}
-            </p>
-            <div>
-              <Button
-                disabled={isLoading}
-                onClick={refreshWorkspace}
-                variant="secondary"
-              >
-                <RefreshCw size={15} />
-                {isLoading ? 'Reloading...' : 'Reload fixture data'}
-              </Button>
+        {isDevelopmentWorkspace ? (
+          <Card
+            title="Development workspace data"
+            description="Refresh the current fixture workspace when working locally. Production deployments require an authenticated repository."
+            actions={<Badge tone="neutral">{repositorySource.label}</Badge>}
+          >
+            <div className="record-stack">
+              <p className="body-copy">
+                {dataset
+                  ? `${dataset.clients.length} clients and ${dataset.engagements.length} accessible engagements are loaded.`
+                  : 'No workspace data is currently loaded.'}
+              </p>
+              <div>
+                <Button
+                  disabled={isLoading}
+                  onClick={refreshWorkspace}
+                  variant="secondary"
+                >
+                  <RefreshCw size={15} />
+                  {isLoading ? 'Refreshing...' : 'Refresh fixture data'}
+                </Button>
+              </div>
             </div>
-          </div>
-        </Card>
+          </Card>
+        ) : null}
       </section>
 
       <Card

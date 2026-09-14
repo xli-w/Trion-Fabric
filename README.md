@@ -47,6 +47,8 @@ Active engagement
 
 - **Workspace** surfaces the current position, Current Understanding, and the
   next action derived from real incomplete work.
+- **Contextual workbench links** retain the active engagement, so a reopened or
+  shared link cannot silently fall back to another local client context.
 - **Understand** brings together site walks, observations, contextual evidence,
   and the digital landscape.
 - **Analyse** connects maturity assessment, findings, evidence, and the

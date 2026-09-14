@@ -26,19 +26,9 @@ import {
 } from '@app/features/roadmap/DeliveryForms';
 import { ActiveEngagementDataView } from '@app/features/fabric-data/ActiveEngagementDataView';
 import { useFabricData } from '@app/features/fabric-data/FabricDataContext';
+import { withEngagementContext } from '@app/features/fabric-data/engagement-paths';
 import { buildRoadmapViewModel } from '@app/features/fabric-data/selectors';
-import {
-  Calendar,
-  CheckCircle2,
-  Clock,
-  ExternalLink,
-  Flag,
-  Kanban,
-  Layers,
-  Plus,
-  TrendingUp,
-  User,
-} from 'lucide-react';
+import { Clock, Kanban } from 'lucide-react';
 
 function statusTone(status: string) {
   if (status === 'complete' || status === 'approved') {
@@ -71,7 +61,7 @@ function formatDate(value?: string) {
 
 export function RoadmapPage() {
   const navigate = useNavigate();
-  const { activeEngagementId } = useFabricData();
+  const { activeEngagementId, canPerform } = useFabricData();
   const [viewMode, setViewMode] = useState<'timeline' | 'register'>('timeline');
   const [showRoadmapForm, setShowRoadmapForm] = useState(false);
   const [editingRoadmapId, setEditingRoadmapId] = useState<string | null>(null);
@@ -107,6 +97,9 @@ export function RoadmapPage() {
               (initiative) => initiative.opportunityId === opportunity.id,
             ),
         );
+        const canManageDelivery =
+          Boolean(activeEngagementId) &&
+          canPerform('delivery:write', activeEngagementId ?? undefined);
 
         // Map initiatives for timeline
         const timelineInitiatives = dataset.initiatives.map((init) => {
@@ -178,8 +171,14 @@ export function RoadmapPage() {
               ]}
               actions={
                 <Button
+                  disabled={!canManageDelivery}
                   onClick={() =>
                     showRoadmapForm ? closeRoadmapForm() : openRoadmapForm()
+                  }
+                  title={
+                    canManageDelivery
+                      ? undefined
+                      : 'Your current role cannot change delivery plans in this engagement.'
                   }
                 >
                   {showRoadmapForm ? 'Close roadmap form' : 'Create roadmap'}
@@ -317,8 +316,14 @@ export function RoadmapPage() {
                       description={roadmap.description}
                       actions={
                         <Button
+                          disabled={!canManageDelivery}
                           onClick={() => openRoadmapForm(roadmap.id)}
                           variant="ghost"
+                          title={
+                            canManageDelivery
+                              ? undefined
+                              : 'Your current role cannot change delivery plans in this engagement.'
+                          }
                         >
                           Edit roadmap
                         </Button>
@@ -699,6 +704,7 @@ export function RoadmapPage() {
 
 export function InitiativeDetailPage() {
   const { initiativeId } = useParams();
+  const { activeEngagementId, canPerform } = useFabricData();
   const [editing, setEditing] = useState(false);
   const [capture, setCapture] = useState<
     'milestone' | 'action' | 'benefit' | null
@@ -762,7 +768,10 @@ export function InitiativeDetailPage() {
                 title="Initiative not found"
                 description="The requested initiative is not available."
               />
-              <Link className="text-link" to="/roadmap">
+              <Link
+                className="text-link"
+                to={withEngagementContext('/roadmap', activeEngagementId)}
+              >
                 Return to roadmap
               </Link>
             </>
@@ -804,6 +813,10 @@ export function InitiativeDetailPage() {
         const roadmap = dataset.roadmaps.find((item) =>
           item.initiativeIds.includes(initiative.id),
         );
+        const canManageDelivery = canPerform(
+          'delivery:write',
+          initiative.engagementId,
+        );
 
         return (
           <>
@@ -819,12 +832,26 @@ export function InitiativeDetailPage() {
               actions={
                 <>
                   <Button
+                    disabled={!canManageDelivery}
                     variant="ghost"
                     onClick={() => setEditing((value) => !value)}
+                    title={
+                      canManageDelivery
+                        ? undefined
+                        : 'Your current role cannot edit this initiative.'
+                    }
                   >
                     {editing ? 'Close edit' : 'Edit initiative'}
                   </Button>
-                  <Button onClick={() => openCapture('milestone')}>
+                  <Button
+                    disabled={!canManageDelivery}
+                    onClick={() => openCapture('milestone')}
+                    title={
+                      canManageDelivery
+                        ? undefined
+                        : 'Your current role cannot add milestones.'
+                    }
+                  >
                     Add milestone
                   </Button>
                 </>
@@ -965,8 +992,14 @@ export function InitiativeDetailPage() {
                 title={`Milestones (${milestones.length})`}
                 actions={
                   <Button
+                    disabled={!canManageDelivery}
                     variant="ghost"
                     onClick={() => openCapture('milestone')}
+                    title={
+                      canManageDelivery
+                        ? undefined
+                        : 'Your current role cannot add milestones.'
+                    }
                   >
                     Add milestone
                   </Button>
@@ -993,8 +1026,14 @@ export function InitiativeDetailPage() {
                           {formatStatus(milestone.status)}
                         </Badge>
                         <Button
+                          disabled={!canManageDelivery}
                           variant="ghost"
                           onClick={() => editMilestone(milestone.id)}
+                          title={
+                            canManageDelivery
+                              ? undefined
+                              : 'Your current role cannot edit milestones.'
+                          }
                         >
                           Edit
                         </Button>
@@ -1006,7 +1045,16 @@ export function InitiativeDetailPage() {
               <Card
                 title={`Delivery actions (${actions.length})`}
                 actions={
-                  <Button variant="ghost" onClick={() => openCapture('action')}>
+                  <Button
+                    disabled={!canManageDelivery}
+                    variant="ghost"
+                    onClick={() => openCapture('action')}
+                    title={
+                      canManageDelivery
+                        ? undefined
+                        : 'Your current role cannot add delivery actions.'
+                    }
+                  >
                     Add delivery action
                   </Button>
                 }
@@ -1039,8 +1087,14 @@ export function InitiativeDetailPage() {
                           {formatStatus(action.status)}
                         </Badge>
                         <Button
+                          disabled={!canManageDelivery}
                           variant="ghost"
                           onClick={() => editAction(action.id)}
+                          title={
+                            canManageDelivery
+                              ? undefined
+                              : 'Your current role cannot edit delivery actions.'
+                          }
                         >
                           Edit
                         </Button>
@@ -1055,7 +1109,16 @@ export function InitiativeDetailPage() {
               title={`Benefit measurement (${benefits.length})`}
               description="Expected value is a planned proposition; actual value is shown only when it has been measured."
               actions={
-                <Button variant="ghost" onClick={() => openCapture('benefit')}>
+                <Button
+                  disabled={!canManageDelivery}
+                  variant="ghost"
+                  onClick={() => openCapture('benefit')}
+                  title={
+                    canManageDelivery
+                      ? undefined
+                      : 'Your current role cannot add benefit measures.'
+                  }
+                >
                   Add benefit measure
                 </Button>
               }
@@ -1095,8 +1158,14 @@ export function InitiativeDetailPage() {
                         {formatStatus(benefit.status)}
                       </Badge>
                       <Button
+                        disabled={!canManageDelivery}
                         variant="ghost"
                         onClick={() => editBenefit(benefit.id)}
+                        title={
+                          canManageDelivery
+                            ? undefined
+                            : 'Your current role cannot edit benefit measures.'
+                        }
                       >
                         {benefit.actualValue
                           ? 'Edit measure'

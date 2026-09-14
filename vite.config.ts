@@ -5,7 +5,8 @@ import react from '@vitejs/plugin-react';
 import { defineConfig } from 'vite';
 
 const repoRoot = path.dirname(fileURLToPath(import.meta.url));
-const resolvePath = (...segments: string[]) => path.resolve(repoRoot, ...segments);
+const resolvePath = (...segments: string[]) =>
+  path.resolve(repoRoot, ...segments);
 
 export default defineConfig({
   root: resolvePath('apps', 'web'),
@@ -22,6 +23,13 @@ export default defineConfig({
   build: {
     outDir: resolvePath('dist', 'web'),
     emptyOutDir: true,
+    rollupOptions: {
+      output: {
+        manualChunks: {
+          framework: ['react', 'react-dom', 'react-router-dom'],
+        },
+      },
+    },
   },
   server: {
     port: 4173,
